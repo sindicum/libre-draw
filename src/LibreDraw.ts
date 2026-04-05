@@ -79,8 +79,8 @@ export class LibreDraw {
    * The instance is ready to use once the map's style is loaded.
    *
    * @param map - The MapLibre GL JS map instance to draw on.
-   * @param options - Configuration options. Defaults to toolbar enabled
-   *   and 100-action history limit.
+   * @param options - Configuration options. Defaults to toolbar enabled,
+   *   100-action history limit, and snap enabled with 10px threshold.
    *
    * @example
    * ```ts
@@ -89,7 +89,10 @@ export class LibreDraw {
    * const draw = new LibreDraw(map, {
    *   toolbar: { position: 'top-right' },
    *   historyLimit: 50,
+   *   snap: { threshold: 15 },
    * });
+   * // Disable snapping:
+   * const draw = new LibreDraw(map, { snap: false });
    * ```
    */
   constructor(map: MaplibreMap, options: LibreDrawOptions = {}) {
