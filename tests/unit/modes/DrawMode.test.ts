@@ -28,10 +28,14 @@ function createMockContext(): ModeContext {
       renderVertices: vi.fn(),
       clearVertices: vi.fn(),
       setSelectedIds: vi.fn(),
+      renderSnapIndicator: vi.fn(),
+      clearSnapIndicator: vi.fn(),
     },
     getScreenPoint: vi.fn((lngLat) => ({ x: lngLat.lng * 10, y: lngLat.lat * 10 })),
     setDragPan: vi.fn(),
     getSetbackDistance: () => 10,
+    getSnapConfig: () => ({ enabled: false, threshold: 10 }),
+    getViewportBounds: () => ({ west: -180, south: -90, east: 180, north: 90 }),
   };
 }
 

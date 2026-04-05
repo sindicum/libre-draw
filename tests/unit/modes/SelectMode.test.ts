@@ -126,10 +126,14 @@ function createModeContext(callbacks: SelectModeMocks): ModeContext {
       renderVertices: callbacks.renderVertices,
       clearVertices: callbacks.clearVertices,
       setSelectedIds: vi.fn(),
+      renderSnapIndicator: vi.fn(),
+      clearSnapIndicator: vi.fn(),
     },
     getScreenPoint: callbacks.getScreenPoint,
     setDragPan: callbacks.setDragPan,
     getSetbackDistance: () => 10,
+    getSnapConfig: () => ({ enabled: false, threshold: 10 }),
+    getViewportBounds: () => ({ west: -180, south: -90, east: 180, north: 90 }),
   };
 }
 

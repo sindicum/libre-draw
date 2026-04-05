@@ -8,6 +8,7 @@ export const SOURCE_IDS = {
   PREVIEW: 'libre-draw-preview',
   EDGE_HIGHLIGHT: 'libre-draw-edge-highlight',
   EDIT_VERTICES: 'libre-draw-edit-vertices',
+  SNAP_INDICATOR: 'libre-draw-snap-indicator',
 } as const;
 
 /**
@@ -40,7 +41,8 @@ export class SourceManager {
       this.map.getSource(SOURCE_IDS.FEATURES) &&
         this.map.getSource(SOURCE_IDS.PREVIEW) &&
         this.map.getSource(SOURCE_IDS.EDGE_HIGHLIGHT) &&
-        this.map.getSource(SOURCE_IDS.EDIT_VERTICES),
+        this.map.getSource(SOURCE_IDS.EDIT_VERTICES) &&
+        this.map.getSource(SOURCE_IDS.SNAP_INDICATOR),
     );
   }
 
@@ -74,6 +76,13 @@ export class SourceManager {
 
     if (!this.map.getSource(SOURCE_IDS.EDIT_VERTICES)) {
       this.map.addSource(SOURCE_IDS.EDIT_VERTICES, {
+        type: 'geojson',
+        data: EMPTY_FC,
+      });
+    }
+
+    if (!this.map.getSource(SOURCE_IDS.SNAP_INDICATOR)) {
+      this.map.addSource(SOURCE_IDS.SNAP_INDICATOR, {
         type: 'geojson',
         data: EMPTY_FC,
       });
@@ -148,6 +157,24 @@ export class SourceManager {
   }
 
   /**
+   * Update the snap indicator source with new GeoJSON data.
+   * @param data - A GeoJSON FeatureCollection of Point features.
+   */
+  updateSnapIndicator(data: GeoJSON.FeatureCollection): void {
+    const source = this.map.getSource<GeoJSONSource>(SOURCE_IDS.SNAP_INDICATOR);
+    if (source) {
+      source.setData(data);
+    }
+  }
+
+  /**
+   * Clear the snap indicator source.
+   */
+  clearSnapIndicator(): void {
+    this.updateSnapIndicator(EMPTY_FC);
+  }
+
+  /**
    * Remove all sources from the map.
    */
   destroy(): void {
@@ -162,6 +189,9 @@ export class SourceManager {
     }
     if (this.map.getSource(SOURCE_IDS.EDIT_VERTICES)) {
       this.map.removeSource(SOURCE_IDS.EDIT_VERTICES);
+    }
+    if (this.map.getSource(SOURCE_IDS.SNAP_INDICATOR)) {
+      this.map.removeSource(SOURCE_IDS.SNAP_INDICATOR);
     }
     this.initialized = false;
   }

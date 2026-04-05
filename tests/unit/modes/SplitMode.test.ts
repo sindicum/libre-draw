@@ -110,10 +110,14 @@ function createHarness(): TestHarness {
       renderVertices,
       clearVertices,
       setSelectedIds,
+      renderSnapIndicator: vi.fn(),
+      clearSnapIndicator: vi.fn(),
     },
     getScreenPoint: ({ lng, lat }) => ({ x: lng * 10, y: lat * 10 }),
     setDragPan,
     getSetbackDistance: () => 10,
+    getSnapConfig: () => ({ enabled: false, threshold: 10 }),
+    getViewportBounds: () => ({ west: -180, south: -90, east: 180, north: 90 }),
   };
 
   return {

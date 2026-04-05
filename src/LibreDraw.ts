@@ -5,6 +5,7 @@ import type {
   LibreDrawEventMap,
   LibreDrawOptions,
   ToolbarOptions,
+  SnapConfig,
 } from './types';
 import { DeleteAction } from './types/features';
 import { EventBus } from './core/EventBus';
@@ -53,6 +54,7 @@ export class LibreDraw {
   private toolbar: Toolbar | null = null;
   private selectMode: SelectMode;
   private setbackMode: SetbackMode;
+  private snapConfig: SnapConfig;
   private destroyed = false;
   private inputEnabled = false;
 
@@ -99,6 +101,9 @@ export class LibreDraw {
     this.historyManager = new HistoryManager(options.historyLimit ?? 100);
     this.modeManager = new ModeManager();
 
+    // Snap configuration
+    this.snapConfig = this.normalizeSnapConfig(options.snap);
+
     // Rendering
     this.sourceManager = new SourceManager(map);
     this.renderManager = new RenderManager(
@@ -136,6 +141,9 @@ export class LibreDraw {
           this.renderManager.renderVertices(vertices, midpoints, highlightIndex),
         clearVertices: () => this.renderManager.clearVertices(),
         setSelectedIds: (ids) => this.renderManager.setSelectedIds(ids),
+        renderSnapIndicator: (pos) =>
+          this.renderManager.renderSnapIndicator(pos),
+        clearSnapIndicator: () => this.renderManager.clearSnapIndicator(),
       },
       getScreenPoint: (lngLat) => {
         const pt = map.project([lngLat.lng, lngLat.lat]);
@@ -149,6 +157,16 @@ export class LibreDraw {
         }
       },
       getSetbackDistance: () => this.toolbar?.getSetbackDistance() ?? 10,
+      getSnapConfig: () => this.snapConfig,
+      getViewportBounds: () => {
+        const bounds = map.getBounds();
+        return {
+          west: bounds.getWest(),
+          south: bounds.getSouth(),
+          east: bounds.getEast(),
+          north: bounds.getNorth(),
+        };
+      },
     };
 
     const drawMode = new DrawMode(modeContext);
@@ -761,6 +779,18 @@ export class LibreDraw {
     this.renderManager.clearVertices();
     this.renderManager.clearEdgeHighlight();
     this.renderManager.clearPreview();
+  }
+
+  /**
+   * Normalize the snap option into a SnapConfig object.
+   */
+  private normalizeSnapConfig(snap?: boolean | SnapConfig): SnapConfig {
+    if (snap === false) return { enabled: false, threshold: 10 };
+    if (snap === undefined || snap === true) return { enabled: true, threshold: 10 };
+    return {
+      enabled: snap.enabled ?? true,
+      threshold: Math.max(1, snap.threshold ?? 10),
+    };
   }
 
   /**

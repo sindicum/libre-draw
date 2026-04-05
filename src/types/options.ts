@@ -1,6 +1,16 @@
 import type { PartialStyleConfig } from './style';
 
 /**
+ * Configuration for snap behavior.
+ */
+export interface SnapConfig {
+  /** Whether snapping is enabled. Defaults to true. */
+  enabled?: boolean;
+  /** Snap distance threshold in pixels. Defaults to 10. */
+  threshold?: number;
+}
+
+/**
  * Position of the toolbar control on the map.
  */
 export type ToolbarPosition =
@@ -40,4 +50,6 @@ export interface LibreDrawOptions {
   historyLimit?: number;
   /** Partial style overrides for map layer rendering. */
   style?: PartialStyleConfig;
+  /** Whether to enable snapping, or snap configuration options. Defaults to true. */
+  snap?: boolean | SnapConfig;
 }

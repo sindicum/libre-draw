@@ -11,6 +11,7 @@ import {
   removeVertex,
 } from '../utils/geometry';
 import { hasRingSelfIntersection } from '../validation/intersection';
+import { findSnapTarget } from '../utils/snap';
 
 const HIT_THRESHOLD_MOUSE_PX = 10;
 const HIT_THRESHOLD_TOUCH_PX = 24;
@@ -81,10 +82,24 @@ export class VertexEditor {
     const feature = this.context.store.getById(selectedId);
     if (!feature) return true;
 
-    const newPos: Position = [event.lngLat.lng, event.lngLat.lat];
+    // Apply snap to the drag position
+    const snappedPos = this.applySnapForDrag(event.lngLat, selectedId);
+    const newPos: Position = [snappedPos.lng, snappedPos.lat];
     const updatedFeature = moveVertex(feature, this.dragVertexIndex, newPos);
 
     if (hasRingSelfIntersection(updatedFeature.geometry.coordinates[0])) {
+      // If snap caused intersection, try without snap
+      if (snappedPos.lng !== event.lngLat.lng || snappedPos.lat !== event.lngLat.lat) {
+        const unsnappedPos: Position = [event.lngLat.lng, event.lngLat.lat];
+        const unsnappedFeature = moveVertex(feature, this.dragVertexIndex, unsnappedPos);
+        if (!hasRingSelfIntersection(unsnappedFeature.geometry.coordinates[0])) {
+          this.context.render.clearSnapIndicator();
+          this.context.store.update(selectedId, unsnappedFeature);
+          this.context.render.renderFeatures();
+          this.renderHandles(unsnappedFeature);
+          return true;
+        }
+      }
       return true;
     }
 
@@ -155,6 +170,7 @@ export class VertexEditor {
   endDrag(): void {
     if (this.dragging) {
       this.context.setDragPan(true);
+      this.context.render.clearSnapIndicator();
     }
     this.dragging = false;
     this.dragVertexIndex = -1;
@@ -210,5 +226,35 @@ export class VertexEditor {
     }
 
     return minIdx;
+  }
+
+  /**
+   * Apply snap to a drag position, excluding the currently edited feature.
+   */
+  private applySnapForDrag(
+    lngLat: { lng: number; lat: number },
+    excludeFeatureId: string,
+  ): { lng: number; lat: number } {
+    const snapConfig = this.context.getSnapConfig();
+    if (!snapConfig.enabled) return lngLat;
+
+    const snapTarget = findSnapTarget(
+      lngLat,
+      this.context.store.getAll(),
+      this.context.getScreenPoint,
+      {
+        threshold: snapConfig.threshold ?? 10,
+        excludeFeatureId,
+        viewportBounds: this.context.getViewportBounds(),
+      },
+    );
+
+    if (snapTarget) {
+      this.context.render.renderSnapIndicator(snapTarget.position);
+      return { lng: snapTarget.position[0], lat: snapTarget.position[1] };
+    }
+
+    this.context.render.clearSnapIndicator();
+    return lngLat;
   }
 }

@@ -1,5 +1,7 @@
 import type { LibreDrawEventMap } from '../types/events';
 import type { Action, LibreDrawFeature, Position } from '../types/features';
+import type { SnapConfig } from '../types/options';
+import type { ViewportBounds } from '../utils/snap';
 
 /**
  * Shared dependencies injected into modes.
@@ -34,8 +36,12 @@ export interface ModeContext {
     ): void;
     clearVertices(): void;
     setSelectedIds(ids: string[]): void;
+    renderSnapIndicator(position: Position): void;
+    clearSnapIndicator(): void;
   };
   getScreenPoint(lngLat: { lng: number; lat: number }): { x: number; y: number };
   setDragPan(enabled: boolean): void;
   getSetbackDistance(): number;
+  getSnapConfig(): SnapConfig;
+  getViewportBounds(): ViewportBounds;
 }

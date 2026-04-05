@@ -55,6 +55,8 @@ describe('Draw Flow Integration', () => {
         renderVertices: vi.fn(),
         clearVertices: vi.fn(),
         setSelectedIds: vi.fn(),
+        renderSnapIndicator: vi.fn(),
+        clearSnapIndicator: vi.fn(),
       },
       getScreenPoint: (lngLat) => ({
         x: lngLat.lng * 10,
@@ -62,6 +64,8 @@ describe('Draw Flow Integration', () => {
       }),
       setDragPan: vi.fn(),
       getSetbackDistance: () => 10,
+      getSnapConfig: () => ({ enabled: false, threshold: 10 }),
+      getViewportBounds: () => ({ west: -180, south: -90, east: 180, north: 90 }),
     };
 
     const drawMode = new DrawMode(modeContext);

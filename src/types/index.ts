@@ -34,6 +34,7 @@ export type {
 } from './events';
 
 export type {
+  SnapConfig,
   ToolbarPosition,
   ToolbarControls,
   ToolbarOptions,

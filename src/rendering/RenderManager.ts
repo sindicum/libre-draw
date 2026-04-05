@@ -15,6 +15,7 @@ export const LAYER_IDS = {
   EDGE_HIGHLIGHT: 'libre-draw-edge-highlight',
   EDIT_VERTICES: 'libre-draw-edit-vertices',
   EDIT_MIDPOINTS: 'libre-draw-edit-midpoints',
+  SNAP_INDICATOR: 'libre-draw-snap-indicator',
 } as const;
 
 /**
@@ -163,6 +164,21 @@ export class RenderManager {
           'circle-radius': this.style.midpoint.radius,
           'circle-color': this.style.midpoint.color,
           'circle-opacity': this.style.midpoint.opacity,
+        },
+      });
+    }
+
+    // Snap indicator layer (orange circle at snap target location)
+    if (!this.map.getLayer(LAYER_IDS.SNAP_INDICATOR)) {
+      this.map.addLayer({
+        id: LAYER_IDS.SNAP_INDICATOR,
+        type: 'circle',
+        source: SOURCE_IDS.SNAP_INDICATOR,
+        paint: {
+          'circle-radius': 6,
+          'circle-color': 'rgba(255, 140, 0, 0.7)',
+          'circle-stroke-color': '#ffffff',
+          'circle-stroke-width': 2,
         },
       });
     }
@@ -328,6 +344,33 @@ export class RenderManager {
   }
 
   /**
+   * Render a snap indicator at the given position.
+   * @param position - The geographic position to display the indicator.
+   */
+  renderSnapIndicator(position: Position): void {
+    this.sourceManager.updateSnapIndicator({
+      type: 'FeatureCollection',
+      features: [
+        {
+          type: 'Feature',
+          properties: {},
+          geometry: {
+            type: 'Point',
+            coordinates: [position[0], position[1]],
+          },
+        },
+      ],
+    });
+  }
+
+  /**
+   * Clear the snap indicator.
+   */
+  clearSnapIndicator(): void {
+    this.sourceManager.clearSnapIndicator();
+  }
+
+  /**
    * Clear the vertex/midpoint markers.
    */
   clearVertices(): void {
@@ -349,6 +392,7 @@ export class RenderManager {
     const layerIds = [
       LAYER_IDS.EDIT_VERTICES,
       LAYER_IDS.EDIT_MIDPOINTS,
+      LAYER_IDS.SNAP_INDICATOR,
       LAYER_IDS.EDGE_HIGHLIGHT,
       LAYER_IDS.PREVIEW,
       LAYER_IDS.VERTICES,
@@ -406,7 +450,8 @@ export class RenderManager {
         this.map.getLayer(LAYER_IDS.PREVIEW) &&
         this.map.getLayer(LAYER_IDS.EDGE_HIGHLIGHT) &&
         this.map.getLayer(LAYER_IDS.EDIT_MIDPOINTS) &&
-        this.map.getLayer(LAYER_IDS.EDIT_VERTICES),
+        this.map.getLayer(LAYER_IDS.EDIT_VERTICES) &&
+        this.map.getLayer(LAYER_IDS.SNAP_INDICATOR),
     );
   }
 }

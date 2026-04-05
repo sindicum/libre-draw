@@ -8,6 +8,7 @@ import {
 } from '../validation/intersection';
 import { cloneFeature } from '../utils/featureSnapshot';
 import type { ModeContext } from '../core/ModeContext';
+import { findSnapTarget } from '../utils/snap';
 
 /**
  * Threshold in pixels: if a click is within this distance of the first
@@ -55,12 +56,15 @@ export class DrawMode implements Mode {
     this.isActive = false;
     this.vertices = [];
     this.context.render.clearPreview();
+    this.context.render.clearSnapIndicator();
   }
 
   onPointerDown(event: NormalizedInputEvent): void {
     if (!this.isActive) return;
 
-    const newVertex: Position = [event.lngLat.lng, event.lngLat.lat];
+    // Apply snap to the input position
+    const snappedPos = this.applySnap(event.lngLat);
+    const newVertex: Position = [snappedPos.lng, snappedPos.lat];
 
     // Check if this click is close to the first vertex (closing the polygon)
     if (this.vertices.length >= MIN_VERTICES) {
@@ -69,8 +73,9 @@ export class DrawMode implements Mode {
         lng: firstVertex[0],
         lat: firstVertex[1],
       });
-      const dx = event.point.x - firstScreenPt.x;
-      const dy = event.point.y - firstScreenPt.y;
+      const clickScreenPt = this.context.getScreenPoint(snappedPos);
+      const dx = clickScreenPt.x - firstScreenPt.x;
+      const dy = clickScreenPt.y - firstScreenPt.y;
       const dist = Math.sqrt(dx * dx + dy * dy);
 
       if (dist <= CLOSE_THRESHOLD_PX) {
@@ -90,7 +95,18 @@ export class DrawMode implements Mode {
 
   onPointerMove(event: NormalizedInputEvent): void {
     if (!this.isActive || this.vertices.length === 0) return;
-    this.updatePreview(event);
+
+    // Apply snap and show/hide indicator
+    const snapTarget = this.findSnap(event.lngLat);
+    if (snapTarget) {
+      this.context.render.renderSnapIndicator(snapTarget.position);
+      const snappedPos: Position = snapTarget.position;
+      const previewCoords = this.buildPreviewCoordinates(snappedPos);
+      this.context.render.renderPreview(previewCoords);
+    } else {
+      this.context.render.clearSnapIndicator();
+      this.updatePreview(event);
+    }
   }
 
   onPointerUp(_event: NormalizedInputEvent): void {
@@ -198,6 +214,7 @@ export class DrawMode implements Mode {
     // Reset state for next drawing
     this.vertices = [];
     this.context.render.clearPreview();
+    this.context.render.clearSnapIndicator();
   }
 
   /**
@@ -206,5 +223,41 @@ export class DrawMode implements Mode {
   private cancelDrawing(): void {
     this.vertices = [];
     this.context.render.clearPreview();
+    this.context.render.clearSnapIndicator();
+  }
+
+  /**
+   * Find a snap target for the given position (excluding drawing-in-progress vertices).
+   */
+  private findSnap(
+    lngLat: { lng: number; lat: number },
+  ): ReturnType<typeof findSnapTarget> {
+    const snapConfig = this.context.getSnapConfig();
+    if (!snapConfig.enabled) return null;
+
+    return findSnapTarget(
+      lngLat,
+      this.context.store.getAll(),
+      this.context.getScreenPoint,
+      {
+        threshold: snapConfig.threshold ?? 10,
+        viewportBounds: this.context.getViewportBounds(),
+      },
+    );
+  }
+
+  /**
+   * Apply snap to a position and return the (possibly snapped) geographic coordinates.
+   */
+  private applySnap(
+    lngLat: { lng: number; lat: number },
+  ): { lng: number; lat: number } {
+    const snapTarget = this.findSnap(lngLat);
+    if (snapTarget) {
+      this.context.render.renderSnapIndicator(snapTarget.position);
+      return { lng: snapTarget.position[0], lat: snapTarget.position[1] };
+    }
+    this.context.render.clearSnapIndicator();
+    return lngLat;
   }
 }
