@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { LibreDrawFeature, Position } from '../../../src/types/features';
-import { splitPolygon } from '../../../src/utils/splitPolygon';
+import { splitPolygon, splitLine } from '../../../src/utils/splitPolygon';
 
 function makeFeature(
   id: string,
@@ -263,5 +263,90 @@ describe('splitPolygon', () => {
     const r3 = splitPolygon(withHole, [5, -1], [5, 11]);
     expect(r3.type).toBe('error');
     if (r3.type === 'error') expect(r3.reason).toBe('has-holes');
+  });
+});
+
+function makeLineFeature(
+  id: string,
+  coords: Position[],
+  properties: Record<string, unknown> = {},
+): LibreDrawFeature {
+  return {
+    id,
+    type: 'Feature',
+    geometry: { type: 'LineString', coordinates: coords },
+    properties,
+  };
+}
+
+describe('splitLine', () => {
+  it('should split a horizontal line at the intersection point', () => {
+    const feature = makeLineFeature('line1', [[0, 0], [10, 0]]);
+    const result = splitLine(feature, [5, -5], [5, 5]);
+
+    expect(result.type).toBe('success');
+    if (result.type !== 'success') return;
+
+    const [a, b] = result.features;
+    expect(a.geometry.type).toBe('LineString');
+    expect(b.geometry.type).toBe('LineString');
+
+    if (a.geometry.type !== 'LineString' || b.geometry.type !== 'LineString') return;
+    expect(a.geometry.coordinates).toEqual([[0, 0], [5, 0]]);
+    expect(b.geometry.coordinates).toEqual([[5, 0], [10, 0]]);
+  });
+
+  it('should split a multi-segment line at the first intersection', () => {
+    const feature = makeLineFeature('line2', [[0, 0], [10, 0], [10, 10], [0, 10]]);
+    const result = splitLine(feature, [5, -5], [5, 5]);
+
+    expect(result.type).toBe('success');
+    if (result.type !== 'success') return;
+
+    const [a, b] = result.features;
+    if (a.geometry.type !== 'LineString' || b.geometry.type !== 'LineString') return;
+    expect(a.geometry.coordinates).toEqual([[0, 0], [5, 0]]);
+    expect(b.geometry.coordinates).toEqual([[5, 0], [10, 0], [10, 10], [0, 10]]);
+  });
+
+  it('should return error when split line does not intersect', () => {
+    const feature = makeLineFeature('line3', [[0, 0], [10, 0]]);
+    const result = splitLine(feature, [20, 20], [30, 30]);
+    expect(result).toEqual({ type: 'error', reason: 'invalid-intersection-count' });
+  });
+
+  it('should return error when split points are identical', () => {
+    const feature = makeLineFeature('line4', [[0, 0], [10, 0]]);
+    const result = splitLine(feature, [5, 5], [5, 5]);
+    expect(result).toEqual({ type: 'error', reason: 'same-points' });
+  });
+
+  it('should copy properties and assign new IDs', () => {
+    const feature = makeLineFeature('origin', [[0, 0], [10, 0]], { name: 'road' });
+    const result = splitLine(feature, [5, -5], [5, 5]);
+
+    expect(result.type).toBe('success');
+    if (result.type !== 'success') return;
+
+    const [a, b] = result.features;
+    expect(a.id).not.toBe('origin');
+    expect(b.id).not.toBe('origin');
+    expect(a.id).not.toBe(b.id);
+    expect(a.properties).toEqual({ name: 'road' });
+    expect(b.properties).toEqual({ name: 'road' });
+  });
+
+  it('should handle split at a vertex of the line', () => {
+    const feature = makeLineFeature('line5', [[0, 0], [5, 0], [10, 0]]);
+    // Split line passes through vertex (5,0)
+    const result = splitLine(feature, [5, -5], [5, 5]);
+
+    expect(result.type).toBe('success');
+    if (result.type !== 'success') return;
+
+    const [a, b] = result.features;
+    if (a.geometry.type !== 'LineString' || b.geometry.type !== 'LineString') return;
+    expect(a.geometry.coordinates.length).toBeGreaterThanOrEqual(2);
+    expect(b.geometry.coordinates.length).toBeGreaterThanOrEqual(2);
   });
 });

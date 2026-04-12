@@ -155,6 +155,89 @@ export type SplitResult =
   | { type: 'error'; reason: SplitFailReason };
 
 /**
+ * Split a LineString by a line segment defined by two points.
+ * Finds the first intersection point and divides the line into two LineStrings.
+ * Returns a SplitResult indicating success or failure with reason.
+ */
+export function splitLine(
+  feature: LibreDrawFeature,
+  lineStart: Position,
+  lineEnd: Position,
+): SplitResult {
+  if (positionsEqual(lineStart, lineEnd)) {
+    return { type: 'error', reason: 'same-points' };
+  }
+
+  if (feature.geometry.type !== 'LineString') {
+    return { type: 'error', reason: 'insufficient-vertices' };
+  }
+
+  const coords = feature.geometry.coordinates;
+  if (coords.length < 2) {
+    return { type: 'error', reason: 'insufficient-vertices' };
+  }
+
+  // Find the first intersection of the split line with a line segment
+  let bestIntersection: { point: Position; segmentIndex: number; t: number } | null = null;
+
+  for (let i = 0; i < coords.length - 1; i++) {
+    const a = coords[i];
+    const b = coords[i + 1];
+
+    const point = computeIntersectionPoint(a, b, lineStart, lineEnd);
+    if (!point) continue;
+
+    const t = edgeParameter(a, b, point);
+    if (t < -EPSILON || t > 1 + EPSILON) continue;
+
+    bestIntersection = { point: clonePosition(point), segmentIndex: i, t };
+    break;
+  }
+
+  if (!bestIntersection) {
+    return { type: 'error', reason: 'invalid-intersection-count' };
+  }
+
+  const { point, segmentIndex, t } = bestIntersection;
+
+  // Build two LineStrings from the split point
+  const coordsA: Position[] = [];
+  for (let i = 0; i <= segmentIndex; i++) {
+    coordsA.push(clonePosition(coords[i]));
+  }
+  // Add the intersection point if it's not at the segment start/end
+  if (t > EPSILON) {
+    coordsA.push(point);
+  }
+
+  const coordsB: Position[] = [clonePosition(point)];
+  for (let i = segmentIndex + 1; i < coords.length; i++) {
+    coordsB.push(clonePosition(coords[i]));
+  }
+
+  // Validate both parts have at least 2 points
+  if (coordsA.length < 2 || coordsB.length < 2) {
+    return { type: 'error', reason: 'insufficient-vertices' };
+  }
+
+  const featureA: LibreDrawFeature = {
+    id: crypto.randomUUID(),
+    type: 'Feature',
+    geometry: { type: 'LineString', coordinates: coordsA },
+    properties: cloneProperties(feature.properties),
+  };
+
+  const featureB: LibreDrawFeature = {
+    id: crypto.randomUUID(),
+    type: 'Feature',
+    geometry: { type: 'LineString', coordinates: coordsB },
+    properties: cloneProperties(feature.properties),
+  };
+
+  return { type: 'success', features: [featureA, featureB] };
+}
+
+/**
  * Split a polygon by a line segment defined by two points.
  * Returns a SplitResult indicating success or failure with reason.
  */
