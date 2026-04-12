@@ -23,7 +23,7 @@ interface LibreDrawEventMap {
 ## `create`
 
 Emitted when a new feature is created.
-In `draw-point` mode this happens on each click/tap. In `draw` mode it happens when the polygon is completed.
+In `draw-point` mode this happens on each click/tap. In `draw-line` mode it happens when the line is finalized. In `draw` mode it happens when the polygon is completed.
 
 ### Payload: `CreateEvent`
 
@@ -35,7 +35,7 @@ interface CreateEvent {
 
 | Property | Type | Description |
 |----------|------|-------------|
-| `feature` | [`LibreDrawFeature`](/api/types#libredrawfeature) | The newly created Point or Polygon feature |
+| `feature` | [`LibreDrawFeature`](/api/types#libredrawfeature) | The newly created Point, LineString, or Polygon feature |
 
 ### Example
 
@@ -67,7 +67,7 @@ interface UpdateEvent {
 
 | Property | Type | Description |
 |----------|------|-------------|
-| `feature` | [`LibreDrawFeature`](/api/types#libredrawfeature) | The updated Point or Polygon feature (new state) |
+| `feature` | [`LibreDrawFeature`](/api/types#libredrawfeature) | The updated Point, LineString, or Polygon feature (new state) |
 | `oldFeature` | [`LibreDrawFeature`](/api/types#libredrawfeature) | The feature before the update (previous state) |
 
 ### Example
@@ -96,7 +96,7 @@ interface DeleteEvent {
 
 | Property | Type | Description |
 |----------|------|-------------|
-| `feature` | [`LibreDrawFeature`](/api/types#libredrawfeature) | The deleted Point or Polygon feature |
+| `feature` | [`LibreDrawFeature`](/api/types#libredrawfeature) | The deleted Point, LineString, or Polygon feature |
 
 ### Example
 
@@ -283,7 +283,7 @@ interface ModeChangeEvent {
 
 | Property | Type | Description |
 |----------|------|-------------|
-| `mode` | [`ModeName`](/api/types#modename) | The new active mode (`'idle'`, `'draw-point'`, `'draw'`, `'select'`, `'split'`, or `'setback'`) |
+| `mode` | [`ModeName`](/api/types#modename) | The new active mode (`'idle'`, `'draw-point'`, `'draw-line'`, `'draw'`, `'select'`, `'split'`, or `'setback'`) |
 | `previousMode` | [`ModeName`](/api/types#modename) | The previous mode |
 
 ### Example

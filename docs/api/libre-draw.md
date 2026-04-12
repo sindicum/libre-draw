@@ -1,6 +1,6 @@
 # LibreDraw Class
 
-The main facade class that provides point and polygon drawing and editing functionality. Create an instance by passing a MapLibre GL JS map.
+The main facade class that provides point, line, and polygon drawing and editing functionality. Create an instance by passing a MapLibre GL JS map.
 
 ## Interactive Playground
 
@@ -45,6 +45,7 @@ const draw = new LibreDraw(map, {
     position: 'top-right',
     controls: {
       drawPoint: true,
+      drawLine: true,
       draw: true,
       select: true,
       split: true,
@@ -79,7 +80,7 @@ Switching modes deactivates the current mode (clearing any in-progress state) an
 
 | Name | Type | Description |
 |------|------|-------------|
-| `mode` | [`ModeName`](/api/types#modename) | `'idle'`, `'draw-point'`, `'draw'`, `'select'`, `'split'`, or `'setback'` |
+| `mode` | [`ModeName`](/api/types#modename) | `'idle'`, `'draw-point'`, `'draw-line'`, `'draw'`, `'select'`, `'split'`, or `'setback'` |
 
 **Returns:** `void`
 
@@ -101,7 +102,7 @@ draw.on('modechange', (e) => {
 
 Get the current drawing mode.
 
-**Returns:** [`ModeName`](/api/types#modename) — `'idle'`, `'draw-point'`, `'draw'`, `'select'`, `'split'`, or `'setback'`.
+**Returns:** [`ModeName`](/api/types#modename) — `'idle'`, `'draw-point'`, `'draw-line'`, `'draw'`, `'select'`, `'split'`, or `'setback'`.
 
 **Throws:** [`LibreDrawError`](/api/types#libredrawerror) if this instance has been destroyed.
 
@@ -121,7 +122,7 @@ if (draw.getMode() === 'draw') {
 
 Get all features as an array.
 
-Returns a snapshot of all features (points and polygons) currently in the store.
+Returns a snapshot of all features (points, lines, and polygons) currently in the store.
 
 **Returns:** [`LibreDrawFeature[]`](/api/types#libredrawfeature)
 
@@ -140,7 +141,7 @@ console.log(`${features.length} features on the map`);
 
 Export all features as a GeoJSON FeatureCollection.
 
-Returns a standard GeoJSON FeatureCollection containing all features (points and polygons) currently in the store, suitable for serialization or integration with other GeoJSON-compatible tools.
+Returns a standard GeoJSON FeatureCollection containing all features (points, lines, and polygons) currently in the store, suitable for serialization or integration with other GeoJSON-compatible tools.
 
 **Returns:** [`FeatureCollection`](/api/types#featurecollection)
 
@@ -173,13 +174,13 @@ Validates the input, clears the current store and history, and re-renders the ma
 
 | Name | Type | Description |
 |------|------|-------------|
-| `geojson` | `unknown` | A GeoJSON FeatureCollection containing Point and/or Polygon features |
+| `geojson` | `unknown` | A GeoJSON FeatureCollection containing Point, LineString, and/or Polygon features |
 
 **Returns:** `void`
 
 **Throws:**
 - [`LibreDrawError`](/api/types#libredrawerror) if this instance has been destroyed.
-- [`LibreDrawError`](/api/types#libredrawerror) if the input is not a valid FeatureCollection or contains invalid Point or Polygon geometries.
+- [`LibreDrawError`](/api/types#libredrawerror) if the input is not a valid FeatureCollection or contains invalid Point, LineString, or Polygon geometries.
 
 **Example:**
 
@@ -211,7 +212,7 @@ Each feature is validated and added. Unlike [`setFeatures`](#setfeatures-geojson
 
 | Name | Type | Description |
 |------|------|-------------|
-| `features` | `unknown[]` | An array of GeoJSON Feature objects with Point and/or Polygon geometry |
+| `features` | `unknown[]` | An array of GeoJSON Feature objects with Point, LineString, and/or Polygon geometry |
 
 **Returns:** `void`
 
