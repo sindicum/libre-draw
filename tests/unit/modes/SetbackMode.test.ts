@@ -382,6 +382,60 @@ describe('SetbackMode', () => {
     );
   });
 
+  it('should keep correct polygon when setback is applied to opposite edges consecutively', () => {
+    harness.setDistance(1000);
+
+    mode.activate();
+
+    // First setback: select polygon, choose bottom edge (edge 0), execute
+    mode.onPointerDown(pointerEvent(5, 5));
+    mode.onPointerDown(pointerEvent(5, 0));
+    mode.executeFromUi(1000);
+
+    // After first setback, one feature was removed and a new one added
+    expect(harness.features.size).toBe(1);
+    const firstResult = Array.from(harness.features.values())[0];
+    const firstVertices = firstResult.geometry.coordinates[0];
+
+    // The result should NOT contain the original bottom edge y=0 vertices
+    // (those belong to the band that was removed)
+    const hasOriginalBottomEdge = firstVertices.some(
+      (v: number[]) => Math.abs(v[1]) < 0.001,
+    );
+    expect(hasOriginalBottomEdge).toBe(false);
+
+    // Second setback: select the result polygon, choose top edge, execute
+    // Need to re-create mode to reset state
+    mode = new SetbackMode(harness.context);
+    mode.activate();
+
+    // Click inside the result polygon (it's shifted upward from y=0)
+    const midY =
+      firstVertices.reduce((sum: number, v: number[]) => sum + v[1], 0) /
+      firstVertices.length;
+    const midX =
+      firstVertices.reduce((sum: number, v: number[]) => sum + v[0], 0) /
+      firstVertices.length;
+    mode.onPointerDown(pointerEvent(midX, midY)); // select polygon
+
+    // Click near top edge (y=10)
+    mode.onPointerDown(pointerEvent(5, 10));
+    mode.executeFromUi(1000);
+
+    expect(harness.features.size).toBe(1);
+    const secondResult = Array.from(harness.features.values())[0];
+    const secondVertices = secondResult.geometry.coordinates[0];
+
+    // The result should NOT contain the original top edge y=10 vertices
+    const hasOriginalTopEdge = secondVertices.some(
+      (v: number[]) => Math.abs(v[1] - 10) < 0.001,
+    );
+    expect(hasOriginalTopEdge).toBe(false);
+
+    // The result should still be a valid polygon (at least 4 points including closing)
+    expect(secondVertices.length).toBeGreaterThanOrEqual(4);
+  });
+
   it('should switch selected edge even when clicking slightly outside polygon', () => {
     harness.setDistance(1000);
 

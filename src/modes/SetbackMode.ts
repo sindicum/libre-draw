@@ -14,6 +14,7 @@ import {
   extendLine,
   findNearestEdge,
 } from '../utils/setback';
+import { EPSILON } from '../validation/intersection';
 
 type SetbackState = 'idle' | 'selecting-edge' | 'previewing';
 
@@ -294,14 +295,11 @@ export class SetbackMode implements Mode {
     }
 
     const [featureA, featureB] = splitResult.features;
-    const edgeMidpoint: Position = [
-      (edgeStart[0] + edgeEnd[0]) / 2,
-      (edgeStart[1] + edgeEnd[1]) / 2,
-    ];
-
-    const isASetbackBand = booleanPointInPolygon(
-      turfPoint(edgeMidpoint),
-      featureA.geometry as PolygonGeometry,
+    const verticesA = (featureA.geometry as PolygonGeometry).coordinates[0];
+    const isASetbackBand = verticesA.some(
+      (v) =>
+        Math.abs(v[0] - edgeStart[0]) < EPSILON &&
+        Math.abs(v[1] - edgeStart[1]) < EPSILON,
     );
 
     const resultFeature = isASetbackBand ? featureB : featureA;
