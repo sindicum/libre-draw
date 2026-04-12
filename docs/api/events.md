@@ -22,8 +22,8 @@ interface LibreDrawEventMap {
 
 ## `create`
 
-Emitted when a new polygon is created (user completes drawing with double-click/double-tap).
-The active mode remains `draw` after creation, so users can continue drawing.
+Emitted when a new feature is created.
+In `draw-point` mode this happens on each click/tap. In `draw` mode it happens when the polygon is completed.
 
 ### Payload: `CreateEvent`
 
@@ -35,17 +35,17 @@ interface CreateEvent {
 
 | Property | Type | Description |
 |----------|------|-------------|
-| `feature` | [`LibreDrawFeature`](/api/types#libredrawfeature) | The newly created polygon feature |
+| `feature` | [`LibreDrawFeature`](/api/types#libredrawfeature) | The newly created Point or Polygon feature |
 
 ### Example
 
 ```ts
 draw.on('create', (e) => {
-  console.log('New polygon:', e.feature.id);
-  console.log('Vertices:', e.feature.geometry.coordinates[0].length - 1);
+  console.log('New feature:', e.feature.id, e.feature.geometry.type);
 
-  // Save to your backend
-  await savePolygon(e.feature);
+  if (e.feature.geometry.type === 'Polygon') {
+    console.log('Vertices:', e.feature.geometry.coordinates[0].length - 1);
+  }
 });
 ```
 
@@ -53,7 +53,8 @@ draw.on('create', (e) => {
 
 ## `update`
 
-Emitted when an existing polygon is modified (vertex moved, vertex added/removed, polygon dragged).
+Emitted when an existing feature is modified.
+This includes polygon vertex edits, polygon dragging, and point dragging in select mode.
 
 ### Payload: `UpdateEvent`
 
@@ -66,14 +67,14 @@ interface UpdateEvent {
 
 | Property | Type | Description |
 |----------|------|-------------|
-| `feature` | [`LibreDrawFeature`](/api/types#libredrawfeature) | The updated polygon feature (new state) |
-| `oldFeature` | [`LibreDrawFeature`](/api/types#libredrawfeature) | The polygon feature before the update (previous state) |
+| `feature` | [`LibreDrawFeature`](/api/types#libredrawfeature) | The updated Point or Polygon feature (new state) |
+| `oldFeature` | [`LibreDrawFeature`](/api/types#libredrawfeature) | The feature before the update (previous state) |
 
 ### Example
 
 ```ts
 draw.on('update', (e) => {
-  console.log('Polygon updated:', e.feature.id);
+  console.log('Feature updated:', e.feature.id, e.feature.geometry.type);
   console.log('Old coordinates:', e.oldFeature.geometry.coordinates);
   console.log('New coordinates:', e.feature.geometry.coordinates);
 });
@@ -83,7 +84,7 @@ draw.on('update', (e) => {
 
 ## `delete`
 
-Emitted when a polygon is deleted (via toolbar button, Delete key, or `deleteFeature()` API).
+Emitted when a feature is deleted (via toolbar button, Delete key, or `deleteFeature()` API).
 
 ### Payload: `DeleteEvent`
 
@@ -95,16 +96,13 @@ interface DeleteEvent {
 
 | Property | Type | Description |
 |----------|------|-------------|
-| `feature` | [`LibreDrawFeature`](/api/types#libredrawfeature) | The deleted polygon feature |
+| `feature` | [`LibreDrawFeature`](/api/types#libredrawfeature) | The deleted Point or Polygon feature |
 
 ### Example
 
 ```ts
 draw.on('delete', (e) => {
-  console.log('Polygon deleted:', e.feature.id);
-
-  // Remove from your backend
-  await removePolygon(e.feature.id);
+  console.log('Feature deleted:', e.feature.id, e.feature.geometry.type);
 });
 ```
 
@@ -285,7 +283,7 @@ interface ModeChangeEvent {
 
 | Property | Type | Description |
 |----------|------|-------------|
-| `mode` | [`ModeName`](/api/types#modename) | The new active mode (`'idle'`, `'draw'`, `'select'`, `'split'`, or `'setback'`) |
+| `mode` | [`ModeName`](/api/types#modename) | The new active mode (`'idle'`, `'draw-point'`, `'draw'`, `'select'`, `'split'`, or `'setback'`) |
 | `previousMode` | [`ModeName`](/api/types#modename) | The previous mode |
 
 ### Example

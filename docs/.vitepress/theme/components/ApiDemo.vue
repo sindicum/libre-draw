@@ -17,6 +17,7 @@
         </div>
         <div class="demo-controls-row">
           <span class="demo-controls-label">Actions:</span>
+          <button class="demo-btn" @click="addSamplePoint">Add Point</button>
           <button class="demo-btn" @click="addSamplePolygon">Add Polygon</button>
           <button class="demo-btn" @click="showFeatures">getFeatures()</button>
           <button class="demo-btn" @click="doUndo">undo()</button>
@@ -52,7 +53,7 @@ const mapContainer = ref<HTMLDivElement | null>(null);
 const logContainer = ref<HTMLDivElement | null>(null);
 const logs = ref<LogEntry[]>([]);
 const currentMode = ref('idle');
-const modes = ['idle', 'draw', 'select'] as const;
+const modes = ['idle', 'draw-point', 'draw', 'select', 'split', 'setback'] as const;
 
 const error = ref<string | null>(null);
 
@@ -74,6 +75,30 @@ function switchMode(mode: string) {
   if (drawInstance) {
     drawInstance.setMode(mode);
   }
+}
+
+function describeFeature(feature: any): string {
+  if (feature.geometry.type === 'Point') {
+    const [lng, lat] = feature.geometry.coordinates;
+    return `Point id=${feature.id.slice(0, 8)}... @ [${lng.toFixed(3)}, ${lat.toFixed(3)}]`;
+  }
+
+  return `Polygon id=${feature.id.slice(0, 8)}... vertices=${feature.geometry.coordinates[0].length - 1}`;
+}
+
+function addSamplePoint() {
+  if (!drawInstance) return;
+  const offset = sampleCount * 0.005;
+  sampleCount++;
+  drawInstance.addFeatures([{
+    type: 'Feature',
+    geometry: {
+      type: 'Point',
+      coordinates: [139.69 + offset, 35.688 + offset],
+    },
+    properties: { name: `Point ${sampleCount}` },
+  }]);
+  addLog('api', `addFeatures() — added sample point #${sampleCount}`);
 }
 
 function addSamplePolygon() {
@@ -105,8 +130,7 @@ function showFeatures() {
   addLog('api', `getFeatures() — ${features.length} feature(s)`);
   if (features.length > 0) {
     for (const f of features) {
-      const verts = f.geometry.coordinates[0].length - 1;
-      addLog('result', `  id=${f.id.slice(0, 8)}... vertices=${verts}`);
+      addLog('result', `  ${describeFeature(f)}`);
     }
   }
 }
@@ -168,15 +192,15 @@ onMounted(async () => {
     });
 
     draw.on('create', (e: any) => {
-      addLog('event', `create: polygon (${e.feature.geometry.coordinates[0].length - 1} vertices)`);
+      addLog('event', `create: ${describeFeature(e.feature)}`);
     });
 
-    draw.on('update', () => {
-      addLog('event', `update: polygon edited`);
+    draw.on('update', (e: any) => {
+      addLog('event', `update: ${describeFeature(e.feature)}`);
     });
 
     draw.on('delete', (e: any) => {
-      addLog('event', `delete: ${e.feature.id.slice(0, 8)}...`);
+      addLog('event', `delete: ${describeFeature(e.feature)}`);
     });
 
     draw.on('selectionchange', (e: any) => {

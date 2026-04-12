@@ -4,7 +4,9 @@ export { LibreDraw } from './LibreDraw';
 // Public types
 export type {
   Position,
+  PointGeometry,
   PolygonGeometry,
+  LibreDrawGeometry,
   FeatureProperties,
   LibreDrawFeature,
   FeatureCollection,

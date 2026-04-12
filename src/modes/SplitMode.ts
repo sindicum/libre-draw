@@ -154,8 +154,9 @@ export class SplitMode implements Mode {
     const features = this.context.store.getAll();
 
     for (let i = features.length - 1; i >= 0; i--) {
-      if (booleanPointInPolygon(clickPoint, features[i].geometry)) {
-        return features[i];
+      const f = features[i];
+      if (f.geometry.type === 'Polygon' && booleanPointInPolygon(clickPoint, f.geometry)) {
+        return f;
       }
     }
 

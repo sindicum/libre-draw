@@ -11,6 +11,7 @@ export const LAYER_IDS = {
   FILL: 'libre-draw-fill',
   OUTLINE: 'libre-draw-outline',
   VERTICES: 'libre-draw-vertices',
+  POINT: 'libre-draw-point',
   PREVIEW: 'libre-draw-preview',
   EDGE_HIGHLIGHT: 'libre-draw-edge-highlight',
   EDIT_VERTICES: 'libre-draw-edit-vertices',
@@ -122,6 +123,37 @@ export class RenderManager {
           'circle-color': this.style.vertex.color,
           'circle-stroke-color': this.style.vertex.strokeColor,
           'circle-stroke-width': this.style.vertex.strokeWidth,
+        },
+      });
+    }
+
+    // Point feature layer (circle markers for Point geometry)
+    if (!this.map.getLayer(LAYER_IDS.POINT)) {
+      this.map.addLayer({
+        id: LAYER_IDS.POINT,
+        type: 'circle',
+        source: SOURCE_IDS.FEATURES,
+        filter: ['==', ['geometry-type'], 'Point'],
+        paint: {
+          'circle-radius': [
+            'case',
+            ['boolean', ['get', '_selected'], false],
+            8,
+            6,
+          ],
+          'circle-color': [
+            'case',
+            ['boolean', ['get', '_selected'], false],
+            this.style.fill.selectedColor,
+            this.style.fill.color,
+          ],
+          'circle-stroke-color': [
+            'case',
+            ['boolean', ['get', '_selected'], false],
+            this.style.outline.selectedColor,
+            this.style.outline.color,
+          ],
+          'circle-stroke-width': this.style.outline.width,
         },
       });
     }
@@ -395,6 +427,7 @@ export class RenderManager {
       LAYER_IDS.SNAP_INDICATOR,
       LAYER_IDS.EDGE_HIGHLIGHT,
       LAYER_IDS.PREVIEW,
+      LAYER_IDS.POINT,
       LAYER_IDS.VERTICES,
       LAYER_IDS.OUTLINE,
       LAYER_IDS.FILL,
@@ -447,6 +480,7 @@ export class RenderManager {
       this.map.getLayer(LAYER_IDS.FILL) &&
         this.map.getLayer(LAYER_IDS.OUTLINE) &&
         this.map.getLayer(LAYER_IDS.VERTICES) &&
+        this.map.getLayer(LAYER_IDS.POINT) &&
         this.map.getLayer(LAYER_IDS.PREVIEW) &&
         this.map.getLayer(LAYER_IDS.EDGE_HIGHLIGHT) &&
         this.map.getLayer(LAYER_IDS.EDIT_MIDPOINTS) &&

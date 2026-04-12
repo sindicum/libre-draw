@@ -112,6 +112,16 @@ export function isFeatureInBounds(
   feature: LibreDrawFeature,
   bounds: ViewportBounds,
 ): boolean {
+  if (feature.geometry.type === 'Point') {
+    const [lng, lat] = feature.geometry.coordinates;
+    return (
+      lng >= bounds.west &&
+      lng <= bounds.east &&
+      lat >= bounds.south &&
+      lat <= bounds.north
+    );
+  }
+
   const ring = feature.geometry.coordinates[0];
   if (!ring || ring.length === 0) return false;
 
@@ -148,6 +158,21 @@ function findNearestVertex(
   let best: SnapTarget | null = null;
 
   for (const feature of features) {
+    if (feature.geometry.type === 'Point') {
+      const coords = feature.geometry.coordinates;
+      const vertexScreen = getScreenPoint({ lng: coords[0], lat: coords[1] });
+      const dist = pixelDistance(screenPoint, vertexScreen);
+      if (dist <= threshold && (!best || dist < best.distance)) {
+        best = {
+          position: [coords[0], coords[1]],
+          type: 'vertex',
+          featureId: feature.id,
+          distance: dist,
+        };
+      }
+      continue;
+    }
+
     const ring = feature.geometry.coordinates[0];
     // Exclude closing point (same as first vertex)
     const vertexCount = ring.length - 1;
@@ -186,6 +211,9 @@ function findNearestEdge(
   let best: SnapTarget | null = null;
 
   for (const feature of features) {
+    // Point features have no edges to snap to
+    if (feature.geometry.type === 'Point') continue;
+
     const ring = feature.geometry.coordinates[0];
     const vertexCount = ring.length - 1;
 

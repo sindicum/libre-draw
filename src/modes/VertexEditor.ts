@@ -1,5 +1,5 @@
 import type { ModeContext } from '../core/ModeContext';
-import type { LibreDrawFeature, Position } from '../types/features';
+import type { LibreDrawFeature, PolygonGeometry, Position } from '../types/features';
 import type { NormalizedInputEvent } from '../types/input';
 import { UpdateAction } from '../types/features';
 import { cloneFeature } from '../utils/featureSnapshot';
@@ -87,12 +87,12 @@ export class VertexEditor {
     const newPos: Position = [snappedPos.lng, snappedPos.lat];
     const updatedFeature = moveVertex(feature, this.dragVertexIndex, newPos);
 
-    if (hasRingSelfIntersection(updatedFeature.geometry.coordinates[0])) {
+    if (hasRingSelfIntersection((updatedFeature.geometry as PolygonGeometry).coordinates[0])) {
       // If snap caused intersection, try without snap
       if (snappedPos.lng !== event.lngLat.lng || snappedPos.lat !== event.lngLat.lat) {
         const unsnappedPos: Position = [event.lngLat.lng, event.lngLat.lat];
         const unsnappedFeature = moveVertex(feature, this.dragVertexIndex, unsnappedPos);
-        if (!hasRingSelfIntersection(unsnappedFeature.geometry.coordinates[0])) {
+        if (!hasRingSelfIntersection((unsnappedFeature.geometry as PolygonGeometry).coordinates[0])) {
           this.context.render.clearSnapIndicator();
           this.context.store.update(selectedId, unsnappedFeature);
           this.context.render.renderFeatures();

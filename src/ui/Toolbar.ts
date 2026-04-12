@@ -1,6 +1,7 @@
 import type { Map as MaplibreMap } from 'maplibre-gl';
 import type { ToolbarOptions, ToolbarControls } from '../types/options';
 import { ToolbarButton } from './ToolbarButton';
+import { drawPointIcon } from './icons/draw-point';
 import { drawIcon } from './icons/draw';
 import { selectIcon } from './icons/select';
 import { splitIcon } from './icons/split';
@@ -14,6 +15,7 @@ import { SetbackInput } from './SetbackInput';
  * Default toolbar control visibility.
  */
 const DEFAULT_CONTROLS: Required<ToolbarControls> = {
+  drawPoint: true,
   draw: true,
   select: true,
   split: true,
@@ -27,6 +29,7 @@ const DEFAULT_CONTROLS: Required<ToolbarControls> = {
  * Callbacks that the Toolbar needs from the host application.
  */
 export interface ToolbarCallbacks {
+  onDrawPointClick(): void;
   onDrawClick(): void;
   onSelectClick(): void;
   onSplitClick(): void;
@@ -76,11 +79,15 @@ export class Toolbar {
    * @param mode - The active mode name ('idle', 'draw', 'select', 'split', 'setback').
    */
   setActiveMode(mode: string): void {
+    const drawPointBtn = this.buttons.get('draw-point');
     const drawBtn = this.buttons.get('draw');
     const selectBtn = this.buttons.get('select');
     const splitBtn = this.buttons.get('split');
     const setbackBtn = this.buttons.get('setback');
 
+    if (drawPointBtn) {
+      drawPointBtn.setActive(mode === 'draw-point');
+    }
     if (drawBtn) {
       drawBtn.setActive(mode === 'draw');
     }
@@ -145,6 +152,12 @@ export class Toolbar {
       ...DEFAULT_CONTROLS,
       ...this.options.controls,
     };
+
+    if (controls.drawPoint) {
+      this.addButton('draw-point', drawPointIcon, 'Draw point', () => {
+        this.callbacks.onDrawPointClick();
+      }, true);
+    }
 
     if (controls.draw) {
       this.addButton('draw', drawIcon, 'Draw polygon', () => {

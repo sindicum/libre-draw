@@ -6,7 +6,9 @@ All types are exported as TypeScript type-only exports from `@sindicum/libre-dra
 import type {
   LibreDrawFeature,
   FeatureCollection,
+  PointGeometry,
   PolygonGeometry,
+  LibreDrawGeometry,
   Position,
   FeatureProperties,
   LibreDrawOptions,
@@ -40,6 +42,24 @@ type Position = [number, number];
 
 ---
 
+### `PointGeometry`
+
+GeoJSON Point geometry.
+
+```ts
+interface PointGeometry {
+  type: 'Point';
+  coordinates: Position;
+}
+```
+
+| Property | Type | Description |
+|----------|------|-------------|
+| `type` | `'Point'` | Always `'Point'` |
+| `coordinates` | `Position` | A single `[longitude, latitude]` coordinate |
+
+---
+
 ### `PolygonGeometry`
 
 GeoJSON Polygon geometry.
@@ -58,6 +78,16 @@ interface PolygonGeometry {
 
 ---
 
+### `LibreDrawGeometry`
+
+Union of supported GeoJSON geometry types.
+
+```ts
+type LibreDrawGeometry = PointGeometry | PolygonGeometry;
+```
+
+---
+
 ### `FeatureProperties`
 
 Arbitrary key-value properties attached to a feature.
@@ -72,13 +102,13 @@ interface FeatureProperties {
 
 ### `LibreDrawFeature`
 
-A GeoJSON Feature with Polygon geometry used by LibreDraw.
+A GeoJSON Feature used by LibreDraw. Supports Point and Polygon geometry types.
 
 ```ts
 interface LibreDrawFeature {
   id: string;
   type: 'Feature';
-  geometry: PolygonGeometry;
+  geometry: LibreDrawGeometry;
   properties: FeatureProperties;
 }
 ```
@@ -87,14 +117,14 @@ interface LibreDrawFeature {
 |----------|------|-------------|
 | `id` | `string` | UUID v4 unique identifier |
 | `type` | `'Feature'` | Always `'Feature'` |
-| `geometry` | [`PolygonGeometry`](#polygongeometry) | The polygon geometry |
+| `geometry` | [`LibreDrawGeometry`](#libredrawgeometry) | Point or Polygon geometry |
 | `properties` | [`FeatureProperties`](#featureproperties) | Arbitrary metadata |
 
 ---
 
 ### `FeatureCollection`
 
-A GeoJSON FeatureCollection containing LibreDraw polygons. Returned by [`toGeoJSON()`](/api/libre-draw#togeojson).
+A GeoJSON FeatureCollection containing LibreDraw features (points and polygons). Returned by [`toGeoJSON()`](/api/libre-draw#togeojson).
 
 ```ts
 interface FeatureCollection {
@@ -106,7 +136,7 @@ interface FeatureCollection {
 | Property | Type | Description |
 |----------|------|-------------|
 | `type` | `'FeatureCollection'` | Always `'FeatureCollection'` |
-| `features` | [`LibreDrawFeature[]`](#libredrawfeature) | Array of polygon features |
+| `features` | [`LibreDrawFeature[]`](#libredrawfeature) | Array of point and polygon features |
 
 ---
 
@@ -121,6 +151,7 @@ interface LibreDrawOptions {
   toolbar?: boolean | ToolbarOptions;
   historyLimit?: number;
   style?: PartialStyleConfig;
+  snap?: boolean | SnapConfig;
 }
 ```
 
@@ -129,6 +160,7 @@ interface LibreDrawOptions {
 | `toolbar` | `boolean \| ToolbarOptions` | `true` | Whether to show the toolbar, or toolbar configuration. Set to `false` for headless mode. |
 | `historyLimit` | `number` | `100` | Maximum number of undo/redo history entries |
 | `style` | `PartialStyleConfig` | `default style` | Partial overrides for map layer styling (fill/outline/vertices/preview/edit handles). |
+| `snap` | `boolean \| SnapConfig` | `true` | Whether to enable snapping, or snap configuration. Set to `false` to disable. |
 
 ---
 
@@ -170,6 +202,7 @@ Configuration for which toolbar controls to display.
 
 ```ts
 interface ToolbarControls {
+  drawPoint?: boolean;
   draw?: boolean;
   select?: boolean;
   split?: boolean;
@@ -182,6 +215,7 @@ interface ToolbarControls {
 
 | Property | Type | Default | Description |
 |----------|------|---------|-------------|
+| `drawPoint` | `boolean` | `true` | Show draw-point mode toggle button |
 | `draw` | `boolean` | `true` | Show draw mode toggle button |
 | `select` | `boolean` | `true` | Show select mode toggle button |
 | `split` | `boolean` | `true` | Show split mode toggle button |
@@ -199,14 +233,15 @@ interface ToolbarControls {
 The available drawing mode names.
 
 ```ts
-type ModeName = 'idle' | 'draw' | 'select' | 'split' | 'setback';
+type ModeName = 'idle' | 'draw' | 'draw-point' | 'select' | 'split' | 'setback';
 ```
 
 | Value | Description |
 |-------|-------------|
 | `'idle'` | No drawing interaction. Map behaves normally. |
+| `'draw-point'` | Place point features by clicking/tapping. |
 | `'draw'` | Create polygons by clicking/tapping vertices. |
-| `'select'` | Select and edit existing polygons. |
+| `'select'` | Select and edit existing features (points and polygons). |
 | `'split'` | Split a polygon into two polygons with a two-point line. |
 | `'setback'` | Apply inward edge setback with distance input and preview. |
 

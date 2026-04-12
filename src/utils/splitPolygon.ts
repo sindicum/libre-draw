@@ -167,6 +167,10 @@ export function splitPolygon(
     return { type: 'error', reason: 'same-points' };
   }
 
+  if (feature.geometry.type !== 'Polygon') {
+    return { type: 'error', reason: 'insufficient-vertices' };
+  }
+
   if (feature.geometry.coordinates.length > 1) {
     return { type: 'error', reason: 'has-holes' };
   }

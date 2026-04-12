@@ -82,13 +82,13 @@ function validateRing(ring: Position[]): void {
 }
 
 /**
- * Validate a single GeoJSON-like object as a valid LibreDraw Feature
- * with Polygon geometry.
- * @param feature - The object to validate.
- * @returns The validated feature.
- * @throws LibreDrawError if the feature is invalid.
+ * Extract and validate common feature envelope (type, geometry, id, properties).
  */
-export function validateFeature(feature: unknown): LibreDrawFeature {
+function validateFeatureEnvelope(feature: unknown): {
+  geom: Record<string, unknown>;
+  id: string;
+  properties: Record<string, unknown>;
+} {
   if (
     feature === null ||
     feature === undefined ||
@@ -115,12 +115,62 @@ export function validateFeature(feature: unknown): LibreDrawFeature {
 
   const geom = f.geometry as Record<string, unknown>;
 
-  if (geom.type !== 'Polygon') {
+  const id = typeof f.id === 'string' ? f.id : '';
+  const propertiesRaw = f.properties;
+  const properties =
+    propertiesRaw !== null &&
+    propertiesRaw !== undefined &&
+    typeof propertiesRaw === 'object' &&
+    !Array.isArray(propertiesRaw)
+      ? deepCloneValue(propertiesRaw as Record<string, unknown>)
+      : {};
+
+  return { geom, id, properties };
+}
+
+/**
+ * Validate a Point geometry and return a LibreDrawFeature.
+ */
+function validatePointFeature(
+  geom: Record<string, unknown>,
+  id: string,
+  properties: Record<string, unknown>,
+): LibreDrawFeature {
+  if (!Array.isArray(geom.coordinates)) {
     throw new LibreDrawError(
-      `Feature.geometry.type must be "Polygon", got "${String(geom.type)}".`,
+      'Feature.geometry.coordinates must be an array.',
     );
   }
 
+  const coords = geom.coordinates as unknown[];
+  if (coords.length < 2 || typeof coords[0] !== 'number' || typeof coords[1] !== 'number') {
+    throw new LibreDrawError(
+      'Point coordinates must be [longitude, latitude].',
+    );
+  }
+
+  const position: Position = [coords[0] as number, coords[1] as number];
+  validateCoordinate(position);
+
+  return {
+    id,
+    type: 'Feature',
+    geometry: {
+      type: 'Point',
+      coordinates: position,
+    },
+    properties,
+  };
+}
+
+/**
+ * Validate a Polygon geometry and return a LibreDrawFeature.
+ */
+function validatePolygonFeature(
+  geom: Record<string, unknown>,
+  id: string,
+  properties: Record<string, unknown>,
+): LibreDrawFeature {
   if (!Array.isArray(geom.coordinates)) {
     throw new LibreDrawError(
       'Feature.geometry.coordinates must be an array.',
@@ -138,16 +188,6 @@ export function validateFeature(feature: unknown): LibreDrawFeature {
     validateRing(ring);
   }
 
-  const id = typeof f.id === 'string' ? f.id : '';
-  const propertiesRaw = f.properties;
-  const properties =
-    propertiesRaw !== null &&
-    propertiesRaw !== undefined &&
-    typeof propertiesRaw === 'object' &&
-    !Array.isArray(propertiesRaw)
-      ? deepCloneValue(propertiesRaw as Record<string, unknown>)
-      : {};
-
   return {
     id,
     type: 'Feature',
@@ -159,6 +199,29 @@ export function validateFeature(feature: unknown): LibreDrawFeature {
     },
     properties,
   };
+}
+
+/**
+ * Validate a single GeoJSON-like object as a valid LibreDraw Feature
+ * with Point or Polygon geometry.
+ * @param feature - The object to validate.
+ * @returns The validated feature.
+ * @throws LibreDrawError if the feature is invalid.
+ */
+export function validateFeature(feature: unknown): LibreDrawFeature {
+  const { geom, id, properties } = validateFeatureEnvelope(feature);
+
+  if (geom.type === 'Point') {
+    return validatePointFeature(geom, id, properties);
+  }
+
+  if (geom.type === 'Polygon') {
+    return validatePolygonFeature(geom, id, properties);
+  }
+
+  throw new LibreDrawError(
+    `Feature.geometry.type must be "Point" or "Polygon", got "${String(geom.type)}".`,
+  );
 }
 
 /**

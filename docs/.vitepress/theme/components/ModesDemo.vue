@@ -47,11 +47,19 @@ const mapContainer = ref<HTMLDivElement | null>(null);
 const logContainer = ref<HTMLDivElement | null>(null);
 const logs = ref<LogEntry[]>([]);
 const currentMode = ref('idle');
-const modes = ['idle', 'draw', 'select'] as const;
+const modes = ['idle', 'draw-point', 'draw', 'select', 'split', 'setback'] as const;
 const error = ref<string | null>(null);
 
 let drawInstance: any = null;
 let mapInstance: any = null;
+
+function describeFeature(feature: any): string {
+  if (feature.geometry.type === 'Point') {
+    return `Point ${feature.id.slice(0, 8)}...`;
+  }
+
+  return `Polygon ${feature.id.slice(0, 8)}... (${feature.geometry.coordinates[0].length - 1} vertices)`;
+}
 
 function addLog(type: string, message: string) {
   logs.value.push({ type, message });
@@ -107,15 +115,23 @@ onMounted(async () => {
     });
 
     draw.on('create', (e: any) => {
-      addLog('create', `Polygon created (${e.feature.geometry.coordinates[0].length - 1} vertices)`);
+      addLog('create', `${describeFeature(e.feature)} created`);
     });
 
     draw.on('update', (e: any) => {
-      addLog('update', `Polygon updated`);
+      addLog('update', `${describeFeature(e.feature)} updated`);
     });
 
     draw.on('delete', (e: any) => {
-      addLog('delete', `Polygon deleted`);
+      addLog('delete', `${describeFeature(e.feature)} deleted`);
+    });
+
+    draw.on('split', (e: any) => {
+      addLog('split', `${e.originalFeature.id.slice(0, 8)}... split into ${e.features.length} features`);
+    });
+
+    draw.on('setback', (e: any) => {
+      addLog('setback', `${e.originalFeature.id.slice(0, 8)}... edge ${e.edgeIndex} setback ${e.distance}`);
     });
 
     draw.on('selectionchange', (e: any) => {

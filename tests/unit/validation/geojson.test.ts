@@ -77,7 +77,7 @@ describe('validateFeature', () => {
           geometry: { type: 'LineString', coordinates: [[0, 0], [1, 1]] },
         }),
       ),
-    ).toThrow('Feature.geometry.type must be "Polygon"');
+    ).toThrow('Feature.geometry.type must be "Point" or "Polygon"');
   });
 
   it('should reject polygon with no rings', () => {

@@ -11,6 +11,11 @@ import booleanPointInPolygon from '@turf/boolean-point-in-polygon';
 import { point as turfPoint } from '@turf/helpers';
 
 /**
+ * Hit threshold in pixels for selecting Point features.
+ */
+const POINT_HIT_THRESHOLD_PX = 20;
+
+/**
  * Selection and editing mode for existing polygons.
  */
 export class SelectMode implements Mode {
@@ -19,6 +24,11 @@ export class SelectMode implements Mode {
   private vertexEditor: VertexEditor;
   private polygonDragger: PolygonDragger;
   private isActive = false;
+  private pointDragState: {
+    featureId: string;
+    startFeature: LibreDrawFeature;
+    startLngLat: { lng: number; lat: number };
+  } | null = null;
 
   constructor(
     context: ModeContext,
@@ -64,11 +74,14 @@ export class SelectMode implements Mode {
     const feature = this.context.store.getById(id);
     if (!feature) return false;
 
+    this.pointDragState = null;
     this.vertexEditor.resetInteractionState();
     this.polygonDragger.resetInteractionState();
 
     this.selection.selectOnly(id);
-    this.vertexEditor.renderHandles(feature);
+    if (feature.geometry.type !== 'Point') {
+      this.vertexEditor.renderHandles(feature);
+    }
     this.selection.notify();
     this.context.render.renderFeatures();
     return true;
@@ -93,33 +106,37 @@ export class SelectMode implements Mode {
     if (selectedId) {
       const feature = this.context.store.getById(selectedId);
       if (feature) {
-        if (
-          this.vertexEditor.tryStartVertexDragOrInsert(feature, selectedId, event)
-        ) {
-          return;
-        }
+        // Point feature: start drag if clicked near it
+        if (feature.geometry.type === 'Point') {
+          if (this.isPointHit(feature, event)) {
+            this.pointDragState = {
+              featureId: selectedId,
+              startFeature: cloneFeature(feature),
+              startLngLat: event.lngLat,
+            };
+            this.context.setDragPan(false);
+            return;
+          }
+        } else {
+          if (
+            this.vertexEditor.tryStartVertexDragOrInsert(feature, selectedId, event)
+          ) {
+            return;
+          }
 
-        const bodyClick = turfPoint([event.lngLat.lng, event.lngLat.lat]);
-        if (booleanPointInPolygon(bodyClick, feature.geometry)) {
-          this.polygonDragger.startDrag(feature, event.lngLat);
-          return;
+          const bodyClick = turfPoint([event.lngLat.lng, event.lngLat.lat]);
+          if (booleanPointInPolygon(bodyClick, feature.geometry)) {
+            this.polygonDragger.startDrag(feature, event.lngLat);
+            return;
+          }
         }
       }
     }
 
     this.vertexEditor.clearHighlight();
 
-    const clickPoint = turfPoint([event.lngLat.lng, event.lngLat.lat]);
     const features = this.context.store.getAll();
-
-    let hitFeature: LibreDrawFeature | undefined;
-    for (let i = features.length - 1; i >= 0; i--) {
-      const feature = features[i];
-      if (booleanPointInPolygon(clickPoint, feature.geometry)) {
-        hitFeature = feature;
-        break;
-      }
-    }
+    const hitFeature = this.findHitFeature(features, event);
 
     if (hitFeature) {
       if (this.selection.has(hitFeature.id)) {
@@ -127,7 +144,9 @@ export class SelectMode implements Mode {
         this.context.render.clearVertices();
       } else {
         this.selection.selectOnly(hitFeature.id);
-        this.vertexEditor.renderHandles(hitFeature);
+        if (hitFeature.geometry.type !== 'Point') {
+          this.vertexEditor.renderHandles(hitFeature);
+        }
       }
     } else {
       this.selection.clear();
@@ -141,6 +160,23 @@ export class SelectMode implements Mode {
   onPointerMove(event: NormalizedInputEvent): void {
     if (!this.isActive) return;
 
+    // Handle point dragging
+    if (this.pointDragState) {
+      const feature = this.context.store.getById(this.pointDragState.featureId);
+      if (feature && feature.geometry.type === 'Point') {
+        const updated: LibreDrawFeature = {
+          ...feature,
+          geometry: {
+            type: 'Point',
+            coordinates: [event.lngLat.lng, event.lngLat.lat],
+          },
+        };
+        this.context.store.update(this.pointDragState.featureId, updated);
+        this.context.render.renderFeatures();
+      }
+      return;
+    }
+
     const selectedId = this.selection.getFirstSelectedId();
     if (!selectedId) return;
 
@@ -150,11 +186,24 @@ export class SelectMode implements Mode {
     const feature = this.context.store.getById(selectedId);
     if (!feature) return;
 
-    this.vertexEditor.updateHighlightIfNeeded(feature, event);
+    if (feature.geometry.type !== 'Point') {
+      this.vertexEditor.updateHighlightIfNeeded(feature, event);
+    }
   }
 
   onPointerUp(_event: NormalizedInputEvent): void {
     if (!this.isActive) return;
+
+    // Handle point drag end
+    if (this.pointDragState) {
+      this.commitDragUpdate(
+        this.pointDragState.featureId,
+        this.pointDragState.startFeature,
+      );
+      this.pointDragState = null;
+      this.context.setDragPan(true);
+      return;
+    }
 
     const vertexDragging = this.vertexEditor.isDragging();
     const polygonDragging = this.polygonDragger.isDragging();
@@ -228,7 +277,9 @@ export class SelectMode implements Mode {
 
     const feature = this.context.store.getById(selectedId);
     if (feature) {
-      this.vertexEditor.renderHandles(feature);
+      if (feature.geometry.type !== 'Point') {
+        this.vertexEditor.renderHandles(feature);
+      }
     } else {
       this.selection.remove(selectedId);
       this.context.render.clearVertices();
@@ -236,7 +287,48 @@ export class SelectMode implements Mode {
     }
   }
 
+  /**
+   * Test if a click is within hit threshold of a Point feature.
+   */
+  private isPointHit(
+    feature: LibreDrawFeature,
+    event: NormalizedInputEvent,
+  ): boolean {
+    if (feature.geometry.type !== 'Point') return false;
+    const coords = feature.geometry.coordinates;
+    const featureScreen = this.context.getScreenPoint({
+      lng: coords[0],
+      lat: coords[1],
+    });
+    const clickScreen = this.context.getScreenPoint(event.lngLat);
+    const dx = clickScreen.x - featureScreen.x;
+    const dy = clickScreen.y - featureScreen.y;
+    return Math.sqrt(dx * dx + dy * dy) <= POINT_HIT_THRESHOLD_PX;
+  }
+
+  /**
+   * Find the topmost feature hit by a click/tap.
+   * Supports both Point (distance-based) and Polygon (point-in-polygon) features.
+   */
+  private findHitFeature(
+    features: LibreDrawFeature[],
+    event: NormalizedInputEvent,
+  ): LibreDrawFeature | undefined {
+    // Iterate from top (last) to bottom (first) for correct z-order
+    for (let i = features.length - 1; i >= 0; i--) {
+      const feature = features[i];
+      if (feature.geometry.type === 'Point') {
+        if (this.isPointHit(feature, event)) return feature;
+      } else {
+        const clickPoint = turfPoint([event.lngLat.lng, event.lngLat.lat]);
+        if (booleanPointInPolygon(clickPoint, feature.geometry)) return feature;
+      }
+    }
+    return undefined;
+  }
+
   private forceClearSelectionState(): void {
+    this.pointDragState = null;
     this.vertexEditor.resetInteractionState();
     this.polygonDragger.resetInteractionState();
 
@@ -292,26 +384,37 @@ export class SelectMode implements Mode {
     before: LibreDrawFeature,
     after: LibreDrawFeature,
   ): boolean {
-    const beforeCoords = before.geometry.coordinates;
-    const afterCoords = after.geometry.coordinates;
+    if (before.geometry.type !== after.geometry.type) return true;
 
-    if (beforeCoords.length !== afterCoords.length) return true;
+    if (before.geometry.type === 'Point' && after.geometry.type === 'Point') {
+      return (
+        before.geometry.coordinates[0] !== after.geometry.coordinates[0] ||
+        before.geometry.coordinates[1] !== after.geometry.coordinates[1]
+      );
+    }
 
-    for (let ringIndex = 0; ringIndex < beforeCoords.length; ringIndex++) {
-      const beforeRing = beforeCoords[ringIndex];
-      const afterRing = afterCoords[ringIndex];
-      if (beforeRing.length !== afterRing.length) return true;
+    if (before.geometry.type === 'Polygon' && after.geometry.type === 'Polygon') {
+      const beforeCoords = before.geometry.coordinates;
+      const afterCoords = after.geometry.coordinates;
 
-      for (
-        let positionIndex = 0;
-        positionIndex < beforeRing.length;
-        positionIndex++
-      ) {
-        if (
-          beforeRing[positionIndex][0] !== afterRing[positionIndex][0] ||
-          beforeRing[positionIndex][1] !== afterRing[positionIndex][1]
+      if (beforeCoords.length !== afterCoords.length) return true;
+
+      for (let ringIndex = 0; ringIndex < beforeCoords.length; ringIndex++) {
+        const beforeRing = beforeCoords[ringIndex];
+        const afterRing = afterCoords[ringIndex];
+        if (beforeRing.length !== afterRing.length) return true;
+
+        for (
+          let positionIndex = 0;
+          positionIndex < beforeRing.length;
+          positionIndex++
         ) {
-          return true;
+          if (
+            beforeRing[positionIndex][0] !== afterRing[positionIndex][0] ||
+            beforeRing[positionIndex][1] !== afterRing[positionIndex][1]
+          ) {
+            return true;
+          }
         }
       }
     }

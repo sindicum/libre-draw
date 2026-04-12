@@ -1,10 +1,24 @@
-import type { LibreDrawFeature, Position } from '../types/features';
+import type { LibreDrawFeature, PolygonGeometry, Position } from '../types/features';
+
+/**
+ * Assert that the feature has Polygon geometry and return it narrowed.
+ */
+function assertPolygon(feature: LibreDrawFeature): PolygonGeometry {
+  if (feature.geometry.type !== 'Polygon') {
+    throw new Error(
+      `Expected Polygon geometry, got ${feature.geometry.type}`,
+    );
+  }
+  return feature.geometry;
+}
 
 /**
  * Get the unique vertices (excluding the closing point) of a polygon.
+ * @param feature - Must have Polygon geometry.
  */
 export function getVertices(feature: LibreDrawFeature): Position[] {
-  const ring = feature.geometry.coordinates[0];
+  const geom = assertPolygon(feature);
+  const ring = geom.coordinates[0];
   return ring.slice(0, ring.length - 1);
 }
 
@@ -31,7 +45,8 @@ export function moveVertex(
   vertexIndex: number,
   newPos: Position,
 ): LibreDrawFeature {
-  const ring = [...feature.geometry.coordinates[0]];
+  const geom = assertPolygon(feature);
+  const ring = [...geom.coordinates[0]];
   ring[vertexIndex] = newPos;
 
   // If moving first vertex, also update closing point.
@@ -60,7 +75,8 @@ export function movePolygon(
   dLng: number,
   dLat: number,
 ): LibreDrawFeature {
-  const ring = feature.geometry.coordinates[0].map(
+  const geom = assertPolygon(feature);
+  const ring = geom.coordinates[0].map(
     (pos): Position => [pos[0] + dLng, pos[1] + dLat],
   );
 
@@ -81,7 +97,8 @@ export function insertVertex(
   insertIndex: number,
   pos: Position,
 ): LibreDrawFeature {
-  const ring = [...feature.geometry.coordinates[0]];
+  const geom = assertPolygon(feature);
+  const ring = [...geom.coordinates[0]];
   ring.splice(insertIndex, 0, pos);
 
   return {
