@@ -24,6 +24,7 @@ export type ToolbarPosition =
  */
 export interface ToolbarControls {
   drawPoint?: boolean;
+  drawLine?: boolean;
   draw?: boolean;
   select?: boolean;
   split?: boolean;

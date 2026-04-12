@@ -16,6 +16,11 @@ import { point as turfPoint } from '@turf/helpers';
 const POINT_HIT_THRESHOLD_PX = 20;
 
 /**
+ * Hit threshold in pixels for selecting LineString features.
+ */
+const LINE_HIT_THRESHOLD_PX = 20;
+
+/**
  * Selection and editing mode for existing polygons.
  */
 export class SelectMode implements Mode {
@@ -88,6 +93,56 @@ export class SelectMode implements Mode {
   }
 
   /**
+   * Test if a click is within hit threshold of a LineString feature's segments.
+   */
+  private isLineHit(
+    feature: LibreDrawFeature,
+    event: NormalizedInputEvent,
+  ): boolean {
+    if (feature.geometry.type !== 'LineString') return false;
+    const coords = feature.geometry.coordinates;
+    const clickScreen = this.context.getScreenPoint(event.lngLat);
+
+    for (let i = 0; i < coords.length - 1; i++) {
+      const aScreen = this.context.getScreenPoint({
+        lng: coords[i][0],
+        lat: coords[i][1],
+      });
+      const bScreen = this.context.getScreenPoint({
+        lng: coords[i + 1][0],
+        lat: coords[i + 1][1],
+      });
+      const dist = this.distanceToSegment(clickScreen, aScreen, bScreen);
+      if (dist <= LINE_HIT_THRESHOLD_PX) return true;
+    }
+    return false;
+  }
+
+  /**
+   * Calculate the distance from a point to a line segment in screen pixels.
+   */
+  private distanceToSegment(
+    p: { x: number; y: number },
+    a: { x: number; y: number },
+    b: { x: number; y: number },
+  ): number {
+    const dx = b.x - a.x;
+    const dy = b.y - a.y;
+    const lenSq = dx * dx + dy * dy;
+    if (lenSq === 0) {
+      const ddx = p.x - a.x;
+      const ddy = p.y - a.y;
+      return Math.sqrt(ddx * ddx + ddy * ddy);
+    }
+    const t = Math.max(0, Math.min(1, ((p.x - a.x) * dx + (p.y - a.y) * dy) / lenSq));
+    const projX = a.x + t * dx;
+    const projY = a.y + t * dy;
+    const ddx = p.x - projX;
+    const ddy = p.y - projY;
+    return Math.sqrt(ddx * ddx + ddy * ddy);
+  }
+
+  /**
    * Programmatically clear the current selection.
    * Public API keeps the active-mode guard.
    */
@@ -115,6 +170,17 @@ export class SelectMode implements Mode {
               startLngLat: event.lngLat,
             };
             this.context.setDragPan(false);
+            return;
+          }
+        } else if (feature.geometry.type === 'LineString') {
+          if (
+            this.vertexEditor.tryStartVertexDragOrInsert(feature, selectedId, event)
+          ) {
+            return;
+          }
+          // Drag entire line if clicked near it
+          if (this.isLineHit(feature, event)) {
+            this.polygonDragger.startDrag(feature, event.lngLat);
             return;
           }
         } else {
@@ -319,6 +385,8 @@ export class SelectMode implements Mode {
       const feature = features[i];
       if (feature.geometry.type === 'Point') {
         if (this.isPointHit(feature, event)) return feature;
+      } else if (feature.geometry.type === 'LineString') {
+        if (this.isLineHit(feature, event)) return feature;
       } else {
         const clickPoint = turfPoint([event.lngLat.lng, event.lngLat.lat]);
         if (booleanPointInPolygon(clickPoint, feature.geometry)) return feature;
@@ -391,6 +459,21 @@ export class SelectMode implements Mode {
         before.geometry.coordinates[0] !== after.geometry.coordinates[0] ||
         before.geometry.coordinates[1] !== after.geometry.coordinates[1]
       );
+    }
+
+    if (before.geometry.type === 'LineString' && after.geometry.type === 'LineString') {
+      const beforeCoords = before.geometry.coordinates;
+      const afterCoords = after.geometry.coordinates;
+      if (beforeCoords.length !== afterCoords.length) return true;
+      for (let i = 0; i < beforeCoords.length; i++) {
+        if (
+          beforeCoords[i][0] !== afterCoords[i][0] ||
+          beforeCoords[i][1] !== afterCoords[i][1]
+        ) {
+          return true;
+        }
+      }
+      return false;
     }
 
     if (before.geometry.type === 'Polygon' && after.geometry.type === 'Polygon') {

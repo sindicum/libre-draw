@@ -5,6 +5,7 @@ export { LibreDraw } from './LibreDraw';
 export type {
   Position,
   PointGeometry,
+  LineStringGeometry,
   PolygonGeometry,
   LibreDrawGeometry,
   FeatureProperties,

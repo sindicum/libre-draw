@@ -22,9 +22,17 @@ export interface PolygonGeometry {
 }
 
 /**
+ * GeoJSON LineString geometry.
+ */
+export interface LineStringGeometry {
+  type: 'LineString';
+  coordinates: Position[];
+}
+
+/**
  * Union of supported GeoJSON geometry types.
  */
-export type LibreDrawGeometry = PointGeometry | PolygonGeometry;
+export type LibreDrawGeometry = PointGeometry | LineStringGeometry | PolygonGeometry;
 
 /**
  * Arbitrary key-value properties attached to a feature.

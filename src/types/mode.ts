@@ -1,4 +1,4 @@
 /**
  * The available drawing modes.
  */
-export type ModeName = 'idle' | 'draw' | 'draw-point' | 'select' | 'split' | 'setback';
+export type ModeName = 'idle' | 'draw-point' | 'draw-line' | 'draw' | 'select' | 'split' | 'setback';

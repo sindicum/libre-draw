@@ -2,7 +2,7 @@ import type { ModeContext } from '../core/ModeContext';
 import type { LibreDrawFeature } from '../types/features';
 import type { NormalizedInputEvent } from '../types/input';
 import { cloneFeature } from '../utils/featureSnapshot';
-import { movePolygon } from '../utils/geometry';
+import { moveLine, movePolygon } from '../utils/geometry';
 
 /**
  * Handles whole-polygon drag interactions.
@@ -46,7 +46,9 @@ export class PolygonDragger {
 
     const dLng = event.lngLat.lng - this.dragStartLngLat.lng;
     const dLat = event.lngLat.lat - this.dragStartLngLat.lat;
-    const updatedFeature = movePolygon(this.dragStartFeature, dLng, dLat);
+    const updatedFeature = this.dragStartFeature.geometry.type === 'LineString'
+      ? moveLine(this.dragStartFeature, dLng, dLat)
+      : movePolygon(this.dragStartFeature, dLng, dLat);
 
     this.context.store.update(selectedId, updatedFeature);
     this.context.render.renderFeatures();

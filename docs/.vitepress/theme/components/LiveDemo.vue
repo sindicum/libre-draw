@@ -41,6 +41,9 @@ function describeFeature(feature: any): string {
   if (feature.geometry.type === 'Point') {
     return `Point ${feature.id.slice(0, 8)}...`;
   }
+  if (feature.geometry.type === 'LineString') {
+    return `Line ${feature.id.slice(0, 8)}... (${feature.geometry.coordinates.length} vertices)`;
+  }
 
   return `Polygon ${feature.id.slice(0, 8)}... (${feature.geometry.coordinates[0].length - 1} vertices)`;
 }
@@ -105,6 +108,7 @@ onMounted(async () => {
         position: 'top-right',
         controls: {
           drawPoint: true,
+          drawLine: true,
           draw: true,
           select: true,
           split: true,

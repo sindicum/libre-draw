@@ -11,6 +11,7 @@ export const LAYER_IDS = {
   FILL: 'libre-draw-fill',
   OUTLINE: 'libre-draw-outline',
   VERTICES: 'libre-draw-vertices',
+  LINE: 'libre-draw-line',
   POINT: 'libre-draw-point',
   PREVIEW: 'libre-draw-preview',
   EDGE_HIGHLIGHT: 'libre-draw-edge-highlight',
@@ -70,12 +71,13 @@ export class RenderManager {
       return;
     }
 
-    // Feature fill layer
+    // Feature fill layer (Polygon only — LineString must not be filled)
     if (!this.map.getLayer(LAYER_IDS.FILL)) {
       this.map.addLayer({
         id: LAYER_IDS.FILL,
         type: 'fill',
         source: SOURCE_IDS.FEATURES,
+        filter: ['==', ['geometry-type'], 'Polygon'],
         paint: {
           'fill-color': [
             'case',
@@ -93,12 +95,13 @@ export class RenderManager {
       });
     }
 
-    // Feature outline layer
+    // Feature outline layer (Polygon only)
     if (!this.map.getLayer(LAYER_IDS.OUTLINE)) {
       this.map.addLayer({
         id: LAYER_IDS.OUTLINE,
         type: 'line',
         source: SOURCE_IDS.FEATURES,
+        filter: ['==', ['geometry-type'], 'Polygon'],
         paint: {
           'line-color': [
             'case',
@@ -107,6 +110,30 @@ export class RenderManager {
             this.style.outline.color,
           ],
           'line-width': this.style.outline.width,
+        },
+      });
+    }
+
+    // LineString feature layer
+    if (!this.map.getLayer(LAYER_IDS.LINE)) {
+      this.map.addLayer({
+        id: LAYER_IDS.LINE,
+        type: 'line',
+        source: SOURCE_IDS.FEATURES,
+        filter: ['==', ['geometry-type'], 'LineString'],
+        paint: {
+          'line-color': [
+            'case',
+            ['boolean', ['get', '_selected'], false],
+            this.style.outline.selectedColor,
+            this.style.outline.color,
+          ],
+          'line-width': [
+            'case',
+            ['boolean', ['get', '_selected'], false],
+            this.style.outline.width + 1,
+            this.style.outline.width,
+          ],
         },
       });
     }
@@ -428,6 +455,7 @@ export class RenderManager {
       LAYER_IDS.EDGE_HIGHLIGHT,
       LAYER_IDS.PREVIEW,
       LAYER_IDS.POINT,
+      LAYER_IDS.LINE,
       LAYER_IDS.VERTICES,
       LAYER_IDS.OUTLINE,
       LAYER_IDS.FILL,
@@ -481,6 +509,7 @@ export class RenderManager {
         this.map.getLayer(LAYER_IDS.OUTLINE) &&
         this.map.getLayer(LAYER_IDS.VERTICES) &&
         this.map.getLayer(LAYER_IDS.POINT) &&
+        this.map.getLayer(LAYER_IDS.LINE) &&
         this.map.getLayer(LAYER_IDS.PREVIEW) &&
         this.map.getLayer(LAYER_IDS.EDGE_HIGHLIGHT) &&
         this.map.getLayer(LAYER_IDS.EDIT_MIDPOINTS) &&

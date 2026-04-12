@@ -53,6 +53,7 @@ onMounted(async () => {
         position: 'top-right',
         controls: {
           drawPoint: true,
+          drawLine: true,
           draw: true,
           select: true,
           split: true,

@@ -47,7 +47,7 @@ const mapContainer = ref<HTMLDivElement | null>(null);
 const logContainer = ref<HTMLDivElement | null>(null);
 const logs = ref<LogEntry[]>([]);
 const currentMode = ref('idle');
-const modes = ['idle', 'draw-point', 'draw', 'select', 'split', 'setback'] as const;
+const modes = ['idle', 'draw-point', 'draw-line', 'draw', 'select', 'split', 'setback'] as const;
 const error = ref<string | null>(null);
 
 let drawInstance: any = null;
@@ -56,6 +56,9 @@ let mapInstance: any = null;
 function describeFeature(feature: any): string {
   if (feature.geometry.type === 'Point') {
     return `Point ${feature.id.slice(0, 8)}...`;
+  }
+  if (feature.geometry.type === 'LineString') {
+    return `Line ${feature.id.slice(0, 8)}... (${feature.geometry.coordinates.length} vertices)`;
   }
 
   return `Polygon ${feature.id.slice(0, 8)}... (${feature.geometry.coordinates[0].length - 1} vertices)`;

@@ -19,6 +19,7 @@ import { validateGeoJSON, validateFeature } from './validation/geojson';
 import { IdleMode } from './modes/IdleMode';
 import { DrawMode } from './modes/DrawMode';
 import { DrawPointMode } from './modes/DrawPointMode';
+import { DrawLineMode } from './modes/DrawLineMode';
 import { SelectMode } from './modes/SelectMode';
 import { SplitMode } from './modes/SplitMode';
 import { SetbackMode } from './modes/SetbackMode';
@@ -174,6 +175,7 @@ export class LibreDraw {
     };
 
     const drawPointMode = new DrawPointMode(modeContext);
+    const drawLineMode = new DrawLineMode(modeContext);
     const drawMode = new DrawMode(modeContext);
     this.selectMode = new SelectMode(modeContext);
     const splitMode = new SplitMode(modeContext);
@@ -182,6 +184,7 @@ export class LibreDraw {
     // Register modes
     this.modeManager.registerMode('idle', new IdleMode());
     this.modeManager.registerMode('draw-point', drawPointMode);
+    this.modeManager.registerMode('draw-line', drawLineMode);
     this.modeManager.registerMode('draw', drawMode);
     this.modeManager.registerMode('select', this.selectMode);
     this.modeManager.registerMode('split', splitMode);
@@ -699,6 +702,12 @@ export class LibreDraw {
           const current = this.modeManager.getMode();
           this.modeManager.setMode(
             current === 'draw-point' ? 'idle' : 'draw-point',
+          );
+        },
+        onDrawLineClick: () => {
+          const current = this.modeManager.getMode();
+          this.modeManager.setMode(
+            current === 'draw-line' ? 'idle' : 'draw-line',
           );
         },
         onDrawClick: () => {

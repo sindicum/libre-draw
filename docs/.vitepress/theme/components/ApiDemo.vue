@@ -53,7 +53,7 @@ const mapContainer = ref<HTMLDivElement | null>(null);
 const logContainer = ref<HTMLDivElement | null>(null);
 const logs = ref<LogEntry[]>([]);
 const currentMode = ref('idle');
-const modes = ['idle', 'draw-point', 'draw', 'select', 'split', 'setback'] as const;
+const modes = ['idle', 'draw-point', 'draw-line', 'draw', 'select', 'split', 'setback'] as const;
 
 const error = ref<string | null>(null);
 
@@ -81,6 +81,9 @@ function describeFeature(feature: any): string {
   if (feature.geometry.type === 'Point') {
     const [lng, lat] = feature.geometry.coordinates;
     return `Point id=${feature.id.slice(0, 8)}... @ [${lng.toFixed(3)}, ${lat.toFixed(3)}]`;
+  }
+  if (feature.geometry.type === 'LineString') {
+    return `Line id=${feature.id.slice(0, 8)}... vertices=${feature.geometry.coordinates.length}`;
   }
 
   return `Polygon id=${feature.id.slice(0, 8)}... vertices=${feature.geometry.coordinates[0].length - 1}`;

@@ -2,6 +2,7 @@ import type { Map as MaplibreMap } from 'maplibre-gl';
 import type { ToolbarOptions, ToolbarControls } from '../types/options';
 import { ToolbarButton } from './ToolbarButton';
 import { drawPointIcon } from './icons/draw-point';
+import { drawLineIcon } from './icons/draw-line';
 import { drawIcon } from './icons/draw';
 import { selectIcon } from './icons/select';
 import { splitIcon } from './icons/split';
@@ -16,6 +17,7 @@ import { SetbackInput } from './SetbackInput';
  */
 const DEFAULT_CONTROLS: Required<ToolbarControls> = {
   drawPoint: true,
+  drawLine: true,
   draw: true,
   select: true,
   split: true,
@@ -30,6 +32,7 @@ const DEFAULT_CONTROLS: Required<ToolbarControls> = {
  */
 export interface ToolbarCallbacks {
   onDrawPointClick(): void;
+  onDrawLineClick(): void;
   onDrawClick(): void;
   onSelectClick(): void;
   onSplitClick(): void;
@@ -80,6 +83,7 @@ export class Toolbar {
    */
   setActiveMode(mode: string): void {
     const drawPointBtn = this.buttons.get('draw-point');
+    const drawLineBtn = this.buttons.get('draw-line');
     const drawBtn = this.buttons.get('draw');
     const selectBtn = this.buttons.get('select');
     const splitBtn = this.buttons.get('split');
@@ -87,6 +91,9 @@ export class Toolbar {
 
     if (drawPointBtn) {
       drawPointBtn.setActive(mode === 'draw-point');
+    }
+    if (drawLineBtn) {
+      drawLineBtn.setActive(mode === 'draw-line');
     }
     if (drawBtn) {
       drawBtn.setActive(mode === 'draw');
@@ -156,6 +163,12 @@ export class Toolbar {
     if (controls.drawPoint) {
       this.addButton('draw-point', drawPointIcon, 'Draw point', () => {
         this.callbacks.onDrawPointClick();
+      }, true);
+    }
+
+    if (controls.drawLine) {
+      this.addButton('draw-line', drawLineIcon, 'Draw line', () => {
+        this.callbacks.onDrawLineClick();
       }, true);
     }
 

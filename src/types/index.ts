@@ -1,6 +1,7 @@
 export type {
   Position,
   PointGeometry,
+  LineStringGeometry,
   PolygonGeometry,
   LibreDrawGeometry,
   FeatureProperties,

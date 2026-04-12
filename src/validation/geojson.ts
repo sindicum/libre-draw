@@ -164,6 +164,55 @@ function validatePointFeature(
 }
 
 /**
+ * Validate a LineString geometry and return a LibreDrawFeature.
+ */
+function validateLineStringFeature(
+  geom: Record<string, unknown>,
+  id: string,
+  properties: Record<string, unknown>,
+): LibreDrawFeature {
+  if (!Array.isArray(geom.coordinates)) {
+    throw new LibreDrawError(
+      'Feature.geometry.coordinates must be an array.',
+    );
+  }
+
+  const coordinates = geom.coordinates as unknown[];
+  if (coordinates.length < 2) {
+    throw new LibreDrawError(
+      `LineString must have at least 2 positions (got ${coordinates.length}).`,
+    );
+  }
+
+  const validatedCoords: Position[] = [];
+  for (const pos of coordinates) {
+    if (!Array.isArray(pos) || pos.length < 2) {
+      throw new LibreDrawError(
+        'Each position in a LineString must be an array of at least 2 numbers.',
+      );
+    }
+    const position: Position = [pos[0] as number, pos[1] as number];
+    if (typeof position[0] !== 'number' || typeof position[1] !== 'number') {
+      throw new LibreDrawError(
+        'Each position in a LineString must contain numeric coordinates.',
+      );
+    }
+    validateCoordinate(position);
+    validatedCoords.push(position);
+  }
+
+  return {
+    id,
+    type: 'Feature',
+    geometry: {
+      type: 'LineString',
+      coordinates: validatedCoords,
+    },
+    properties,
+  };
+}
+
+/**
  * Validate a Polygon geometry and return a LibreDrawFeature.
  */
 function validatePolygonFeature(
@@ -203,7 +252,7 @@ function validatePolygonFeature(
 
 /**
  * Validate a single GeoJSON-like object as a valid LibreDraw Feature
- * with Point or Polygon geometry.
+ * with Point, LineString, or Polygon geometry.
  * @param feature - The object to validate.
  * @returns The validated feature.
  * @throws LibreDrawError if the feature is invalid.
@@ -215,12 +264,16 @@ export function validateFeature(feature: unknown): LibreDrawFeature {
     return validatePointFeature(geom, id, properties);
   }
 
+  if (geom.type === 'LineString') {
+    return validateLineStringFeature(geom, id, properties);
+  }
+
   if (geom.type === 'Polygon') {
     return validatePolygonFeature(geom, id, properties);
   }
 
   throw new LibreDrawError(
-    `Feature.geometry.type must be "Point" or "Polygon", got "${String(geom.type)}".`,
+    `Feature.geometry.type must be "Point", "LineString", or "Polygon", got "${String(geom.type)}".`,
   );
 }
 
