@@ -33,6 +33,7 @@ export interface ModeContext {
       vertices: Position[],
       midpoints: Position[],
       highlightIndex?: number,
+      midpointHighlightIndex?: number,
     ): void;
     clearVertices(): void;
     setSelectedIds(ids: string[]): void;

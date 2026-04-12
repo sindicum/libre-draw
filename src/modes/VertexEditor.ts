@@ -32,6 +32,7 @@ export class VertexEditor {
   private dragVertexIndex = -1;
   private dragStartFeature: LibreDrawFeature | null = null;
   private highlightedVertexIndex = -1;
+  private highlightedMidpointIndex = -1;
 
   constructor(context: ModeContext) {
     this.context = context;
@@ -48,10 +49,12 @@ export class VertexEditor {
   resetInteractionState(): void {
     this.endDrag();
     this.highlightedVertexIndex = -1;
+    this.highlightedMidpointIndex = -1;
   }
 
   clearHighlight(): void {
     this.highlightedVertexIndex = -1;
+    this.highlightedMidpointIndex = -1;
   }
 
   tryStartVertexDragOrInsert(
@@ -77,6 +80,9 @@ export class VertexEditor {
         ? insertLineVertex(feature, midIdx + 1, midpoints[midIdx])
         : insertVertex(feature, midIdx + 1, midpoints[midIdx]);
       this.context.store.update(selectedId, newFeature);
+      // Set highlight to the newly inserted vertex before rendering
+      this.highlightedVertexIndex = midIdx + 1;
+      this.highlightedMidpointIndex = -1;
       this.renderHandles(newFeature);
       this.startDrag(newFeature, midIdx + 1, beforeInsert);
       return true;
@@ -135,10 +141,20 @@ export class VertexEditor {
     const isLine = feature.geometry.type === 'LineString';
     const vertices = isLine ? getLineVertices(feature) : getVertices(feature);
     const threshold = this.getThreshold(event);
-    const nearIdx = this.findNearestVertex(vertices, event.point, threshold);
 
-    if (nearIdx !== this.highlightedVertexIndex) {
-      this.highlightedVertexIndex = nearIdx;
+    // Check vertices first (higher priority)
+    const nearVertexIdx = this.findNearestVertex(vertices, event.point, threshold);
+
+    // Check midpoints only if no vertex is near
+    let nearMidIdx = -1;
+    if (nearVertexIdx < 0) {
+      const midpoints = isLine ? computeLineMidpoints(vertices) : computeMidpoints(vertices);
+      nearMidIdx = this.findNearestPoint(midpoints, event.point, threshold);
+    }
+
+    if (nearVertexIdx !== this.highlightedVertexIndex || nearMidIdx !== this.highlightedMidpointIndex) {
+      this.highlightedVertexIndex = nearVertexIdx;
+      this.highlightedMidpointIndex = nearMidIdx;
       this.renderHandles(feature);
     }
   }
@@ -190,6 +206,7 @@ export class VertexEditor {
       vertices,
       midpoints,
       this.highlightedVertexIndex >= 0 ? this.highlightedVertexIndex : undefined,
+      this.highlightedMidpointIndex >= 0 ? this.highlightedMidpointIndex : undefined,
     );
   }
 
@@ -212,6 +229,9 @@ export class VertexEditor {
     this.dragging = true;
     this.dragVertexIndex = vertexIndex;
     this.dragStartFeature = startFeatureSnapshot;
+    // Show dragged vertex as highlighted, clear midpoint highlight
+    this.highlightedVertexIndex = vertexIndex;
+    this.highlightedMidpointIndex = -1;
     this.context.setDragPan(false);
   }
 

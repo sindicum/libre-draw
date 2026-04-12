@@ -213,6 +213,7 @@ export class RenderManager {
     }
 
     // Edit midpoints layer (semi-transparent small circles at edge midpoints)
+    // Highlighted midpoints grow larger and become opaque to indicate interactivity
     if (!this.map.getLayer(LAYER_IDS.EDIT_MIDPOINTS)) {
       this.map.addLayer({
         id: LAYER_IDS.EDIT_MIDPOINTS,
@@ -220,9 +221,36 @@ export class RenderManager {
         source: SOURCE_IDS.EDIT_VERTICES,
         filter: ['==', ['get', '_type'], 'midpoint'],
         paint: {
-          'circle-radius': this.style.midpoint.radius,
-          'circle-color': this.style.midpoint.color,
-          'circle-opacity': this.style.midpoint.opacity,
+          'circle-radius': [
+            'case',
+            ['boolean', ['get', '_highlighted'], false],
+            this.style.editVertex.highlightedRadius,
+            this.style.midpoint.radius,
+          ],
+          'circle-color': [
+            'case',
+            ['boolean', ['get', '_highlighted'], false],
+            this.style.editVertex.highlightedColor,
+            this.style.midpoint.color,
+          ],
+          'circle-opacity': [
+            'case',
+            ['boolean', ['get', '_highlighted'], false],
+            1,
+            this.style.midpoint.opacity,
+          ],
+          'circle-stroke-width': [
+            'case',
+            ['boolean', ['get', '_highlighted'], false],
+            this.style.editVertex.strokeWidth,
+            0,
+          ],
+          'circle-stroke-color': [
+            'case',
+            ['boolean', ['get', '_highlighted'], false],
+            this.style.editVertex.highlightedStrokeColor,
+            'transparent',
+          ],
         },
       });
     }
@@ -373,7 +401,12 @@ export class RenderManager {
    * @param midpoints - The edge midpoint positions.
    * @param highlightIndex - Optional index of the vertex to highlight.
    */
-  renderVertices(vertices: Position[], midpoints: Position[], highlightIndex?: number): void {
+  renderVertices(
+    vertices: Position[],
+    midpoints: Position[],
+    highlightIndex?: number,
+    midpointHighlightIndex?: number,
+  ): void {
     const features: GeoJSON.Feature[] = [];
 
     for (let i = 0; i < vertices.length; i++) {
@@ -388,10 +421,14 @@ export class RenderManager {
       });
     }
 
-    for (const m of midpoints) {
+    for (let i = 0; i < midpoints.length; i++) {
+      const m = midpoints[i];
       features.push({
         type: 'Feature',
-        properties: { _type: 'midpoint' },
+        properties: {
+          _type: 'midpoint',
+          _highlighted: i === midpointHighlightIndex,
+        },
         geometry: { type: 'Point', coordinates: [m[0], m[1]] },
       });
     }

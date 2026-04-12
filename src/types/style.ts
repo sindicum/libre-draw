@@ -119,8 +119,8 @@ export const DEFAULT_STYLE_CONFIG: StyleConfig = {
   },
   midpoint: {
     color: '#3bb2d0',
-    opacity: 0.5,
-    radius: 3,
+    opacity: 0.6,
+    radius: 4,
   },
 };
 

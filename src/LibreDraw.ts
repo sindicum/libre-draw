@@ -142,8 +142,8 @@ export class LibreDraw {
         renderEdgeHighlight: (coords) =>
           this.renderManager.renderEdgeHighlight(coords),
         clearEdgeHighlight: () => this.renderManager.clearEdgeHighlight(),
-        renderVertices: (vertices, midpoints, highlightIndex) =>
-          this.renderManager.renderVertices(vertices, midpoints, highlightIndex),
+        renderVertices: (vertices, midpoints, highlightIndex, midpointHighlightIndex) =>
+          this.renderManager.renderVertices(vertices, midpoints, highlightIndex, midpointHighlightIndex),
         clearVertices: () => this.renderManager.clearVertices(),
         setSelectedIds: (ids) => this.renderManager.setSelectedIds(ids),
         renderSnapIndicator: (pos) =>
