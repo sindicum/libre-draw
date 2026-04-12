@@ -7,7 +7,14 @@ import type {
   ToolbarOptions,
   SnapConfig,
 } from './types';
-import { DeleteAction } from './types/features';
+import type { Action } from './types/features';
+import {
+  DeleteAction,
+  CreateAction,
+  UpdateAction,
+  SplitAction,
+  SetbackAction,
+} from './types/features';
 import { EventBus } from './core/EventBus';
 import { FeatureStore } from './core/FeatureStore';
 import { HistoryManager } from './core/HistoryManager';
@@ -215,7 +222,7 @@ export class LibreDraw {
     );
 
     // Toolbar
-    if (options.toolbar !== false && options.toolbar !== undefined) {
+    if (options.toolbar !== false) {
       const toolbarOpts: ToolbarOptions =
         typeof options.toolbar === 'object' ? options.toolbar : {};
       this.createToolbar(toolbarOpts);
@@ -546,13 +553,14 @@ export class LibreDraw {
    */
   undo(): boolean {
     this.assertNotDestroyed();
-    const result = this.historyManager.undo(this.featureStore);
-    if (result) {
+    const action = this.historyManager.undo(this.featureStore);
+    if (action) {
       this.renderAllFeatures();
       this.selectMode.refreshVertexHandles();
       this.updateToolbarHistoryState();
+      this.emitUndoEvent(action);
     }
-    return result;
+    return action !== null;
   }
 
   /**
@@ -573,13 +581,14 @@ export class LibreDraw {
    */
   redo(): boolean {
     this.assertNotDestroyed();
-    const result = this.historyManager.redo(this.featureStore);
-    if (result) {
+    const action = this.historyManager.redo(this.featureStore);
+    if (action) {
       this.renderAllFeatures();
       this.selectMode.refreshVertexHandles();
       this.updateToolbarHistoryState();
+      this.emitRedoEvent(action);
     }
-    return result;
+    return action !== null;
   }
 
   /**
@@ -812,6 +821,62 @@ export class LibreDraw {
       enabled: snap.enabled ?? true,
       threshold: Math.max(1, snap.threshold ?? 10),
     };
+  }
+
+  /**
+   * Emit the appropriate event after an undo (revert) operation.
+   * Undo reverses the action, so create→delete, delete→create, etc.
+   */
+  private emitUndoEvent(action: Action): void {
+    if (action instanceof CreateAction) {
+      this.eventBus.emit('delete', { feature: cloneFeature(action.feature) });
+    } else if (action instanceof DeleteAction) {
+      this.eventBus.emit('create', { feature: cloneFeature(action.feature) });
+    } else if (action instanceof UpdateAction) {
+      this.eventBus.emit('update', {
+        feature: cloneFeature(action.oldFeature),
+        oldFeature: cloneFeature(action.newFeature),
+      });
+    } else if (action instanceof SplitAction) {
+      this.eventBus.emit('delete', { feature: cloneFeature(action.featureA) });
+      this.eventBus.emit('delete', { feature: cloneFeature(action.featureB) });
+      this.eventBus.emit('create', { feature: cloneFeature(action.originalFeature) });
+    } else if (action instanceof SetbackAction) {
+      this.eventBus.emit('delete', { feature: cloneFeature(action.resultFeature) });
+      this.eventBus.emit('create', { feature: cloneFeature(action.originalFeature) });
+    }
+  }
+
+  /**
+   * Emit the appropriate event after a redo (re-apply) operation.
+   * Redo re-applies the action, so create→create, delete→delete, etc.
+   */
+  private emitRedoEvent(action: Action): void {
+    if (action instanceof CreateAction) {
+      this.eventBus.emit('create', { feature: cloneFeature(action.feature) });
+    } else if (action instanceof DeleteAction) {
+      this.eventBus.emit('delete', { feature: cloneFeature(action.feature) });
+    } else if (action instanceof UpdateAction) {
+      this.eventBus.emit('update', {
+        feature: cloneFeature(action.newFeature),
+        oldFeature: cloneFeature(action.oldFeature),
+      });
+    } else if (action instanceof SplitAction) {
+      this.eventBus.emit('delete', { feature: cloneFeature(action.originalFeature) });
+      this.eventBus.emit('split', {
+        originalFeature: cloneFeature(action.originalFeature),
+        features: [cloneFeature(action.featureA), cloneFeature(action.featureB)],
+      });
+    } else if (action instanceof SetbackAction) {
+      // edgeIndex and distance are not preserved in SetbackAction,
+      // so we emit placeholder values for redo events
+      this.eventBus.emit('setback', {
+        originalFeature: cloneFeature(action.originalFeature),
+        feature: cloneFeature(action.resultFeature),
+        edgeIndex: -1,
+        distance: 0,
+      });
+    }
   }
 
   /**

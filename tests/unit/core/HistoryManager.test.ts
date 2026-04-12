@@ -39,7 +39,7 @@ describe('HistoryManager', () => {
     history.push(action);
     const result = history.undo(store);
 
-    expect(result).toBe(true);
+    expect(result).toBe(action);
     expect(action.revert).toHaveBeenCalledWith(store);
     expect(history.canUndo()).toBe(false);
     expect(history.canRedo()).toBe(true);
@@ -54,22 +54,22 @@ describe('HistoryManager', () => {
     history.undo(store);
     const result = history.redo(store);
 
-    expect(result).toBe(true);
+    expect(result).toBe(action);
     expect(action.apply).toHaveBeenCalledWith(store);
     expect(history.canUndo()).toBe(true);
     expect(history.canRedo()).toBe(false);
   });
 
-  it('should return false when undoing empty stack', () => {
+  it('should return null when undoing empty stack', () => {
     const history = new HistoryManager();
     const store = createMockStore();
-    expect(history.undo(store)).toBe(false);
+    expect(history.undo(store)).toBeNull();
   });
 
-  it('should return false when redoing empty stack', () => {
+  it('should return null when redoing empty stack', () => {
     const history = new HistoryManager();
     const store = createMockStore();
-    expect(history.redo(store)).toBe(false);
+    expect(history.redo(store)).toBeNull();
   });
 
   it('should clear redo stack when a new action is pushed', () => {
@@ -93,10 +93,10 @@ describe('HistoryManager', () => {
     }
 
     // Should only be able to undo 3 times
-    expect(history.undo(store)).toBe(true);
-    expect(history.undo(store)).toBe(true);
-    expect(history.undo(store)).toBe(true);
-    expect(history.undo(store)).toBe(false);
+    expect(history.undo(store)).not.toBeNull();
+    expect(history.undo(store)).not.toBeNull();
+    expect(history.undo(store)).not.toBeNull();
+    expect(history.undo(store)).toBeNull();
   });
 
   it('should clear all history', () => {

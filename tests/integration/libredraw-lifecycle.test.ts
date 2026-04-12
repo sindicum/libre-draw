@@ -272,6 +272,119 @@ describe('LibreDraw lifecycle integration', () => {
     draw.destroy();
   });
 
+  it('should create toolbar by default when no options are given', () => {
+    const map = new FakeMap();
+    const container = map.getContainer();
+    const draw = new LibreDraw(map.asMap());
+
+    const toolbar = container.querySelector('.libre-draw-toolbar');
+    expect(toolbar).not.toBeNull();
+
+    draw.destroy();
+  });
+
+  it('should not create toolbar when toolbar option is false', () => {
+    const map = new FakeMap();
+    const container = map.getContainer();
+    const draw = new LibreDraw(map.asMap(), { toolbar: false });
+
+    const toolbar = container.querySelector('.libre-draw-toolbar');
+    expect(toolbar).toBeNull();
+
+    draw.destroy();
+  });
+
+  it('should create toolbar when toolbar option is an object', () => {
+    const map = new FakeMap();
+    const container = map.getContainer();
+    const draw = new LibreDraw(map.asMap(), { toolbar: { position: 'top-right' } });
+
+    const toolbar = container.querySelector('.libre-draw-toolbar');
+    expect(toolbar).not.toBeNull();
+
+    draw.destroy();
+  });
+
+  it('should not double-render Point features in VERTICES and POINT layers', () => {
+    const map = new FakeMap();
+    const draw = new LibreDraw(map.asMap(), { toolbar: false });
+
+    const verticesLayer = map.getLayer(LAYER_IDS.VERTICES) as {
+      filter: unknown[];
+    };
+    // VERTICES layer should exclude Point features via _isPoint property
+    expect(verticesLayer.filter).toEqual([
+      'all',
+      ['==', '$type', 'Point'],
+      ['!=', ['get', '_isPoint'], true],
+    ]);
+
+    // Point features should have _isPoint property set
+    draw.addFeatures([{
+      type: 'Feature',
+      geometry: { type: 'Point', coordinates: [1, 2] },
+      properties: {},
+    } as unknown as ReturnType<typeof makeFeature>]);
+
+    const sourceData = map.getSourceData(SOURCE_IDS.FEATURES);
+    const pointFeature = sourceData?.features.find(
+      (f) => f.geometry.type === 'Point',
+    );
+    expect(pointFeature?.properties?._isPoint).toBe(true);
+
+    draw.destroy();
+  });
+
+  it('should emit delete event on undo of create action', () => {
+    const map = new FakeMap();
+    const draw = new LibreDraw(map.asMap(), { toolbar: false });
+
+    draw.setMode('draw');
+
+    // Manually add and create a feature to get a history entry
+    draw.addFeatures([makeFeature('f1')]);
+    // deleteFeature pushes a DeleteAction to history
+    draw.deleteFeature('f1');
+
+    const createListener = vi.fn();
+    draw.on('create', createListener);
+
+    // Undo the delete → should emit 'create' event
+    draw.undo();
+
+    expect(createListener).toHaveBeenCalledWith(
+      expect.objectContaining({
+        feature: expect.objectContaining({ id: 'f1' }),
+      }),
+    );
+
+    draw.destroy();
+  });
+
+  it('should emit delete event on redo of delete action', () => {
+    const map = new FakeMap();
+    const draw = new LibreDraw(map.asMap(), { toolbar: false });
+
+    draw.addFeatures([makeFeature('f1')]);
+    draw.deleteFeature('f1');
+
+    draw.undo(); // restore f1
+
+    const deleteListener = vi.fn();
+    draw.on('delete', deleteListener);
+
+    // Redo the delete → should emit 'delete' event
+    draw.redo();
+
+    expect(deleteListener).toHaveBeenCalledWith(
+      expect.objectContaining({
+        feature: expect.objectContaining({ id: 'f1' }),
+      }),
+    );
+
+    draw.destroy();
+  });
+
   it('should apply custom style options to layer paint definitions', () => {
     const map = new FakeMap();
     const draw = new LibreDraw(map.asMap(), {

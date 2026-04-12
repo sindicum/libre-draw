@@ -194,6 +194,36 @@ describe('DrawLineMode', () => {
     expect(lastCall[0]).not.toEqual(lastCall[lastCall.length - 1]);
   });
 
+  it('should use snapped position for preview after vertex addition', () => {
+    const snapContext = createMockContext();
+    const snapFeature: LibreDrawFeature = {
+      id: 'snap-target',
+      type: 'Feature',
+      geometry: {
+        type: 'Polygon',
+        coordinates: [[[5, 5], [15, 5], [15, 15], [5, 15], [5, 5]]],
+      },
+      properties: {},
+    };
+    vi.mocked(snapContext.store.getAll).mockReturnValue([snapFeature]);
+    snapContext.getSnapConfig = () => ({ enabled: true, threshold: 20 });
+
+    const snapMode = new DrawLineMode(snapContext);
+    snapMode.activate();
+    snapMode.onPointerDown(createPointerEvent(0, 0));
+
+    vi.mocked(snapContext.render.renderPreview).mockClear();
+    // Click near snap target vertex (5,5)
+    snapMode.onPointerDown(createPointerEvent(4.5, 4.5));
+
+    const previewCall = vi.mocked(snapContext.render.renderPreview).mock.calls[0];
+    const previewCoords = previewCall[0];
+    // Second vertex should be snapped to (5,5)
+    const addedVertex = previewCoords[1];
+    expect(addedVertex[0]).toBe(5);
+    expect(addedVertex[1]).toBe(5);
+  });
+
   it('should prevent default on double click', () => {
     mode.activate();
     mode.onPointerDown(createPointerEvent(0, 0));

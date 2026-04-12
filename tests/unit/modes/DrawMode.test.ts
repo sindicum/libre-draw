@@ -174,6 +174,41 @@ describe('DrawMode', () => {
     expect(context.store.add).toHaveBeenCalled();
   });
 
+  it('should use snapped position for preview after vertex addition', () => {
+    // Create a new context with snap enabled
+    const snapContext = createMockContext();
+    const snapFeature: LibreDrawFeature = {
+      id: 'snap-target',
+      type: 'Feature',
+      geometry: {
+        type: 'Polygon',
+        coordinates: [[[5, 5], [15, 5], [15, 15], [5, 15], [5, 5]]],
+      },
+      properties: {},
+    };
+    vi.mocked(snapContext.store.getAll).mockReturnValue([snapFeature]);
+    snapContext.getSnapConfig = () => ({ enabled: true, threshold: 20 });
+
+    const snapDrawMode = new DrawMode(snapContext);
+    snapDrawMode.activate();
+
+    // First vertex (no snap, far from target)
+    snapDrawMode.onPointerDown(createPointerEvent(0, 0));
+
+    // Second vertex near snap target vertex (5,5) - the mock getScreenPoint
+    // returns (lng*10, lat*10), so (5,5) -> screen (50,50)
+    // Clicking at (4.5, 4.5) -> screen (45,45), distance to (50,50) = ~7px < 20px threshold
+    vi.mocked(snapContext.render.renderPreview).mockClear();
+    snapDrawMode.onPointerDown(createPointerEvent(4.5, 4.5));
+
+    // Preview should have been called with snapped vertex coordinates [5,5], not [4.5,4.5]
+    const previewCall = vi.mocked(snapContext.render.renderPreview).mock.calls[0];
+    const previewCoords = previewCall[0];
+    const addedVertex = previewCoords[1]; // second vertex (the one just added)
+    expect(addedVertex[0]).toBe(5);
+    expect(addedVertex[1]).toBe(5);
+  });
+
   // --- Self-intersection prevention ---
 
   describe('self-intersection prevention', () => {

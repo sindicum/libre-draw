@@ -149,9 +149,9 @@ describe('Undo/Redo Integration', () => {
     }
 
     // Should only undo 2 times (limit)
-    expect(history.undo(store)).toBe(true);
-    expect(history.undo(store)).toBe(true);
-    expect(history.undo(store)).toBe(false);
+    expect(history.undo(store)).not.toBeNull();
+    expect(history.undo(store)).not.toBeNull();
+    expect(history.undo(store)).toBeNull();
 
     expect(store.getAll()).toHaveLength(2);
   });

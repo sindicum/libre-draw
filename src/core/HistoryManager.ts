@@ -35,31 +35,31 @@ export class HistoryManager {
   /**
    * Undo the most recent action.
    * @param store - The feature store to revert the action on.
-   * @returns True if an action was undone, false if the stack was empty.
+   * @returns The reverted action, or null if the stack was empty.
    */
-  undo(store: FeatureStoreInterface): boolean {
+  undo(store: FeatureStoreInterface): Action | null {
     const action = this.undoStack.pop();
     if (!action) {
-      return false;
+      return null;
     }
     action.revert(store);
     this.redoStack.push(action);
-    return true;
+    return action;
   }
 
   /**
    * Redo the most recently undone action.
    * @param store - The feature store to re-apply the action on.
-   * @returns True if an action was redone, false if the stack was empty.
+   * @returns The re-applied action, or null if the stack was empty.
    */
-  redo(store: FeatureStoreInterface): boolean {
+  redo(store: FeatureStoreInterface): Action | null {
     const action = this.redoStack.pop();
     if (!action) {
-      return false;
+      return null;
     }
     action.apply(store);
     this.undoStack.push(action);
-    return true;
+    return action;
   }
 
   /**

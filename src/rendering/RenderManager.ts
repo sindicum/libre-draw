@@ -139,12 +139,13 @@ export class RenderManager {
     }
 
     // Feature vertices layer (circle markers at each vertex)
+    // Excludes Point features to avoid double-drawing with the POINT layer
     if (!this.map.getLayer(LAYER_IDS.VERTICES)) {
       this.map.addLayer({
         id: LAYER_IDS.VERTICES,
         type: 'circle',
         source: SOURCE_IDS.FEATURES,
-        filter: ['==', '$type', 'Point'],
+        filter: ['all', ['==', '$type', 'Point'], ['!=', ['get', '_isPoint'], true]],
         paint: {
           'circle-radius': this.style.vertex.radius,
           'circle-color': this.style.vertex.color,
@@ -523,6 +524,7 @@ export class RenderManager {
           ...feature.properties,
           _id: feature.id,
           _selected: this.selectedIds.has(feature.id),
+          _isPoint: feature.geometry.type === 'Point',
         },
         geometry: feature.geometry,
       }),

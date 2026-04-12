@@ -55,7 +55,8 @@ export class DrawLineMode implements Mode {
     const newVertex: Position = [snappedPos.lng, snappedPos.lat];
 
     this.vertices.push(newVertex);
-    this.updatePreview(event);
+    const previewCoords = this.buildPreviewCoordinates(newVertex);
+    this.context.render.renderPreview(previewCoords);
   }
 
   onPointerMove(event: NormalizedInputEvent): void {

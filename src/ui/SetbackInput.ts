@@ -57,7 +57,7 @@ export class SetbackInput {
   }
 
   getDistance(): number {
-    return this.parseDistance();
+    return this.parseDistance() ?? DEFAULT_DISTANCE_METERS;
   }
 
   setVisible(visible: boolean): void {
@@ -73,7 +73,7 @@ export class SetbackInput {
 
   private handleInput = (): void => {
     const distance = this.parseDistance();
-    if (distance > 0) {
+    if (distance !== null) {
       this.callbacks.onDistanceChange(distance);
     }
   };
@@ -82,22 +82,22 @@ export class SetbackInput {
     if (event.key !== 'Enter') return;
 
     const distance = this.parseDistance();
-    if (distance > 0) {
+    if (distance !== null) {
       this.callbacks.onSubmit(distance);
     }
   };
 
   private handleExecute = (): void => {
     const distance = this.parseDistance();
-    if (distance > 0) {
+    if (distance !== null) {
       this.callbacks.onSubmit(distance);
     }
   };
 
-  private parseDistance(): number {
+  private parseDistance(): number | null {
     const value = Number(this.input.value);
     if (!Number.isFinite(value) || value <= 0) {
-      return DEFAULT_DISTANCE_METERS;
+      return null;
     }
     return value;
   }
