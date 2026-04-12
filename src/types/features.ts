@@ -6,12 +6,33 @@ import { cloneFeature } from '../utils/featureSnapshot';
 export type Position = [number, number];
 
 /**
+ * GeoJSON Point geometry.
+ */
+export interface PointGeometry {
+  type: 'Point';
+  coordinates: Position;
+}
+
+/**
  * GeoJSON Polygon geometry.
  */
 export interface PolygonGeometry {
   type: 'Polygon';
   coordinates: Position[][];
 }
+
+/**
+ * GeoJSON LineString geometry.
+ */
+export interface LineStringGeometry {
+  type: 'LineString';
+  coordinates: Position[];
+}
+
+/**
+ * Union of supported GeoJSON geometry types.
+ */
+export type LibreDrawGeometry = PointGeometry | LineStringGeometry | PolygonGeometry;
 
 /**
  * Arbitrary key-value properties attached to a feature.
@@ -21,12 +42,13 @@ export interface FeatureProperties {
 }
 
 /**
- * A GeoJSON Feature with Polygon geometry used internally by LibreDraw.
+ * A GeoJSON Feature used internally by LibreDraw.
+ * Supports Point and Polygon geometry types.
  */
 export interface LibreDrawFeature {
   id: string;
   type: 'Feature';
-  geometry: PolygonGeometry;
+  geometry: LibreDrawGeometry;
   properties: FeatureProperties;
 }
 

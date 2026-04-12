@@ -270,6 +270,7 @@ describe('SelectMode', () => {
       expect.any(Array),
       expect.any(Array),
       undefined,
+      undefined,
     );
   });
 
@@ -302,6 +303,7 @@ describe('SelectMode', () => {
     expect(callbacks.renderVertices).toHaveBeenCalledWith(
       expect.any(Array),
       expect.any(Array),
+      undefined,
       undefined,
     );
   });
@@ -430,10 +432,11 @@ describe('SelectMode', () => {
       // Click midpoint between (0,0) and (10,0)
       selectMode.onPointerDown(createPointerEvent(5, 0));
 
-      // Vertex handles should be rendered with the new vertex count
+      // Vertex handles should be rendered with the inserted vertex highlighted
       expect(callbacks.renderVertices).toHaveBeenCalledWith(
         expect.any(Array),
         expect.any(Array),
+        1, // newly inserted vertex at midpoint index 0 → vertex index 1
         undefined,
       );
     });
@@ -513,6 +516,7 @@ describe('SelectMode', () => {
         expect.any(Array),
         expect.any(Array),
         0, // highlight index for vertex (0,0)
+        undefined,
       );
     });
 
@@ -531,7 +535,8 @@ describe('SelectMode', () => {
       expect(callbacks.renderVertices).toHaveBeenCalledWith(
         expect.any(Array),
         expect.any(Array),
-        undefined, // no highlight
+        undefined, // no vertex highlight
+        undefined, // no midpoint highlight
       );
     });
 
@@ -549,6 +554,65 @@ describe('SelectMode', () => {
 
       // Should NOT re-render since highlight index didn't change
       expect(callbacks.renderVertices).not.toHaveBeenCalled();
+    });
+  });
+
+  // --- Midpoint highlight tests ---
+
+  describe('midpoint highlight', () => {
+    it('should highlight midpoint when mouse is near a midpoint', () => {
+      selectMode.activate();
+      selectMode.onPointerDown(createPointerEvent(5, 5)); // select polygon
+
+      vi.mocked(callbacks.renderVertices).mockClear();
+
+      // Midpoint between vertex (0,0) and (10,0) is at (5,0) → screen (50,0)
+      // Move mouse near that midpoint: (5.5, 0) → screen (55, 0) → 5px away
+      selectMode.onPointerMove(createPointerEvent(5.5, 0));
+
+      expect(callbacks.renderVertices).toHaveBeenCalledWith(
+        expect.any(Array),
+        expect.any(Array),
+        undefined, // no vertex highlight
+        0, // midpoint highlight index
+      );
+    });
+
+    it('should prioritize vertex over midpoint when both are near', () => {
+      selectMode.activate();
+      selectMode.onPointerDown(createPointerEvent(5, 5)); // select polygon
+
+      vi.mocked(callbacks.renderVertices).mockClear();
+
+      // Move near vertex (0,0) — vertex takes priority even if midpoint is also near
+      selectMode.onPointerMove(createPointerEvent(0.5, 0));
+
+      expect(callbacks.renderVertices).toHaveBeenCalledWith(
+        expect.any(Array),
+        expect.any(Array),
+        0, // vertex highlight
+        undefined, // no midpoint highlight (vertex wins)
+      );
+    });
+
+    it('should clear midpoint highlight when mouse moves away', () => {
+      selectMode.activate();
+      selectMode.onPointerDown(createPointerEvent(5, 5)); // select polygon
+
+      // Move near midpoint to highlight
+      selectMode.onPointerMove(createPointerEvent(5.5, 0));
+
+      vi.mocked(callbacks.renderVertices).mockClear();
+
+      // Move far from any vertex/midpoint
+      selectMode.onPointerMove(createPointerEvent(5, 5));
+
+      expect(callbacks.renderVertices).toHaveBeenCalledWith(
+        expect.any(Array),
+        expect.any(Array),
+        undefined,
+        undefined,
+      );
     });
   });
 
@@ -706,6 +770,7 @@ describe('SelectMode', () => {
       expect(callbacks.renderVertices).toHaveBeenCalledWith(
         expect.any(Array),
         expect.any(Array),
+        undefined,
         undefined,
       );
     });

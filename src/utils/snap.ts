@@ -112,6 +112,40 @@ export function isFeatureInBounds(
   feature: LibreDrawFeature,
   bounds: ViewportBounds,
 ): boolean {
+  if (feature.geometry.type === 'Point') {
+    const [lng, lat] = feature.geometry.coordinates;
+    return (
+      lng >= bounds.west &&
+      lng <= bounds.east &&
+      lat >= bounds.south &&
+      lat <= bounds.north
+    );
+  }
+
+  if (feature.geometry.type === 'LineString') {
+    const coords = feature.geometry.coordinates;
+    if (coords.length === 0) return false;
+
+    let minLng = Infinity;
+    let maxLng = -Infinity;
+    let minLat = Infinity;
+    let maxLat = -Infinity;
+
+    for (const coord of coords) {
+      if (coord[0] < minLng) minLng = coord[0];
+      if (coord[0] > maxLng) maxLng = coord[0];
+      if (coord[1] < minLat) minLat = coord[1];
+      if (coord[1] > maxLat) maxLat = coord[1];
+    }
+
+    return (
+      maxLng >= bounds.west &&
+      minLng <= bounds.east &&
+      maxLat >= bounds.south &&
+      minLat <= bounds.north
+    );
+  }
+
   const ring = feature.geometry.coordinates[0];
   if (!ring || ring.length === 0) return false;
 
@@ -148,6 +182,41 @@ function findNearestVertex(
   let best: SnapTarget | null = null;
 
   for (const feature of features) {
+    if (feature.geometry.type === 'Point') {
+      const coords = feature.geometry.coordinates;
+      const vertexScreen = getScreenPoint({ lng: coords[0], lat: coords[1] });
+      const dist = pixelDistance(screenPoint, vertexScreen);
+      if (dist <= threshold && (!best || dist < best.distance)) {
+        best = {
+          position: [coords[0], coords[1]],
+          type: 'vertex',
+          featureId: feature.id,
+          distance: dist,
+        };
+      }
+      continue;
+    }
+
+    if (feature.geometry.type === 'LineString') {
+      const coords = feature.geometry.coordinates;
+      for (let i = 0; i < coords.length; i++) {
+        const vertexScreen = getScreenPoint({
+          lng: coords[i][0],
+          lat: coords[i][1],
+        });
+        const dist = pixelDistance(screenPoint, vertexScreen);
+        if (dist <= threshold && (!best || dist < best.distance)) {
+          best = {
+            position: [coords[i][0], coords[i][1]],
+            type: 'vertex',
+            featureId: feature.id,
+            distance: dist,
+          };
+        }
+      }
+      continue;
+    }
+
     const ring = feature.geometry.coordinates[0];
     // Exclude closing point (same as first vertex)
     const vertexCount = ring.length - 1;
@@ -186,6 +255,37 @@ function findNearestEdge(
   let best: SnapTarget | null = null;
 
   for (const feature of features) {
+    // Point features have no edges to snap to
+    if (feature.geometry.type === 'Point') continue;
+
+    if (feature.geometry.type === 'LineString') {
+      const coords = feature.geometry.coordinates;
+      for (let i = 0; i < coords.length - 1; i++) {
+        const aScreen = getScreenPoint({ lng: coords[i][0], lat: coords[i][1] });
+        const bScreen = getScreenPoint({
+          lng: coords[i + 1][0],
+          lat: coords[i + 1][1],
+        });
+
+        const projected = projectPointOnSegment(screenPoint, aScreen, bScreen);
+        const dist = pixelDistance(screenPoint, projected);
+
+        if (dist <= threshold && (!best || dist < best.distance)) {
+          const t = computeParametricT(aScreen, bScreen, projected);
+          const snapLng = coords[i][0] + t * (coords[i + 1][0] - coords[i][0]);
+          const snapLat = coords[i][1] + t * (coords[i + 1][1] - coords[i][1]);
+
+          best = {
+            position: [snapLng, snapLat],
+            type: 'edge',
+            featureId: feature.id,
+            distance: dist,
+          };
+        }
+      }
+      continue;
+    }
+
     const ring = feature.geometry.coordinates[0];
     const vertexCount = ring.length - 1;
 

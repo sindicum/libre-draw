@@ -50,13 +50,33 @@ export function cloneProperties(
  * Create a deep snapshot of a feature.
  */
 export function cloneFeature(feature: LibreDrawFeature): LibreDrawFeature {
+  let geometry: LibreDrawFeature['geometry'];
+  if (feature.geometry.type === 'Point') {
+    geometry = {
+      type: 'Point',
+      coordinates: [
+        feature.geometry.coordinates[0],
+        feature.geometry.coordinates[1],
+      ] as Position,
+    };
+  } else if (feature.geometry.type === 'LineString') {
+    geometry = {
+      type: 'LineString',
+      coordinates: feature.geometry.coordinates.map(
+        (pos) => [pos[0], pos[1]] as Position,
+      ),
+    };
+  } else {
+    geometry = {
+      type: 'Polygon',
+      coordinates: cloneCoordinates(feature.geometry.coordinates),
+    };
+  }
+
   return {
     id: feature.id,
     type: 'Feature',
-    geometry: {
-      type: 'Polygon',
-      coordinates: cloneCoordinates(feature.geometry.coordinates),
-    },
+    geometry,
     properties: cloneProperties(feature.properties),
   };
 }

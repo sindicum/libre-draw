@@ -8,7 +8,7 @@
       ></div>
       <div class="demo-log" ref="logContainer">
         <p v-if="logs.length === 0" class="demo-log-empty">
-          Draw a polygon to see events here...
+          Place a point or draw a polygon to see events here...
         </p>
         <p
           v-for="(log, index) in logs"
@@ -35,6 +35,17 @@ defineProps({
 interface LogEntry {
   type: string;
   message: string;
+}
+
+function describeFeature(feature: any): string {
+  if (feature.geometry.type === 'Point') {
+    return `Point ${feature.id.slice(0, 8)}...`;
+  }
+  if (feature.geometry.type === 'LineString') {
+    return `Line ${feature.id.slice(0, 8)}... (${feature.geometry.coordinates.length} vertices)`;
+  }
+
+  return `Polygon ${feature.id.slice(0, 8)}... (${feature.geometry.coordinates[0].length - 1} vertices)`;
 }
 
 const mapContainer = ref<HTMLDivElement | null>(null);
@@ -96,8 +107,12 @@ onMounted(async () => {
       toolbar: {
         position: 'top-right',
         controls: {
+          drawPoint: true,
+          drawLine: true,
           draw: true,
           select: true,
+          split: true,
+          setback: true,
           delete: true,
           undo: true,
           redo: true,
@@ -108,21 +123,37 @@ onMounted(async () => {
     drawInstance = draw;
 
     draw.on('create', (e) => {
-      addLog(
-        'create',
-        `Polygon created (${e.feature.geometry.coordinates[0].length - 1} vertices)`,
-      );
+      addLog('create', `${describeFeature(e.feature)} created`);
     });
 
     draw.on('update', (e) => {
-      addLog(
-        'update',
-        `Polygon updated (${e.feature.geometry.coordinates[0].length - 1} vertices)`,
-      );
+      addLog('update', `${describeFeature(e.feature)} updated`);
     });
 
     draw.on('delete', (e) => {
-      addLog('delete', `Polygon deleted: ${e.feature.id.slice(0, 8)}...`);
+      addLog('delete', `${describeFeature(e.feature)} deleted`);
+    });
+
+    draw.on('split', (e) => {
+      addLog(
+        'split',
+        `${e.originalFeature.id.slice(0, 8)}... -> ${e.features.map((f) => f.id.slice(0, 8) + '...').join(', ')}`,
+      );
+    });
+
+    draw.on('splitfailed', (e) => {
+      addLog('splitfailed', `${e.reason} (${e.featureId.slice(0, 8)}...)`);
+    });
+
+    draw.on('setback', (e) => {
+      addLog(
+        'setback',
+        `${e.originalFeature.id.slice(0, 8)}... edge ${e.edgeIndex} distance ${e.distance}`,
+      );
+    });
+
+    draw.on('setbackfailed', (e) => {
+      addLog('setbackfailed', `${e.reason} (${e.featureId.slice(0, 8)}...)`);
     });
 
     draw.on('selectionchange', (e) => {

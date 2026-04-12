@@ -22,15 +22,18 @@ All types are exported as TypeScript type-only exports:
 
 | Type | Description |
 |------|-------------|
-| [`LibreDrawFeature`](/api/types#libredrawfeature) | A polygon feature with id, geometry, and properties |
+| [`LibreDrawFeature`](/api/types#libredrawfeature) | A Point, LineString, or Polygon feature with id, geometry, and properties |
+| [`PointGeometry`](/api/types#pointgeometry) | GeoJSON Point geometry |
+| [`LineStringGeometry`](/api/types#linestringgeometry) | GeoJSON LineString geometry |
 | [`PolygonGeometry`](/api/types#polygongeometry) | GeoJSON Polygon geometry |
+| [`LibreDrawGeometry`](/api/types#libredrawgeometry) | Supported GeoJSON geometry union |
 | [`Position`](/api/types#position) | `[longitude, latitude]` coordinate pair |
 | [`FeatureProperties`](/api/types#featureproperties) | Arbitrary key-value properties |
 | [`LibreDrawOptions`](/api/types#libredrawoptions) | Constructor options |
 | [`ToolbarOptions`](/api/types#toolbaroptions) | Toolbar configuration |
 | [`ToolbarPosition`](/api/types#toolbarposition) | Toolbar placement |
 | [`ToolbarControls`](/api/types#toolbarcontrols) | Which toolbar buttons to show |
-| [`ModeName`](/api/types#modename) | `'idle' \| 'draw' \| 'select' \| 'split' \| 'setback'` |
+| [`ModeName`](/api/types#modename) | `'idle' \| 'draw-point' \| 'draw-line' \| 'draw' \| 'select' \| 'split' \| 'setback'` |
 | [`Action`](/api/types#action) | Undo/redo action interface |
 | [`ActionType`](/api/types#actiontype) | `'create' \| 'update' \| 'delete' \| 'split' \| 'setback'` |
 | [`NormalizedInputEvent`](/api/types#normalizedinputevent) | Unified mouse/touch event |
@@ -40,9 +43,9 @@ All types are exported as TypeScript type-only exports:
 
 | Event | Payload | Description |
 |-------|---------|-------------|
-| [`create`](/api/events#create) | `CreateEvent` | Polygon created |
-| [`update`](/api/events#update) | `UpdateEvent` | Polygon edited |
-| [`delete`](/api/events#delete) | `DeleteEvent` | Polygon deleted |
+| [`create`](/api/events#create) | `CreateEvent` | Feature created (point, line, or polygon) |
+| [`update`](/api/events#update) | `UpdateEvent` | Feature edited (point, line, or polygon) |
+| [`delete`](/api/events#delete) | `DeleteEvent` | Feature deleted (point, line, or polygon) |
 | [`split`](/api/events#split) | `SplitEvent` | Polygon split into two polygons |
 | [`splitfailed`](/api/events#splitfailed) | `SplitFailedEvent` | Split operation failed |
 | [`setback`](/api/events#setback) | `SetbackEvent` | Setback operation succeeded |

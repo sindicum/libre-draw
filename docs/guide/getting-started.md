@@ -27,7 +27,7 @@ const map = new maplibregl.Map({
 const draw = new LibreDraw(map);
 ```
 
-That's it! A toolbar with draw, select, split, setback, delete, undo, and redo buttons appears on the map. Click the draw button to start creating polygons.
+That's it! A toolbar with draw-point, draw-line, draw, select, split, setback, delete, undo, and redo buttons appears on the map. Use draw-point to place points, draw-line to draw lines, or draw to create polygons.
 
 > **Note:** LibreDraw does not require a separate CSS import. All styles (toolbar, map layers) are applied programmatically via JavaScript. Only `maplibre-gl.css` is needed for the base map.
 
@@ -42,6 +42,8 @@ const draw = new LibreDraw(map, {
   toolbar: {
     position: 'top-right', // 'top-left' | 'top-right' | 'bottom-left' | 'bottom-right'
     controls: {
+      drawPoint: true,
+      drawLine: true,
       draw: true,
       select: true,
       split: true,
@@ -63,6 +65,8 @@ If you want to control everything programmatically without the toolbar:
 const draw = new LibreDraw(map, { toolbar: false });
 
 // Control modes via API
+draw.setMode('draw-point');
+draw.setMode('draw-line');
 draw.setMode('draw');
 draw.setMode('select');
 draw.setMode('idle');
@@ -72,16 +76,16 @@ draw.setMode('idle');
 
 ```ts
 draw.on('create', (e) => {
-  console.log('Polygon created:', e.feature);
+  console.log('Feature created:', e.feature.geometry.type, e.feature);
 });
 
 draw.on('update', (e) => {
-  console.log('Polygon updated:', e.feature);
+  console.log('Feature updated:', e.feature.geometry.type, e.feature);
   console.log('Previous state:', e.oldFeature);
 });
 
 draw.on('delete', (e) => {
-  console.log('Polygon deleted:', e.feature);
+  console.log('Feature deleted:', e.feature.geometry.type, e.feature);
 });
 
 draw.on('split', (e) => {
@@ -159,6 +163,6 @@ draw.destroy();
 
 ## Next Steps
 
-- Learn about [Modes](/guide/modes) (Idle, Draw, Select, Split, Setback)
+- Learn about [Modes](/guide/modes) (Idle, Draw Point, Draw Line, Draw, Select, Split, Setback)
 - See the full [API Reference](/api/)
 - Try the [Live Demo](/examples/)

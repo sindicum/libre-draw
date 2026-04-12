@@ -3,20 +3,23 @@
 [![npm version](https://img.shields.io/npm/v/%40sindicum%2Flibre-draw.svg)](https://www.npmjs.com/package/@sindicum/libre-draw)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](https://opensource.org/licenses/MIT)
 
-A polygon drawing and editing library for [MapLibre GL JS](https://maplibre.org/).
+A point, line, and polygon drawing and editing library for [MapLibre GL JS](https://maplibre.org/).
 
 ## Features
 
 - **Zero-config** — `new LibreDraw(map)` gives you a full toolbar and drawing capabilities out of the box
-- **Draw polygons** — Click/tap to place vertices, double-click/double-tap to finish
-- **Select & edit** — Click a polygon to select it, drag vertices to reshape, drag midpoints to add vertices
-- **Polygon drag** — Drag an entire selected polygon to reposition it
+- **Draw points** — Click/tap to place point features
+- **Draw lines** — Click/tap to add vertices, double-click/double-tap to finalize
+- **Draw polygons** — Click/tap to place vertices, double-click/double-tap to close
+- **Select & edit** — Click a feature to select it, drag vertices to reshape, drag midpoints to add vertices
+- **Feature drag** — Drag an entire selected point, line, or polygon to reposition it
 - **Split polygon** — Cut a polygon into two polygons with a two-point split line
 - **Setback edge** — Offset a selected edge inward and remove the setback band
+- **Snap** — Vertices snap to nearby existing vertices and edges during drawing and editing
 - **Undo / Redo** — Full history support for all operations
-- **GeoJSON in/out** — Import and export standard GeoJSON FeatureCollections
+- **GeoJSON in/out** — Import and export standard GeoJSON FeatureCollections (Point, LineString, Polygon)
 - **Touch-first** — Designed for mobile with proper touch targets (44px+), long-press support, and gesture handling
-- **Self-intersection prevention** — Invalid geometries are rejected during editing
+- **Self-intersection prevention** — Invalid polygon geometries are rejected during editing
 - **Framework-agnostic** — Works with vanilla JS, React, Vue, or any framework
 - **TypeScript** — Full type definitions included
 - **Headless mode** — Disable the toolbar and drive everything via API
@@ -42,11 +45,11 @@ const map = new maplibregl.Map({
 const draw = new LibreDraw(map);
 
 draw.on('create', (e) => {
-  console.log('Polygon created:', e.feature);
+  console.log('Feature created:', e.feature.geometry.type, e.feature);
 });
 
 draw.on('update', (e) => {
-  console.log('Polygon updated:', e.feature);
+  console.log('Feature updated:', e.feature.geometry.type, e.feature);
 });
 ```
 
@@ -62,7 +65,7 @@ new LibreDraw(map: maplibregl.Map, options?: LibreDrawOptions)
 
 | Method                    | Description                                           |
 | ------------------------- | ----------------------------------------------------- |
-| `setMode(mode)`           | Set active mode: `'idle'`, `'draw'`, `'select'`, `'split'`, or `'setback'` |
+| `setMode(mode)`           | Set active mode: `'idle'`, `'draw-point'`, `'draw-line'`, `'draw'`, `'select'`, `'split'`, or `'setback'` |
 | `getMode()`               | Get the current mode                                  |
 | `getFeatures()`           | Get all features as an array                          |
 | `toGeoJSON()`             | Export all features as a GeoJSON FeatureCollection    |
@@ -83,9 +86,9 @@ new LibreDraw(map: maplibregl.Map, options?: LibreDrawOptions)
 
 | Event             | Payload                                            | Description                          |
 | ----------------- | -------------------------------------------------- | ------------------------------------ |
-| `create`          | `{ feature }`                                      | A polygon was created                |
-| `update`          | `{ feature, oldFeature }`                          | A polygon was updated                |
-| `delete`          | `{ feature }`                                      | A polygon was deleted                |
+| `create`          | `{ feature }`                                      | A feature was created (point, line, or polygon) |
+| `update`          | `{ feature, oldFeature }`                          | A feature was updated                |
+| `delete`          | `{ feature }`                                      | A feature was deleted                |
 | `split`           | `{ originalFeature, features: [featureA, featureB] }` | A polygon was split into two polygons |
 | `splitfailed`     | `{ reason, featureId }`                            | Split operation failed               |
 | `setback`         | `{ originalFeature, feature, edgeIndex, distance }` | Setback operation succeeded          |
@@ -102,6 +105,8 @@ interface LibreDrawOptions {
     | {
         position?: 'top-left' | 'top-right' | 'bottom-left' | 'bottom-right';
         controls?: {
+          drawPoint?: boolean;
+          drawLine?: boolean;
           draw?: boolean;
           select?: boolean;
           split?: boolean;
@@ -112,6 +117,7 @@ interface LibreDrawOptions {
         };
       };
   historyLimit?: number; // Default: 100
+  snap?: boolean | { enabled?: boolean; threshold?: number }; // Default: true
 }
 ```
 

@@ -1,14 +1,19 @@
 import type { ModeContext } from '../core/ModeContext';
-import type { LibreDrawFeature, Position } from '../types/features';
+import type { LibreDrawFeature, PolygonGeometry, Position } from '../types/features';
 import type { NormalizedInputEvent } from '../types/input';
 import { UpdateAction } from '../types/features';
 import { cloneFeature } from '../utils/featureSnapshot';
 import {
   computeMidpoints,
+  computeLineMidpoints,
   getVertices,
+  getLineVertices,
   insertVertex,
+  insertLineVertex,
   moveVertex,
+  moveLineVertex,
   removeVertex,
+  removeLineVertex,
 } from '../utils/geometry';
 import { hasRingSelfIntersection } from '../validation/intersection';
 import { findSnapTarget } from '../utils/snap';
@@ -16,6 +21,7 @@ import { findSnapTarget } from '../utils/snap';
 const HIT_THRESHOLD_MOUSE_PX = 10;
 const HIT_THRESHOLD_TOUCH_PX = 24;
 const MIN_VERTICES = 3;
+const MIN_LINE_VERTICES = 2;
 
 /**
  * Handles vertex/midpoint interactions for selected polygons.
@@ -26,6 +32,7 @@ export class VertexEditor {
   private dragVertexIndex = -1;
   private dragStartFeature: LibreDrawFeature | null = null;
   private highlightedVertexIndex = -1;
+  private highlightedMidpointIndex = -1;
 
   constructor(context: ModeContext) {
     this.context = context;
@@ -42,10 +49,12 @@ export class VertexEditor {
   resetInteractionState(): void {
     this.endDrag();
     this.highlightedVertexIndex = -1;
+    this.highlightedMidpointIndex = -1;
   }
 
   clearHighlight(): void {
     this.highlightedVertexIndex = -1;
+    this.highlightedMidpointIndex = -1;
   }
 
   tryStartVertexDragOrInsert(
@@ -53,7 +62,8 @@ export class VertexEditor {
     selectedId: string,
     event: NormalizedInputEvent,
   ): boolean {
-    const vertices = getVertices(feature);
+    const isLine = feature.geometry.type === 'LineString';
+    const vertices = isLine ? getLineVertices(feature) : getVertices(feature);
     const threshold = this.getThreshold(event);
 
     const vertexIdx = this.findNearestVertex(vertices, event.point, threshold);
@@ -62,12 +72,17 @@ export class VertexEditor {
       return true;
     }
 
-    const midpoints = computeMidpoints(vertices);
+    const midpoints = isLine ? computeLineMidpoints(vertices) : computeMidpoints(vertices);
     const midIdx = this.findNearestPoint(midpoints, event.point, threshold);
     if (midIdx >= 0) {
       const beforeInsert = cloneFeature(feature);
-      const newFeature = insertVertex(feature, midIdx + 1, midpoints[midIdx]);
+      const newFeature = isLine
+        ? insertLineVertex(feature, midIdx + 1, midpoints[midIdx])
+        : insertVertex(feature, midIdx + 1, midpoints[midIdx]);
       this.context.store.update(selectedId, newFeature);
+      // Set highlight to the newly inserted vertex before rendering
+      this.highlightedVertexIndex = midIdx + 1;
+      this.highlightedMidpointIndex = -1;
       this.renderHandles(newFeature);
       this.startDrag(newFeature, midIdx + 1, beforeInsert);
       return true;
@@ -85,14 +100,24 @@ export class VertexEditor {
     // Apply snap to the drag position
     const snappedPos = this.applySnapForDrag(event.lngLat, selectedId);
     const newPos: Position = [snappedPos.lng, snappedPos.lat];
+
+    // LineString: no self-intersection check needed
+    if (feature.geometry.type === 'LineString') {
+      const updatedFeature = moveLineVertex(feature, this.dragVertexIndex, newPos);
+      this.context.store.update(selectedId, updatedFeature);
+      this.context.render.renderFeatures();
+      this.renderHandles(updatedFeature);
+      return true;
+    }
+
     const updatedFeature = moveVertex(feature, this.dragVertexIndex, newPos);
 
-    if (hasRingSelfIntersection(updatedFeature.geometry.coordinates[0])) {
+    if (hasRingSelfIntersection((updatedFeature.geometry as PolygonGeometry).coordinates[0])) {
       // If snap caused intersection, try without snap
       if (snappedPos.lng !== event.lngLat.lng || snappedPos.lat !== event.lngLat.lat) {
         const unsnappedPos: Position = [event.lngLat.lng, event.lngLat.lat];
         const unsnappedFeature = moveVertex(feature, this.dragVertexIndex, unsnappedPos);
-        if (!hasRingSelfIntersection(unsnappedFeature.geometry.coordinates[0])) {
+        if (!hasRingSelfIntersection((unsnappedFeature.geometry as PolygonGeometry).coordinates[0])) {
           this.context.render.clearSnapIndicator();
           this.context.store.update(selectedId, unsnappedFeature);
           this.context.render.renderFeatures();
@@ -113,12 +138,23 @@ export class VertexEditor {
     feature: LibreDrawFeature,
     event: NormalizedInputEvent,
   ): void {
-    const vertices = getVertices(feature);
+    const isLine = feature.geometry.type === 'LineString';
+    const vertices = isLine ? getLineVertices(feature) : getVertices(feature);
     const threshold = this.getThreshold(event);
-    const nearIdx = this.findNearestVertex(vertices, event.point, threshold);
 
-    if (nearIdx !== this.highlightedVertexIndex) {
-      this.highlightedVertexIndex = nearIdx;
+    // Check vertices first (higher priority)
+    const nearVertexIdx = this.findNearestVertex(vertices, event.point, threshold);
+
+    // Check midpoints only if no vertex is near
+    let nearMidIdx = -1;
+    if (nearVertexIdx < 0) {
+      const midpoints = isLine ? computeLineMidpoints(vertices) : computeMidpoints(vertices);
+      nearMidIdx = this.findNearestPoint(midpoints, event.point, threshold);
+    }
+
+    if (nearVertexIdx !== this.highlightedVertexIndex || nearMidIdx !== this.highlightedMidpointIndex) {
+      this.highlightedVertexIndex = nearVertexIdx;
+      this.highlightedMidpointIndex = nearMidIdx;
       this.renderHandles(feature);
     }
   }
@@ -128,16 +164,21 @@ export class VertexEditor {
     feature: LibreDrawFeature,
     event: NormalizedInputEvent,
   ): boolean {
-    const vertices = getVertices(feature);
+    if (feature.geometry.type === 'Point') return false;
+    const isLine = feature.geometry.type === 'LineString';
+    const vertices = isLine ? getLineVertices(feature) : getVertices(feature);
+    const minVerts = isLine ? MIN_LINE_VERTICES : MIN_VERTICES;
     const threshold = this.getThreshold(event);
     const vertexIdx = this.findNearestVertex(vertices, event.point, threshold);
 
-    if (vertexIdx < 0 || vertices.length <= MIN_VERTICES) {
+    if (vertexIdx < 0 || vertices.length <= minVerts) {
       return false;
     }
 
     const oldFeature = cloneFeature(feature);
-    const updatedFeature = removeVertex(feature, vertexIdx);
+    const updatedFeature = isLine
+      ? removeLineVertex(feature, vertexIdx)
+      : removeVertex(feature, vertexIdx);
 
     this.context.store.update(selectedId, updatedFeature);
 
@@ -158,12 +199,14 @@ export class VertexEditor {
   }
 
   renderHandles(feature: LibreDrawFeature): void {
-    const vertices = getVertices(feature);
-    const midpoints = computeMidpoints(vertices);
+    const isLine = feature.geometry.type === 'LineString';
+    const vertices = isLine ? getLineVertices(feature) : getVertices(feature);
+    const midpoints = isLine ? computeLineMidpoints(vertices) : computeMidpoints(vertices);
     this.context.render.renderVertices(
       vertices,
       midpoints,
       this.highlightedVertexIndex >= 0 ? this.highlightedVertexIndex : undefined,
+      this.highlightedMidpointIndex >= 0 ? this.highlightedMidpointIndex : undefined,
     );
   }
 
@@ -186,6 +229,9 @@ export class VertexEditor {
     this.dragging = true;
     this.dragVertexIndex = vertexIndex;
     this.dragStartFeature = startFeatureSnapshot;
+    // Show dragged vertex as highlighted, clear midpoint highlight
+    this.highlightedVertexIndex = vertexIndex;
+    this.highlightedMidpointIndex = -1;
     this.context.setDragPan(false);
   }
 

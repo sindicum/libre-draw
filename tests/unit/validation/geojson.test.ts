@@ -74,10 +74,44 @@ describe('validateFeature', () => {
     expect(() =>
       validateFeature(
         makeFeature({
-          geometry: { type: 'LineString', coordinates: [[0, 0], [1, 1]] },
+          geometry: { type: 'MultiPoint', coordinates: [[0, 0], [1, 1]] },
         }),
       ),
-    ).toThrow('Feature.geometry.type must be "Polygon"');
+    ).toThrow('Feature.geometry.type must be "Point", "LineString", or "Polygon"');
+  });
+
+  it('should accept a valid LineString feature', () => {
+    const feature = makeFeature({
+      geometry: {
+        type: 'LineString',
+        coordinates: [[0, 0], [10, 5], [20, 0]],
+      },
+    });
+    const result = validateFeature(feature);
+    expect(result.geometry.type).toBe('LineString');
+    if (result.geometry.type === 'LineString') {
+      expect(result.geometry.coordinates).toHaveLength(3);
+    }
+  });
+
+  it('should reject LineString with fewer than 2 positions', () => {
+    expect(() =>
+      validateFeature(
+        makeFeature({
+          geometry: { type: 'LineString', coordinates: [[0, 0]] },
+        }),
+      ),
+    ).toThrow('LineString must have at least 2 positions');
+  });
+
+  it('should reject LineString with invalid coordinates', () => {
+    expect(() =>
+      validateFeature(
+        makeFeature({
+          geometry: { type: 'LineString', coordinates: [[200, 0], [10, 5]] },
+        }),
+      ),
+    ).toThrow('Invalid longitude');
   });
 
   it('should reject polygon with no rings', () => {

@@ -4,7 +4,7 @@
       <div v-if="error" class="demo-error">{{ error }}</div>
       <div ref="mapContainer" class="demo-map-compact"></div>
       <div class="demo-hint">
-        Click the <strong>draw</strong> button (pencil icon) in the toolbar, then click on the map to add vertices. Double-click to finish.
+        Click <strong>draw-point</strong> to place a point, or <strong>draw</strong> to add polygon vertices and double-click to finish.
       </div>
     </div>
   </ClientOnly>
@@ -52,8 +52,12 @@ onMounted(async () => {
       toolbar: {
         position: 'top-right',
         controls: {
+          drawPoint: true,
+          drawLine: true,
           draw: true,
           select: true,
+          split: true,
+          setback: true,
           delete: true,
           undo: true,
           redo: true,

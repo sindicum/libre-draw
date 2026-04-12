@@ -23,6 +23,8 @@ export type ToolbarPosition =
  * Configuration for which toolbar controls to display.
  */
 export interface ToolbarControls {
+  drawPoint?: boolean;
+  drawLine?: boolean;
   draw?: boolean;
   select?: boolean;
   split?: boolean;

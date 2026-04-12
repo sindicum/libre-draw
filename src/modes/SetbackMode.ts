@@ -2,7 +2,7 @@ import booleanPointInPolygon from '@turf/boolean-point-in-polygon';
 import { point as turfPoint } from '@turf/helpers';
 import type { Mode } from './Mode';
 import type { ModeContext } from '../core/ModeContext';
-import type { LibreDrawFeature, Position } from '../types/features';
+import type { LibreDrawFeature, PolygonGeometry, Position } from '../types/features';
 import { SetbackAction } from '../types/features';
 import type { NormalizedInputEvent } from '../types/input';
 import { cloneFeature } from '../utils/featureSnapshot';
@@ -191,7 +191,7 @@ export class SetbackMode implements Mode {
 
     const vertices = getVertices(feature);
     const clickPoint = turfPoint([event.lngLat.lng, event.lngLat.lat]);
-    const insidePolygon = booleanPointInPolygon(clickPoint, feature.geometry);
+    const insidePolygon = booleanPointInPolygon(clickPoint, feature.geometry as PolygonGeometry);
     const threshold = this.getThreshold(event) + (insidePolygon ? 0 : OUTSIDE_EDGE_HIT_BONUS_PX);
 
     const hit = findNearestEdge(
@@ -248,7 +248,7 @@ export class SetbackMode implements Mode {
       return;
     }
 
-    if (feature.geometry.coordinates.length > 1) {
+    if (feature.geometry.type !== 'Polygon' || feature.geometry.coordinates.length > 1) {
       this.emitSetbackFailed('has-holes', feature.id);
       this.state = 'selecting-edge';
       this.selectedEdgeIndex = -1;
@@ -301,7 +301,7 @@ export class SetbackMode implements Mode {
 
     const isASetbackBand = booleanPointInPolygon(
       turfPoint(edgeMidpoint),
-      featureA.geometry,
+      featureA.geometry as PolygonGeometry,
     );
 
     const resultFeature = isASetbackBand ? featureB : featureA;
@@ -328,8 +328,9 @@ export class SetbackMode implements Mode {
     const features = this.context.store.getAll();
 
     for (let i = features.length - 1; i >= 0; i--) {
-      if (booleanPointInPolygon(clickPoint, features[i].geometry)) {
-        return features[i];
+      const f = features[i];
+      if (f.geometry.type === 'Polygon' && booleanPointInPolygon(clickPoint, f.geometry)) {
+        return f;
       }
     }
 
