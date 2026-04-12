@@ -27,7 +27,7 @@ const map = new maplibregl.Map({
 
 const draw = new LibreDraw(map, {
   toolbar: {
-    position: 'top-right',
+    position: 'top-left',
     controls: {
       draw: true,
       select: true,

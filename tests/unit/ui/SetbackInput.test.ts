@@ -98,6 +98,30 @@ describe('SetbackInput', () => {
     });
   });
 
+  describe('setPosition', () => {
+    it('should position to the left when side is left', () => {
+      const { input } = createInput();
+      input.setPosition('left');
+      const el = input.getElement();
+
+      expect(el.style.right).toBe('100%');
+      expect(el.style.left).toBe('');
+      expect(el.style.marginRight).toBe('8px');
+      expect(el.style.marginLeft).toBe('');
+    });
+
+    it('should position to the right when side is right', () => {
+      const { input } = createInput();
+      input.setPosition('right');
+      const el = input.getElement();
+
+      expect(el.style.left).toBe('100%');
+      expect(el.style.right).toBe('');
+      expect(el.style.marginLeft).toBe('8px');
+      expect(el.style.marginRight).toBe('');
+    });
+  });
+
   describe('getDistance', () => {
     it('should return default distance for invalid input', () => {
       const { input } = createInput();

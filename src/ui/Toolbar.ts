@@ -231,10 +231,11 @@ export class Toolbar {
   }
 
   /**
-   * Create setback toggle button + inline distance input.
+   * Create setback toggle button + popup distance input.
    */
   private addSetbackControl(): void {
     const row = this.createControlRow();
+    row.style.position = 'relative';
 
     const button = new ToolbarButton({
       id: 'setback',
@@ -250,6 +251,11 @@ export class Toolbar {
       onSubmit: (distance) => this.callbacks.onSetbackExecute(distance),
       onDistanceChange: (distance) => this.callbacks.onSetbackDistanceChange(distance),
     });
+
+    const position = this.options.position || 'top-right';
+    const isRight = position === 'top-right' || position === 'bottom-right';
+    this.setbackInput.setPosition(isRight ? 'left' : 'right');
+
     row.appendChild(this.setbackInput.getElement());
 
     this.container.appendChild(row);

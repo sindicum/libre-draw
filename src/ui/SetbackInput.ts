@@ -64,6 +64,24 @@ export class SetbackInput {
     this.container.style.display = visible ? 'inline-flex' : 'none';
   }
 
+  /**
+   * Set the popup position relative to the setback button.
+   * @param side - 'left' to appear on the left, 'right' to appear on the right.
+   */
+  setPosition(side: 'left' | 'right'): void {
+    if (side === 'left') {
+      this.container.style.right = '100%';
+      this.container.style.left = '';
+      this.container.style.marginRight = '8px';
+      this.container.style.marginLeft = '';
+    } else {
+      this.container.style.left = '100%';
+      this.container.style.right = '';
+      this.container.style.marginLeft = '8px';
+      this.container.style.marginRight = '';
+    }
+  }
+
   destroy(): void {
     this.input.removeEventListener('input', this.handleInput);
     this.input.removeEventListener('keydown', this.handleKeyDown);
@@ -104,15 +122,17 @@ export class SetbackInput {
 
   private applyContainerStyles(): void {
     const s = this.container.style;
+    s.position = 'absolute';
+    s.top = '0';
     s.display = 'inline-flex';
     s.alignItems = 'center';
     s.gap = '6px';
-    s.marginLeft = '8px';
     s.padding = '4px 6px';
     s.background = 'rgba(255, 255, 255, 0.95)';
     s.border = '1px solid #d0d7de';
     s.borderRadius = '4px';
     s.pointerEvents = 'auto';
+    s.whiteSpace = 'nowrap';
   }
 
   private applyInputStyles(): void {
