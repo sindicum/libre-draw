@@ -145,7 +145,7 @@ export class RenderManager {
         id: LAYER_IDS.VERTICES,
         type: 'circle',
         source: SOURCE_IDS.FEATURES,
-        filter: ['all', ['==', '$type', 'Point'], ['!=', ['get', '_isPoint'], true]],
+        filter: ['all', ['==', '$type', 'Point'], ['!=', '_isPoint', true]],
         paint: {
           'circle-radius': this.style.vertex.radius,
           'circle-color': this.style.vertex.color,

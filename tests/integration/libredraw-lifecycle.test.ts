@@ -316,7 +316,7 @@ describe('LibreDraw lifecycle integration', () => {
     expect(verticesLayer.filter).toEqual([
       'all',
       ['==', '$type', 'Point'],
-      ['!=', ['get', '_isPoint'], true],
+      ['!=', '_isPoint', true],
     ]);
 
     // Point features should have _isPoint property set
