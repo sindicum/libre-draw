@@ -36,6 +36,13 @@ export type {
   ToolbarControls,
   StyleConfig,
   PartialStyleConfig,
+  PointStyle,
+  FillStyle,
+  OutlineStyle,
+  VertexStyle,
+  PreviewStyle,
+  EditVertexStyle,
+  MidpointStyle,
 } from './types';
 
 export type {

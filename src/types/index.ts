@@ -51,6 +51,7 @@ export type {
   PreviewStyle,
   EditVertexStyle,
   MidpointStyle,
+  PointStyle,
   StyleConfig,
   PartialStyleConfig,
 } from './style';

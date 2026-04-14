@@ -6,7 +6,10 @@ import type {
   LibreDrawOptions,
   ToolbarOptions,
   SnapConfig,
+  StyleConfig,
+  PartialStyleConfig,
 } from './types';
+import { mergeStyleConfig } from './types/style';
 import type { Action } from './types/features';
 import {
   DeleteAction,
@@ -534,6 +537,39 @@ export class LibreDraw {
   }
 
   /**
+   * Update the global render style at runtime.
+   *
+   * Merges the given partial overrides with the current style and
+   * applies changes to all map layers immediately.
+   *
+   * @param style - Partial style overrides to apply.
+   *
+   * @throws {LibreDrawError} If this instance has been destroyed.
+   *
+   * @example
+   * ```ts
+   * draw.setStyle({ fill: { color: '#ff0000', opacity: 0.5 } });
+   * ```
+   */
+  setStyle(style: PartialStyleConfig): void {
+    this.assertNotDestroyed();
+    const merged = mergeStyleConfig(style);
+    this.renderManager.updateStyle(merged);
+  }
+
+  /**
+   * Get the current global render style.
+   *
+   * @returns The full style configuration currently in use.
+   *
+   * @throws {LibreDrawError} If this instance has been destroyed.
+   */
+  getStyle(): StyleConfig {
+    this.assertNotDestroyed();
+    return this.renderManager.getStyle();
+  }
+
+  /**
    * Undo the last action.
    *
    * Reverts the most recent action (create, update, or delete) and
@@ -744,6 +780,9 @@ export class LibreDraw {
         },
         onSetbackDistanceChange: (distance) => {
           this.setbackMode.onDistanceChange(distance);
+        },
+        onStyleChange: (style) => {
+          this.setStyle(style);
         },
         onDeleteClick: () => {
           if (this.modeManager.getMode() === 'select') {

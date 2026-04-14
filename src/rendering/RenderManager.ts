@@ -166,24 +166,24 @@ export class RenderManager {
           'circle-radius': [
             'case',
             ['boolean', ['get', '_selected'], false],
-            8,
-            6,
+            this.style.point.selectedRadius,
+            this.style.point.radius,
           ],
           'circle-color': [
             'case',
             ['boolean', ['get', '_selected'], false],
-            this.style.fill.selectedColor,
-            this.style.fill.color,
+            this.style.point.selectedColor,
+            ['case',
+              ['boolean', ['feature-state', 'hover'], false],
+              this.style.point.hoverColor,
+              this.style.point.color,
+            ],
           ],
-          'circle-stroke-color': [
-            'case',
-            ['boolean', ['get', '_selected'], false],
-            this.style.outline.selectedColor,
-            this.style.outline.color,
-          ],
-          'circle-stroke-width': this.style.outline.width,
+          'circle-stroke-color': this.style.point.strokeColor,
+          'circle-stroke-width': this.style.point.strokeWidth,
         },
       });
+      this.setupPointHover();
     }
 
     // Preview layer (dashed outline for in-progress drawing)
@@ -483,6 +483,151 @@ export class RenderManager {
   }
 
   /**
+   * Get the current style configuration.
+   */
+  getStyle(): StyleConfig {
+    return { ...this.style };
+  }
+
+  /**
+   * Update the global render style at runtime using setPaintProperty.
+   * @param style - The new full style configuration.
+   */
+  updateStyle(style: StyleConfig): void {
+    this.style = style;
+    if (!this.initialized) return;
+
+    const m = this.map;
+    const set = (
+      layer: string,
+      prop: string,
+      value: unknown,
+    ): void => {
+      if (m.getLayer(layer)) {
+        m.setPaintProperty(layer, prop, value);
+      }
+    };
+
+    // FILL
+    set(LAYER_IDS.FILL, 'fill-color', [
+      'case', ['boolean', ['get', '_selected'], false],
+      style.fill.selectedColor, style.fill.color,
+    ]);
+    set(LAYER_IDS.FILL, 'fill-opacity', [
+      'case', ['boolean', ['get', '_selected'], false],
+      style.fill.selectedOpacity, style.fill.opacity,
+    ]);
+
+    // OUTLINE
+    set(LAYER_IDS.OUTLINE, 'line-color', [
+      'case', ['boolean', ['get', '_selected'], false],
+      style.outline.selectedColor, style.outline.color,
+    ]);
+    set(LAYER_IDS.OUTLINE, 'line-width', style.outline.width);
+
+    // LINE
+    set(LAYER_IDS.LINE, 'line-color', [
+      'case', ['boolean', ['get', '_selected'], false],
+      style.outline.selectedColor, style.outline.color,
+    ]);
+    set(LAYER_IDS.LINE, 'line-width', [
+      'case', ['boolean', ['get', '_selected'], false],
+      style.outline.width + 1, style.outline.width,
+    ]);
+
+    // VERTICES
+    set(LAYER_IDS.VERTICES, 'circle-radius', style.vertex.radius);
+    set(LAYER_IDS.VERTICES, 'circle-color', style.vertex.color);
+    set(
+      LAYER_IDS.VERTICES,
+      'circle-stroke-color',
+      style.vertex.strokeColor,
+    );
+    set(
+      LAYER_IDS.VERTICES,
+      'circle-stroke-width',
+      style.vertex.strokeWidth,
+    );
+
+    // POINT
+    set(LAYER_IDS.POINT, 'circle-radius', [
+      'case', ['boolean', ['get', '_selected'], false],
+      style.point.selectedRadius, style.point.radius,
+    ]);
+    set(LAYER_IDS.POINT, 'circle-color', [
+      'case', ['boolean', ['get', '_selected'], false],
+      style.point.selectedColor,
+      ['case', ['boolean', ['feature-state', 'hover'], false],
+        style.point.hoverColor, style.point.color],
+    ]);
+    set(
+      LAYER_IDS.POINT,
+      'circle-stroke-color',
+      style.point.strokeColor,
+    );
+    set(
+      LAYER_IDS.POINT,
+      'circle-stroke-width',
+      style.point.strokeWidth,
+    );
+
+    // PREVIEW
+    set(LAYER_IDS.PREVIEW, 'line-color', style.preview.color);
+    set(LAYER_IDS.PREVIEW, 'line-width', style.preview.width);
+    set(
+      LAYER_IDS.PREVIEW,
+      'line-dasharray',
+      style.preview.dasharray,
+    );
+
+    // EDGE_HIGHLIGHT
+    set(
+      LAYER_IDS.EDGE_HIGHLIGHT,
+      'line-color',
+      style.outline.selectedColor,
+    );
+    set(
+      LAYER_IDS.EDGE_HIGHLIGHT,
+      'line-width',
+      style.outline.width + 2,
+    );
+
+    // EDIT_VERTICES
+    set(LAYER_IDS.EDIT_VERTICES, 'circle-radius', [
+      'case', ['boolean', ['get', '_highlighted'], false],
+      style.editVertex.highlightedRadius, style.editVertex.radius,
+    ]);
+    set(LAYER_IDS.EDIT_VERTICES, 'circle-color', [
+      'case', ['boolean', ['get', '_highlighted'], false],
+      style.editVertex.highlightedColor, style.editVertex.color,
+    ]);
+    set(LAYER_IDS.EDIT_VERTICES, 'circle-stroke-color', [
+      'case', ['boolean', ['get', '_highlighted'], false],
+      style.editVertex.highlightedStrokeColor,
+      style.editVertex.strokeColor,
+    ]);
+    set(
+      LAYER_IDS.EDIT_VERTICES,
+      'circle-stroke-width',
+      style.editVertex.strokeWidth,
+    );
+
+    // EDIT_MIDPOINTS
+    set(LAYER_IDS.EDIT_MIDPOINTS, 'circle-radius', [
+      'case', ['boolean', ['get', '_highlighted'], false],
+      style.editVertex.highlightedRadius, style.midpoint.radius,
+    ]);
+    set(LAYER_IDS.EDIT_MIDPOINTS, 'circle-color', [
+      'case', ['boolean', ['get', '_highlighted'], false],
+      style.editVertex.highlightedColor, style.midpoint.color,
+    ]);
+    set(LAYER_IDS.EDIT_MIDPOINTS, 'circle-opacity', [
+      'case', ['boolean', ['get', '_highlighted'], false],
+      1, style.midpoint.opacity,
+    ]);
+  }
+
+  /**
    * Remove all layers and sources from the map.
    */
   destroy(): void {
@@ -537,6 +682,46 @@ export class RenderManager {
 
     this.sourceManager.updateFeatures(featureCollection);
     this.pendingFeatures = null;
+  }
+
+  /**
+   * Register mouse handlers for Point feature hover color.
+   */
+  private setupPointHover(): void {
+    let hoveredId: number | null = null;
+
+    this.map.on('mouseenter', LAYER_IDS.POINT, () => {
+      this.map.getCanvas().style.cursor = 'pointer';
+    });
+
+    this.map.on('mousemove', LAYER_IDS.POINT, (e) => {
+      if (!e.features || e.features.length === 0) return;
+      const f = e.features[0];
+      const numericId = f.id as number;
+
+      if (hoveredId !== null && hoveredId !== numericId) {
+        this.map.setFeatureState(
+          { source: SOURCE_IDS.FEATURES, id: hoveredId },
+          { hover: false },
+        );
+      }
+      hoveredId = numericId;
+      this.map.setFeatureState(
+        { source: SOURCE_IDS.FEATURES, id: hoveredId },
+        { hover: true },
+      );
+    });
+
+    this.map.on('mouseleave', LAYER_IDS.POINT, () => {
+      this.map.getCanvas().style.cursor = '';
+      if (hoveredId !== null) {
+        this.map.setFeatureState(
+          { source: SOURCE_IDS.FEATURES, id: hoveredId },
+          { hover: false },
+        );
+        hoveredId = null;
+      }
+    });
   }
 
   /**

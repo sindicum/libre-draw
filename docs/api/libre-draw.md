@@ -50,6 +50,7 @@ const draw = new LibreDraw(map, {
       select: true,
       split: true,
       setback: true,
+      settings: true,
       delete: true,
       undo: true,
       redo: true,
@@ -357,6 +358,63 @@ Deselects all features, removes vertex handles, and emits a `selectionchange` ev
 draw.selectFeature('abc-123');
 draw.clearSelection();
 console.log(draw.getSelectedFeatureIds()); // []
+```
+
+---
+
+## Style
+
+### `setStyle(style)`
+
+Update the global render style at runtime.
+
+Merges the given partial overrides with the current style and applies changes to all map layers immediately. This affects how all features (polygons, lines, points) and editing handles are displayed.
+
+**Parameters:**
+
+| Name | Type | Description |
+|------|------|-------------|
+| `style` | [`PartialStyleConfig`](/api/types#partialstyleconfig) | Partial style overrides to apply |
+
+**Returns:** `void`
+
+**Throws:** [`LibreDrawError`](/api/types#libredrawerror) if this instance has been destroyed.
+
+**Example:**
+
+```ts
+// Change polygon fill color and opacity
+draw.setStyle({
+  fill: { color: '#ff0000', opacity: 0.5 },
+});
+
+// Change multiple style categories at once
+draw.setStyle({
+  fill: { color: '#1f78b4', selectedColor: '#e76f51' },
+  outline: { color: '#1f78b4', width: 3 },
+  point: { color: '#e76f51', radius: 8 },
+  preview: { color: '#999999', width: 1 },
+});
+```
+
+---
+
+### `getStyle()`
+
+Get the current global render style.
+
+Returns the full style configuration currently in use, including any overrides applied via the constructor `style` option or [`setStyle`](#setstyle-style).
+
+**Returns:** [`StyleConfig`](/api/types#styleconfig)
+
+**Throws:** [`LibreDrawError`](/api/types#libredrawerror) if this instance has been destroyed.
+
+**Example:**
+
+```ts
+const style = draw.getStyle();
+console.log('Fill color:', style.fill.color);
+console.log('Point radius:', style.point.radius);
 ```
 
 ---

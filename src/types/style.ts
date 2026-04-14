@@ -59,6 +59,19 @@ export interface MidpointStyle {
 }
 
 /**
+ * Style for Point geometry features.
+ */
+export interface PointStyle {
+  color: string;
+  radius: number;
+  selectedColor: string;
+  selectedRadius: number;
+  hoverColor: string;
+  strokeColor: string;
+  strokeWidth: number;
+}
+
+/**
  * Full render style configuration.
  */
 export interface StyleConfig {
@@ -68,6 +81,7 @@ export interface StyleConfig {
   preview: PreviewStyle;
   editVertex: EditVertexStyle;
   midpoint: MidpointStyle;
+  point: PointStyle;
 }
 
 /**
@@ -80,6 +94,7 @@ export interface PartialStyleConfig {
   preview?: Partial<PreviewStyle>;
   editVertex?: Partial<EditVertexStyle>;
   midpoint?: Partial<MidpointStyle>;
+  point?: Partial<PointStyle>;
 }
 
 /**
@@ -122,6 +137,15 @@ export const DEFAULT_STYLE_CONFIG: StyleConfig = {
     opacity: 0.6,
     radius: 4,
   },
+  point: {
+    color: '#3bb2d0',
+    radius: 6,
+    selectedColor: '#fbb03b',
+    selectedRadius: 8,
+    hoverColor: '#fbb03b',
+    strokeColor: '#3bb2d0',
+    strokeWidth: 2,
+  },
 };
 
 /**
@@ -155,6 +179,10 @@ export function mergeStyleConfig(overrides?: PartialStyleConfig): StyleConfig {
     midpoint: {
       ...DEFAULT_STYLE_CONFIG.midpoint,
       ...overrides?.midpoint,
+    },
+    point: {
+      ...DEFAULT_STYLE_CONFIG.point,
+      ...overrides?.point,
     },
   };
 }
