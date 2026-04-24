@@ -385,6 +385,35 @@ describe('LibreDraw lifecycle integration', () => {
     draw.destroy();
   });
 
+  it('should expose draft control API through the facade', () => {
+    const map = new FakeMap();
+    const draw = new LibreDraw(map.asMap(), { toolbar: false });
+
+    // Non-drawing modes: all draft API calls are no-ops / return defaults
+    expect(draw.getDraftVertexCount()).toBe(0);
+    expect(draw.finishDrawing()).toBe(false);
+    draw.cancelDrawing(); // must not throw
+
+    draw.setMode('draw');
+    expect(draw.getDraftVertexCount()).toBe(0);
+
+    // Simulate three pointer-downs via the mode directly is internal;
+    // instead verify finishDrawing fails before enough vertices exist.
+    expect(draw.finishDrawing()).toBe(false);
+
+    const draftListener = vi.fn();
+    draw.on('draftchange', draftListener);
+
+    draw.cancelDrawing();
+    expect(draftListener).toHaveBeenCalledWith({ vertexCount: 0 });
+
+    draw.setMode('draw-line');
+    expect(draw.getDraftVertexCount()).toBe(0);
+    expect(draw.finishDrawing()).toBe(false); // no vertices yet
+
+    draw.destroy();
+  });
+
   it('should apply custom style options to layer paint definitions', () => {
     const map = new FakeMap();
     const draw = new LibreDraw(map.asMap(), {

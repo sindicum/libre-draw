@@ -6,11 +6,13 @@ import { ModeManager } from '../../src/core/ModeManager';
 import type { ModeContext } from '../../src/core/ModeContext';
 import { IdleMode } from '../../src/modes/IdleMode';
 import { DrawMode } from '../../src/modes/DrawMode';
+import { DrawLineMode } from '../../src/modes/DrawLineMode';
 import { SelectMode } from '../../src/modes/SelectMode';
 import type { NormalizedInputEvent } from '../../src/types/input';
 import type {
   CreateEvent,
   DeleteEvent,
+  DraftChangeEvent,
   UpdateEvent,
 } from '../../src/types/events';
 
@@ -69,13 +71,23 @@ describe('Draw Flow Integration', () => {
     };
 
     const drawMode = new DrawMode(modeContext);
+    const drawLineMode = new DrawLineMode(modeContext);
     const selectMode = new SelectMode(modeContext, vi.fn());
 
     modeManager.registerMode('idle', new IdleMode());
     modeManager.registerMode('draw', drawMode);
+    modeManager.registerMode('draw-line', drawLineMode);
     modeManager.registerMode('select', selectMode);
 
-    return { eventBus, store, history, modeManager, drawMode, selectMode };
+    return {
+      eventBus,
+      store,
+      history,
+      modeManager,
+      drawMode,
+      drawLineMode,
+      selectMode,
+    };
   }
 
   it('should draw a polygon, select it, and delete it', () => {
@@ -255,5 +267,207 @@ describe('Draw Flow Integration', () => {
     expect(modeManager.getMode()).toBe('idle');
 
     expect(modeChangeListener).toHaveBeenCalledTimes(3);
+  });
+
+  describe('draft control API (DrawMode)', () => {
+    it('should finalize a polygon via finishDrawing() and emit events in order', () => {
+      const { eventBus, store, modeManager, drawMode } = createDrawingSystem();
+      const events: string[] = [];
+      const createListener = vi.fn(() => events.push('create'));
+      const draftListener = vi.fn((e: DraftChangeEvent) =>
+        events.push(`draft:${e.vertexCount}`),
+      );
+      eventBus.on('create', createListener);
+      eventBus.on('draftchange', draftListener);
+
+      modeManager.setMode('draw');
+      drawMode.onPointerDown(createPointerEvent(0, 0));
+      drawMode.onPointerDown(createPointerEvent(10, 0));
+      drawMode.onPointerDown(createPointerEvent(10, 10));
+
+      expect(drawMode.getDraftVertexCount()).toBe(3);
+
+      const result = drawMode.finishDrawing();
+
+      expect(result).toBe(true);
+      expect(store.getAll()).toHaveLength(1);
+      expect(createListener).toHaveBeenCalledOnce();
+      expect(drawMode.getDraftVertexCount()).toBe(0);
+
+      // Order: vertex-adds (draft:1, 2, 3) -> create -> draft:0
+      expect(events).toEqual([
+        'draft:1',
+        'draft:2',
+        'draft:3',
+        'create',
+        'draft:0',
+      ]);
+    });
+
+    it('should return false from finishDrawing() with fewer than 3 vertices', () => {
+      const { eventBus, store, modeManager, drawMode } = createDrawingSystem();
+      const createListener = vi.fn();
+      eventBus.on('create', createListener);
+
+      modeManager.setMode('draw');
+      drawMode.onPointerDown(createPointerEvent(0, 0));
+      drawMode.onPointerDown(createPointerEvent(10, 0));
+
+      expect(drawMode.finishDrawing()).toBe(false);
+      expect(store.getAll()).toHaveLength(0);
+      expect(createListener).not.toHaveBeenCalled();
+      // Draft is preserved on failure
+      expect(drawMode.getDraftVertexCount()).toBe(2);
+    });
+
+    it('should return false from finishDrawing() when closing would self-intersect', () => {
+      const { eventBus, store, modeManager, drawMode } = createDrawingSystem();
+      const createListener = vi.fn();
+      eventBus.on('create', createListener);
+
+      modeManager.setMode('draw');
+      // Bowtie / figure-8 pattern: closing the ring crosses an existing edge
+      drawMode.onPointerDown(createPointerEvent(0, 0));
+      drawMode.onPointerDown(createPointerEvent(10, 0));
+      drawMode.onPointerDown(createPointerEvent(0, 10));
+      drawMode.onPointerDown(createPointerEvent(10, 10));
+
+      expect(drawMode.finishDrawing()).toBe(false);
+      expect(store.getAll()).toHaveLength(0);
+      expect(createListener).not.toHaveBeenCalled();
+      expect(drawMode.getDraftVertexCount()).toBe(4);
+    });
+
+    it('should cancelDrawing() and preserve draw mode', () => {
+      const { eventBus, store, modeManager, drawMode } = createDrawingSystem();
+      const draftListener = vi.fn();
+      eventBus.on('draftchange', draftListener);
+
+      modeManager.setMode('draw');
+      drawMode.onPointerDown(createPointerEvent(0, 0));
+      drawMode.onPointerDown(createPointerEvent(10, 0));
+
+      draftListener.mockClear();
+      drawMode.cancelDrawing();
+
+      expect(store.getAll()).toHaveLength(0);
+      expect(drawMode.getDraftVertexCount()).toBe(0);
+      expect(modeManager.getMode()).toBe('draw');
+      expect(draftListener).toHaveBeenCalledWith({ vertexCount: 0 });
+    });
+
+    it('should emit draftchange when long-press removes a vertex', () => {
+      const { eventBus, modeManager, drawMode } = createDrawingSystem();
+      const draftListener = vi.fn();
+      eventBus.on('draftchange', draftListener);
+
+      modeManager.setMode('draw');
+      drawMode.onPointerDown(createPointerEvent(0, 0));
+      drawMode.onPointerDown(createPointerEvent(10, 0));
+
+      draftListener.mockClear();
+      drawMode.onLongPress(createPointerEvent(10, 0));
+
+      expect(draftListener).toHaveBeenCalledWith({ vertexCount: 1 });
+      expect(drawMode.getDraftVertexCount()).toBe(1);
+    });
+
+    it('should emit draftchange(0) when exiting draw mode to any other mode', () => {
+      const { eventBus, modeManager, drawMode } = createDrawingSystem();
+      const draftListener = vi.fn();
+      eventBus.on('draftchange', draftListener);
+
+      modeManager.setMode('draw');
+      drawMode.onPointerDown(createPointerEvent(0, 0));
+      drawMode.onPointerDown(createPointerEvent(10, 0));
+      draftListener.mockClear();
+
+      modeManager.setMode('select');
+
+      expect(draftListener).toHaveBeenCalledWith({ vertexCount: 0 });
+    });
+
+    it('should return 0 from getDraftVertexCount() in non-drawing modes', () => {
+      const { modeManager, drawMode } = createDrawingSystem();
+
+      modeManager.setMode('idle');
+      expect(drawMode.getDraftVertexCount()).toBe(0);
+
+      modeManager.setMode('select');
+      expect(drawMode.getDraftVertexCount()).toBe(0);
+    });
+
+    it('should return false from finishDrawing() when mode is inactive', () => {
+      const { store, modeManager, drawMode } = createDrawingSystem();
+
+      // idle by default — drawMode.activate() has not been called
+      expect(drawMode.finishDrawing()).toBe(false);
+      expect(store.getAll()).toHaveLength(0);
+
+      modeManager.setMode('idle');
+      expect(drawMode.finishDrawing()).toBe(false);
+
+      modeManager.setMode('select');
+      expect(drawMode.finishDrawing()).toBe(false);
+      expect(store.getAll()).toHaveLength(0);
+    });
+  });
+
+  describe('draft control API (DrawLineMode)', () => {
+    it('should finalize a line via finishDrawing() with 2 vertices', () => {
+      const { eventBus, store, modeManager, drawLineMode } =
+        createDrawingSystem();
+      const events: string[] = [];
+      const createListener = vi.fn(() => events.push('create'));
+      const draftListener = vi.fn((e: DraftChangeEvent) =>
+        events.push(`draft:${e.vertexCount}`),
+      );
+      eventBus.on('create', createListener);
+      eventBus.on('draftchange', draftListener);
+
+      modeManager.setMode('draw-line');
+      drawLineMode.onPointerDown(createPointerEvent(0, 0));
+      drawLineMode.onPointerDown(createPointerEvent(10, 10));
+
+      expect(drawLineMode.getDraftVertexCount()).toBe(2);
+
+      const result = drawLineMode.finishDrawing();
+
+      expect(result).toBe(true);
+      expect(store.getAll()).toHaveLength(1);
+      expect(store.getAll()[0].geometry.type).toBe('LineString');
+      expect(drawLineMode.getDraftVertexCount()).toBe(0);
+      expect(events).toEqual(['draft:1', 'draft:2', 'create', 'draft:0']);
+    });
+
+    it('should return false from finishDrawing() with a single vertex', () => {
+      const { store, modeManager, drawLineMode } = createDrawingSystem();
+
+      modeManager.setMode('draw-line');
+      drawLineMode.onPointerDown(createPointerEvent(0, 0));
+
+      expect(drawLineMode.finishDrawing()).toBe(false);
+      expect(store.getAll()).toHaveLength(0);
+      expect(drawLineMode.getDraftVertexCount()).toBe(1);
+    });
+
+    it('should cancelDrawing() clear the draft without creating a feature', () => {
+      const { eventBus, store, modeManager, drawLineMode } =
+        createDrawingSystem();
+      const draftListener = vi.fn();
+      eventBus.on('draftchange', draftListener);
+
+      modeManager.setMode('draw-line');
+      drawLineMode.onPointerDown(createPointerEvent(0, 0));
+      drawLineMode.onPointerDown(createPointerEvent(10, 10));
+
+      draftListener.mockClear();
+      drawLineMode.cancelDrawing();
+
+      expect(store.getAll()).toHaveLength(0);
+      expect(drawLineMode.getDraftVertexCount()).toBe(0);
+      expect(modeManager.getMode()).toBe('draw-line');
+      expect(draftListener).toHaveBeenCalledWith({ vertexCount: 0 });
+    });
   });
 });

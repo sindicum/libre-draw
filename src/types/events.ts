@@ -77,6 +77,17 @@ export interface ModeChangeEvent {
 }
 
 /**
+ * Event payload for draft (in-progress drawing) vertex count changes.
+ *
+ * Fires whenever the active drawing mode's draft state mutates:
+ * vertex added, vertex removed (long-press / double-click auto-pop),
+ * draft finalized, draft cancelled, or mode exited.
+ */
+export interface DraftChangeEvent {
+  vertexCount: number;
+}
+
+/**
  * Map of all LibreDraw event types to their payloads.
  */
 export interface LibreDrawEventMap {
@@ -89,4 +100,5 @@ export interface LibreDrawEventMap {
   setbackfailed: SetbackFailedEvent;
   selectionchange: SelectionChangeEvent;
   modechange: ModeChangeEvent;
+  draftchange: DraftChangeEvent;
 }

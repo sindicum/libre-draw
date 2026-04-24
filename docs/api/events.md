@@ -15,6 +15,7 @@ interface LibreDrawEventMap {
   setbackfailed: SetbackFailedEvent;
   selectionchange: SelectionChangeEvent;
   modechange: ModeChangeEvent;
+  draftchange: DraftChangeEvent;
 }
 ```
 
@@ -297,6 +298,42 @@ draw.on('modechange', (e) => {
   selectButton.classList.toggle('active', e.mode === 'select');
   splitButton.classList.toggle('active', e.mode === 'split');
   setbackButton.classList.toggle('active', e.mode === 'setback');
+});
+```
+
+---
+
+## `draftchange`
+
+Emitted whenever the in-progress draft of a drawing mode (`'draw'` or `'draw-line'`) changes.
+
+Fires when:
+
+1. A vertex is added via pointer-down
+2. A vertex is removed (long-press, or the auto-pop during double-click finalization)
+3. The draft is finalized — via double-click, close-on-first-vertex, or [`finishDrawing()`](/api/libre-draw#finishdrawing) — with `vertexCount: 0`
+4. The draft is discarded — via Escape or [`cancelDrawing()`](/api/libre-draw#canceldrawing) — with `vertexCount: 0`
+5. The active mode transitions away from a drawing mode (deactivation), with `vertexCount: 0`
+
+### Payload: `DraftChangeEvent`
+
+```ts
+interface DraftChangeEvent {
+  vertexCount: number;
+}
+```
+
+| Property | Type | Description |
+|----------|------|-------------|
+| `vertexCount` | `number` | The number of vertices in the current draft (`0` after finalization, cancellation, or mode exit) |
+
+### Example
+
+```ts
+draw.on('draftchange', (e) => {
+  // Enable a finish button once the polygon has enough vertices
+  finishBtn.disabled = e.vertexCount < 3;
+  vertexCountLabel.textContent = `Vertices: ${e.vertexCount}`;
 });
 ```
 

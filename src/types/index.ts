@@ -33,6 +33,7 @@ export type {
   SetbackFailReason,
   SelectionChangeEvent,
   ModeChangeEvent,
+  DraftChangeEvent,
   LibreDrawEventMap,
 } from './events';
 

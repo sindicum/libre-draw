@@ -1,4 +1,4 @@
-import type { Mode } from './Mode';
+import type { DraftCapableMode } from './Mode';
 import type { NormalizedInputEvent } from '../types/input';
 import type { LibreDrawFeature, Position } from '../types/features';
 import { CreateAction } from '../types/features';
@@ -15,12 +15,13 @@ const MIN_VERTICES = 2;
  * Drawing mode for creating new LineString features.
  *
  * Users click to add vertices. The line is finalized when:
- * - The user double-clicks (with at least 2 vertices).
+ * - The user double-clicks (with at least 2 vertices), or
+ * - `finishDrawing()` is called programmatically.
  *
  * Long press removes the last vertex (undo last point).
- * Escape cancels the entire drawing.
+ * Escape or `cancelDrawing()` cancels the entire drawing.
  */
-export class DrawLineMode implements Mode {
+export class DrawLineMode implements DraftCapableMode {
   private vertices: Position[] = [];
   private isActive = false;
   private context: ModeContext;
@@ -46,6 +47,8 @@ export class DrawLineMode implements Mode {
     this.vertices = [];
     this.context.render.clearPreview();
     this.context.render.clearSnapIndicator();
+    // Notify listeners regardless of prior state so UIs can reset on exit.
+    this.context.events.emit('draftchange', { vertexCount: 0 });
   }
 
   onPointerDown(event: NormalizedInputEvent): void {
@@ -57,6 +60,7 @@ export class DrawLineMode implements Mode {
     this.vertices.push(newVertex);
     const previewCoords = this.buildPreviewCoordinates(newVertex);
     this.context.render.renderPreview(previewCoords);
+    this.emitDraftChange();
   }
 
   onPointerMove(event: NormalizedInputEvent): void {
@@ -83,11 +87,10 @@ export class DrawLineMode implements Mode {
     // Remove the last vertex added by the double-click's second pointerdown
     if (this.vertices.length > MIN_VERTICES) {
       this.vertices.pop();
+      this.emitDraftChange();
     }
 
-    if (this.vertices.length >= MIN_VERTICES) {
-      this.finalizeLine();
-    }
+    this.tryFinalize();
 
     // Prevent the double click from being handled by the map
     event.originalEvent.preventDefault();
@@ -105,6 +108,7 @@ export class DrawLineMode implements Mode {
       } else {
         this.context.render.renderPreview(this.buildPreviewCoordinates());
       }
+      this.emitDraftChange();
     }
   }
 
@@ -114,6 +118,35 @@ export class DrawLineMode implements Mode {
     if (key === 'Escape') {
       this.cancelDrawing();
     }
+  }
+
+  /**
+   * Finalize the current draft into a LineString feature.
+   *
+   * Succeeds when the mode is active and vertices >= 2.
+   * Self-intersection is allowed (LineString has no ring-closing constraint).
+   */
+  finishDrawing(): boolean {
+    if (!this.isActive) return false;
+    return this.tryFinalize();
+  }
+
+  /**
+   * Discard the current draft. Mode remains active.
+   */
+  cancelDrawing(): void {
+    if (!this.isActive) return;
+    this.vertices = [];
+    this.context.render.clearPreview();
+    this.context.render.clearSnapIndicator();
+    this.emitDraftChange();
+  }
+
+  /**
+   * @returns The number of vertices in the current draft (0 when inactive).
+   */
+  getDraftVertexCount(): number {
+    return this.isActive ? this.vertices.length : 0;
   }
 
   /**
@@ -138,10 +171,11 @@ export class DrawLineMode implements Mode {
   }
 
   /**
-   * Finalize the line: create the feature, push to history, emit event.
+   * Attempt to finalize the current draft.
+   * @returns `true` when a feature was created, `false` on validation failure.
    */
-  private finalizeLine(): void {
-    if (this.vertices.length < MIN_VERTICES) return;
+  private tryFinalize(): boolean {
+    if (this.vertices.length < MIN_VERTICES) return false;
 
     const feature: LibreDrawFeature = {
       id: crypto.randomUUID(),
@@ -159,19 +193,21 @@ export class DrawLineMode implements Mode {
     this.context.events.emit('create', { feature: cloneFeature(stored) });
     this.context.render.renderFeatures();
 
-    // Reset state for next drawing
+    // Reset state for next drawing and notify listeners.
     this.vertices = [];
     this.context.render.clearPreview();
     this.context.render.clearSnapIndicator();
+    this.emitDraftChange();
+    return true;
   }
 
   /**
-   * Cancel the current drawing operation.
+   * Emit a draftchange event reflecting the current vertex count.
    */
-  private cancelDrawing(): void {
-    this.vertices = [];
-    this.context.render.clearPreview();
-    this.context.render.clearSnapIndicator();
+  private emitDraftChange(): void {
+    this.context.events.emit('draftchange', {
+      vertexCount: this.vertices.length,
+    });
   }
 
   /**

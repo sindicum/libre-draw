@@ -1,4 +1,4 @@
-import type { Mode } from './Mode';
+import type { DraftCapableMode } from './Mode';
 import type { NormalizedInputEvent } from '../types/input';
 import type { LibreDrawFeature, Position } from '../types/features';
 import { CreateAction } from '../types/features';
@@ -26,12 +26,13 @@ const MIN_VERTICES = 3;
  *
  * Users click to add vertices. The polygon is finalized when:
  * - The user double-clicks (with at least 3 vertices), or
- * - The user clicks within 10px of the first vertex (closing the ring).
+ * - The user clicks within 10px of the first vertex (closing the ring), or
+ * - `finishDrawing()` is called programmatically.
  *
  * Long press removes the last vertex (undo last point).
- * Escape cancels the entire drawing.
+ * Escape or `cancelDrawing()` cancels the entire drawing.
  */
-export class DrawMode implements Mode {
+export class DrawMode implements DraftCapableMode {
   private vertices: Position[] = [];
   private isActive = false;
   private context: ModeContext;
@@ -57,6 +58,8 @@ export class DrawMode implements Mode {
     this.vertices = [];
     this.context.render.clearPreview();
     this.context.render.clearSnapIndicator();
+    // Notify listeners regardless of prior state so UIs can reset on exit.
+    this.context.events.emit('draftchange', { vertexCount: 0 });
   }
 
   onPointerDown(event: NormalizedInputEvent): void {
@@ -79,9 +82,7 @@ export class DrawMode implements Mode {
       const dist = Math.sqrt(dx * dx + dy * dy);
 
       if (dist <= CLOSE_THRESHOLD_PX) {
-        // Reject closing if it would cause self-intersection
-        if (wouldClosingCauseIntersection(this.vertices)) return;
-        this.finalizePolygon();
+        this.tryFinalize();
         return;
       }
     }
@@ -92,6 +93,7 @@ export class DrawMode implements Mode {
     this.vertices.push(newVertex);
     const previewCoords = this.buildPreviewCoordinates(newVertex);
     this.context.render.renderPreview(previewCoords);
+    this.emitDraftChange();
   }
 
   onPointerMove(event: NormalizedInputEvent): void {
@@ -121,14 +123,10 @@ export class DrawMode implements Mode {
     // (it would have been added in onPointerDown before onDoubleClick fires)
     if (this.vertices.length > MIN_VERTICES) {
       this.vertices.pop();
+      this.emitDraftChange();
     }
 
-    if (this.vertices.length >= MIN_VERTICES) {
-      // Reject closing if it would cause self-intersection
-      if (!wouldClosingCauseIntersection(this.vertices)) {
-        this.finalizePolygon();
-      }
-    }
+    this.tryFinalize();
 
     // Prevent the double click from being handled by the map
     event.originalEvent.preventDefault();
@@ -146,6 +144,7 @@ export class DrawMode implements Mode {
       } else {
         this.context.render.renderPreview(this.buildPreviewCoordinates());
       }
+      this.emitDraftChange();
     }
   }
 
@@ -155,6 +154,35 @@ export class DrawMode implements Mode {
     if (key === 'Escape') {
       this.cancelDrawing();
     }
+  }
+
+  /**
+   * Finalize the current draft into a polygon feature.
+   *
+   * Succeeds when: mode is active, vertices >= 3, and closing
+   * the ring would not produce a self-intersection.
+   */
+  finishDrawing(): boolean {
+    if (!this.isActive) return false;
+    return this.tryFinalize();
+  }
+
+  /**
+   * Discard the current draft. Mode remains active.
+   */
+  cancelDrawing(): void {
+    if (!this.isActive) return;
+    this.vertices = [];
+    this.context.render.clearPreview();
+    this.context.render.clearSnapIndicator();
+    this.emitDraftChange();
+  }
+
+  /**
+   * @returns The number of vertices in the current draft (0 when inactive).
+   */
+  getDraftVertexCount(): number {
+    return this.isActive ? this.vertices.length : 0;
   }
 
   /**
@@ -185,10 +213,12 @@ export class DrawMode implements Mode {
   }
 
   /**
-   * Finalize the polygon: create the feature, push to history, emit event.
+   * Attempt to finalize the current draft.
+   * @returns `true` when a feature was created, `false` on validation failure.
    */
-  private finalizePolygon(): void {
-    if (this.vertices.length < MIN_VERTICES) return;
+  private tryFinalize(): boolean {
+    if (this.vertices.length < MIN_VERTICES) return false;
+    if (wouldClosingCauseIntersection(this.vertices)) return false;
 
     // Close the ring
     const ring: Position[] = [
@@ -212,19 +242,21 @@ export class DrawMode implements Mode {
     this.context.events.emit('create', { feature: cloneFeature(stored) });
     this.context.render.renderFeatures();
 
-    // Reset state for next drawing
+    // Reset state for next drawing and notify listeners.
     this.vertices = [];
     this.context.render.clearPreview();
     this.context.render.clearSnapIndicator();
+    this.emitDraftChange();
+    return true;
   }
 
   /**
-   * Cancel the current drawing operation.
+   * Emit a draftchange event reflecting the current vertex count.
    */
-  private cancelDrawing(): void {
-    this.vertices = [];
-    this.context.render.clearPreview();
-    this.context.render.clearSnapIndicator();
+  private emitDraftChange(): void {
+    this.context.events.emit('draftchange', {
+      vertexCount: this.vertices.length,
+    });
   }
 
   /**

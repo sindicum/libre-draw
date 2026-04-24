@@ -43,3 +43,47 @@ export interface Mode {
   /** Handle a key down event. */
   onKeyDown(key: string, event: KeyboardEvent): void;
 }
+
+/**
+ * Marker interface for modes that maintain an in-progress draft
+ * of vertices (polygon/line drawing).
+ *
+ * Modes implementing this interface expose programmatic control
+ * over the draft lifecycle, enabling external UIs (buttons, etc.)
+ * to finalize or cancel drawing without relying on pointer gestures.
+ */
+export interface DraftCapableMode extends Mode {
+  /**
+   * Finalize the current draft into a feature.
+   * @returns `true` on success, `false` when the draft cannot be
+   *   finalized (insufficient vertices, self-intersection, inactive).
+   */
+  finishDrawing(): boolean;
+
+  /**
+   * Discard the current draft without creating a feature.
+   * Mode stays active so the user can start a new draft.
+   */
+  cancelDrawing(): void;
+
+  /**
+   * @returns The number of vertices in the current draft.
+   *   `0` when the mode is inactive.
+   */
+  getDraftVertexCount(): number;
+}
+
+/**
+ * Type guard that checks whether a mode implements DraftCapableMode.
+ */
+export function isDraftCapableMode(
+  mode: Mode | undefined,
+): mode is DraftCapableMode {
+  if (!mode) return false;
+  const candidate = mode as Partial<DraftCapableMode>;
+  return (
+    typeof candidate.finishDrawing === 'function' &&
+    typeof candidate.cancelDrawing === 'function' &&
+    typeof candidate.getDraftVertexCount === 'function'
+  );
+}

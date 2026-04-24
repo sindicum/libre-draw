@@ -460,6 +460,69 @@ draw.redo(); // re-applies the undone action
 
 ---
 
+## Draft Control
+
+Programmatically control the in-progress draft of the `'draw'` (polygon) and `'draw-line'` (linestring) modes. Useful for implementing custom finish/cancel buttons or showing the current vertex count in a UI.
+
+### `finishDrawing()`
+
+Finalize the in-progress draft of the active drawing mode.
+
+On success, a feature is added to the store, a [`create`](/api/events#create) event fires, and a [`draftchange`](/api/events#draftchange) event with `vertexCount: 0` is emitted. The mode remains active so the user can start a new draft.
+
+**Returns:** `boolean` — `true` if the draft was finalized, `false` if it could not be (non-drawing mode, insufficient vertices, or a polygon whose closing would produce a self-intersection).
+
+**Throws:** [`LibreDrawError`](/api/types#libredrawerror) if this instance has been destroyed.
+
+**Example:**
+
+```ts
+draw.setMode('draw');
+// ... user clicks to add vertices ...
+if (draw.finishDrawing()) {
+  draw.setMode('idle');
+}
+```
+
+---
+
+### `cancelDrawing()`
+
+Discard the in-progress draft of the active drawing mode.
+
+Clears the preview, resets the vertex list, and emits a [`draftchange`](/api/events#draftchange) event with `vertexCount: 0`. The mode remains active; call [`setMode`](#setmode-mode) afterwards to exit drawing entirely. In non-drawing modes this is a no-op.
+
+**Returns:** `void`
+
+**Throws:** [`LibreDrawError`](/api/types#libredrawerror) if this instance has been destroyed.
+
+**Example:**
+
+```ts
+draw.cancelDrawing(); // discard in-progress polygon / line
+```
+
+---
+
+### `getDraftVertexCount()`
+
+Get the number of vertices in the current draft.
+
+**Returns:** `number` — The draft vertex count for the active drawing mode, or `0` when no drawing mode is active.
+
+**Throws:** [`LibreDrawError`](/api/types#libredrawerror) if this instance has been destroyed.
+
+**Example:**
+
+```ts
+draw.on('draftchange', () => {
+  const count = draw.getDraftVertexCount();
+  finishBtn.disabled = count < 3; // polygon requires 3+ vertices
+});
+```
+
+---
+
 ## Events
 
 ### `on(type, listener)`
@@ -489,6 +552,7 @@ draw.on('setback', (e) => console.log('Setback:', e.originalFeature.id, e.featur
 draw.on('setbackfailed', (e) => console.log('Setback failed:', e.reason, e.featureId));
 draw.on('selectionchange', (e) => console.log('Selected:', e.selectedIds));
 draw.on('modechange', (e) => console.log(`${e.previousMode} → ${e.mode}`));
+draw.on('draftchange', (e) => console.log('Draft vertices:', e.vertexCount));
 ```
 
 ---

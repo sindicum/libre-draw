@@ -34,6 +34,7 @@ import { SelectMode } from './modes/SelectMode';
 import { SplitMode } from './modes/SplitMode';
 import { SetbackMode } from './modes/SetbackMode';
 import type { MapInteractionConfig } from './modes/Mode';
+import { isDraftCapableMode } from './modes/Mode';
 import { InputHandler } from './input/InputHandler';
 import { SourceManager } from './rendering/SourceManager';
 import { RenderManager } from './rendering/RenderManager';
@@ -537,6 +538,81 @@ export class LibreDraw {
   }
 
   /**
+   * Finalize the in-progress draft of the active drawing mode.
+   *
+   * Applies to `'draw'` (polygon) and `'draw-line'` (linestring) modes.
+   * On success, a feature is added to the store, a `'create'` event fires,
+   * and a `'draftchange'` event with `vertexCount: 0` is emitted. The mode
+   * remains active so the user can start a new draft.
+   *
+   * @returns `true` if the draft was finalized, `false` if it could not be
+   *   (non-drawing mode, insufficient vertices, or a polygon whose closing
+   *   would produce a self-intersection).
+   *
+   * @throws {LibreDrawError} If this instance has been destroyed.
+   *
+   * @example
+   * ```ts
+   * draw.setMode('draw');
+   * // ... user clicks to add vertices ...
+   * if (draw.finishDrawing()) {
+   *   draw.setMode('idle');
+   * }
+   * ```
+   */
+  finishDrawing(): boolean {
+    this.assertNotDestroyed();
+    const mode = this.modeManager.getCurrentMode();
+    if (!isDraftCapableMode(mode)) return false;
+    return mode.finishDrawing();
+  }
+
+  /**
+   * Discard the in-progress draft of the active drawing mode.
+   *
+   * Applies to `'draw'` and `'draw-line'` modes. Clears the preview,
+   * resets the vertex list, and emits a `'draftchange'` event with
+   * `vertexCount: 0`. The mode remains active; to exit drawing use
+   * {@link setMode} afterwards.
+   *
+   * @throws {LibreDrawError} If this instance has been destroyed.
+   *
+   * @example
+   * ```ts
+   * draw.cancelDrawing(); // discard in-progress polygon
+   * ```
+   */
+  cancelDrawing(): void {
+    this.assertNotDestroyed();
+    const mode = this.modeManager.getCurrentMode();
+    if (!isDraftCapableMode(mode)) return;
+    mode.cancelDrawing();
+  }
+
+  /**
+   * Get the number of vertices in the current draft.
+   *
+   * @returns The draft vertex count for the active drawing mode,
+   *   or `0` when no drawing mode is active.
+   *
+   * @throws {LibreDrawError} If this instance has been destroyed.
+   *
+   * @example
+   * ```ts
+   * draw.on('draftchange', () => {
+   *   const count = draw.getDraftVertexCount();
+   *   console.log(`draft has ${count} vertices`);
+   * });
+   * ```
+   */
+  getDraftVertexCount(): number {
+    this.assertNotDestroyed();
+    const mode = this.modeManager.getCurrentMode();
+    if (!isDraftCapableMode(mode)) return 0;
+    return mode.getDraftVertexCount();
+  }
+
+  /**
    * Update the global render style at runtime.
    *
    * Merges the given partial overrides with the current style and
@@ -630,8 +706,9 @@ export class LibreDraw {
   /**
    * Register an event listener.
    *
-   * Supported events: `'create'`, `'update'`, `'delete'`,
-   * `'selectionchange'`, `'modechange'`.
+   * Supported events: `'create'`, `'update'`, `'delete'`, `'split'`,
+   * `'splitfailed'`, `'setback'`, `'setbackfailed'`, `'selectionchange'`,
+   * `'modechange'`, `'draftchange'`.
    *
    * @param type - The event type to listen for.
    * @param listener - The callback to invoke when the event fires.
@@ -647,6 +724,7 @@ export class LibreDraw {
    * draw.on('splitfailed', (e) => console.log('Split failed:', e.reason));
    * draw.on('selectionchange', (e) => console.log('Selected:', e.selectedIds));
    * draw.on('modechange', (e) => console.log(`${e.previousMode} -> ${e.mode}`));
+   * draw.on('draftchange', (e) => console.log('Draft vertices:', e.vertexCount));
    * ```
    */
   on<K extends keyof LibreDrawEventMap>(

@@ -27,6 +27,7 @@ export type {
   SetbackFailReason,
   SelectionChangeEvent,
   ModeChangeEvent,
+  DraftChangeEvent,
 } from './types';
 
 export type {
