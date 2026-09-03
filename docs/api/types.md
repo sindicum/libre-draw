@@ -287,8 +287,10 @@ type ModeName = 'idle' | 'draw-point' | 'draw-line' | 'draw' | 'select' | 'split
 The type of history action.
 
 ```ts
-type ActionType = 'create' | 'update' | 'delete' | 'split' | 'setback';
+type ActionType = 'create' | 'update' | 'delete' | 'split' | 'setback' | 'batch';
 ```
+
+`'batch'` is used by [`BatchAction`](#batchaction), which groups several actions into one history step (for example, one [`addFeatures()`](/api/libre-draw#addfeatures-features) call).
 
 ---
 
@@ -309,6 +311,20 @@ interface Action {
 | `type` | [`ActionType`](#actiontype) | The kind of action |
 | `apply` | `(store) => void` | Apply the action to the store |
 | `revert` | `(store) => void` | Revert the action from the store |
+
+---
+
+### `BatchAction`
+
+An [`Action`](#action) that groups multiple child actions into a single undo/redo step. `apply` runs the children in order; `revert` runs them in reverse order. Exported so that history-aware integrations can recognise batched steps.
+
+```ts
+class BatchAction implements Action {
+  readonly type: 'batch';
+  readonly actions: readonly Action[];
+  constructor(actions: readonly Action[]);
+}
+```
 
 ---
 

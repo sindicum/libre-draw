@@ -20,6 +20,7 @@ export {
   DeleteAction,
   SplitAction,
   SetbackAction,
+  BatchAction,
 } from './features';
 
 export type {

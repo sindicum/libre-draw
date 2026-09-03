@@ -68,3 +68,6 @@ export { SplitAction } from './types';
 
 // Setback history action
 export { SetbackAction } from './types';
+
+// Batch history action (used by addFeatures)
+export { BatchAction } from './types';

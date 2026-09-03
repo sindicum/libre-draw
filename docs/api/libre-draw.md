@@ -207,19 +207,20 @@ draw.setFeatures({
 
 Add features to the store from an array of GeoJSON Feature objects.
 
-Each feature is validated and added. Unlike [`setFeatures`](#setfeatures-geojson), this does **not** clear existing features or history.
+All features are validated before any of them is added, so an invalid entry leaves the store untouched. Unlike [`setFeatures`](#setfeatures-geojson), this does **not** clear existing features or history: the whole call is recorded as a **single undoable step** (one [`undo()`](#undo) removes every feature added by the call), and a `'create'` event fires for each added feature.
 
 **Parameters:**
 
 | Name | Type | Description |
 |------|------|-------------|
-| `features` | `unknown[]` | An array of GeoJSON Feature objects with Point, LineString, and/or Polygon geometry |
+| `features` | `unknown[]` | An array of GeoJSON Feature objects with Point, LineString, and/or Polygon geometry. Features without an `id` get a generated UUID. |
 
 **Returns:** `void`
 
 **Throws:**
 - [`LibreDrawError`](/api/types#libredrawerror) if this instance has been destroyed.
 - [`LibreDrawError`](/api/types#libredrawerror) if any feature has invalid geometry.
+- [`LibreDrawError`](/api/types#libredrawerror) if a feature `id` already exists in the store or appears more than once in the array.
 
 **Example:**
 
@@ -234,6 +235,8 @@ draw.addFeatures([
     properties: { name: 'Zone A' },
   },
 ]);
+
+draw.undo(); // removes the feature added above
 ```
 
 ---

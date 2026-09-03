@@ -3,6 +3,7 @@ import type { Map as MaplibreMap } from 'maplibre-gl';
 import { LibreDraw } from '../../src/LibreDraw';
 import { SOURCE_IDS } from '../../src/rendering/SourceManager';
 import { LAYER_IDS } from '../../src/rendering/RenderManager';
+import { LibreDrawError } from '../../src/core/errors';
 
 class FakeGeoJSONSource {
   public data: GeoJSON.FeatureCollection;
@@ -461,6 +462,175 @@ describe('LibreDraw lifecycle integration', () => {
     const editColorExpr = editVerticesLayer.paint['circle-color'] as unknown[];
     expect(editColorExpr[2]).toBe('#ff00ff');
     expect(editColorExpr[3]).toBe('#00aa00');
+
+    draw.destroy();
+  });
+
+  it('should undo the addFeatures step instead of an earlier action (Issue #3)', () => {
+    const map = new FakeMap();
+    const draw = new LibreDraw(map.asMap(), { toolbar: false });
+
+    draw.setFeatures({
+      type: 'FeatureCollection',
+      features: [makeFeature('x'), makeFeature('a')],
+    });
+    draw.deleteFeature('x'); // earlier history entry
+    expect(draw.getFeatures().map((f) => f.id)).toEqual(['a']);
+
+    draw.addFeatures([makeFeature('b')]);
+    expect(draw.getFeatures().map((f) => f.id)).toEqual(['a', 'b']);
+
+    expect(draw.undo()).toBe(true);
+    expect(draw.getFeatures().map((f) => f.id)).toEqual(['a']);
+
+    draw.destroy();
+  });
+
+  it('should undo and redo a multi-feature addFeatures call as one step', () => {
+    const map = new FakeMap();
+    const draw = new LibreDraw(map.asMap(), { toolbar: false });
+
+    draw.addFeatures([makeFeature('b'), makeFeature('c')]);
+    expect(draw.getFeatures().map((f) => f.id)).toEqual(['b', 'c']);
+
+    expect(draw.undo()).toBe(true);
+    expect(draw.getFeatures()).toHaveLength(0);
+    expect(draw.undo()).toBe(false);
+
+    expect(draw.redo()).toBe(true);
+    expect(draw.getFeatures().map((f) => f.id)).toEqual(['b', 'c']);
+    expect(draw.redo()).toBe(false);
+
+    draw.destroy();
+  });
+
+  it('should emit a create event per feature added by addFeatures with a detached payload', () => {
+    const map = new FakeMap();
+    const draw = new LibreDraw(map.asMap(), { toolbar: false });
+
+    const createListener = vi.fn();
+    draw.on('create', createListener);
+
+    draw.addFeatures([makeFeature('b'), makeFeature('c')]);
+
+    expect(createListener).toHaveBeenCalledTimes(2);
+    expect(createListener.mock.calls[0][0].feature.id).toBe('b');
+    expect(createListener.mock.calls[1][0].feature.id).toBe('c');
+
+    // Mutating the payload must not leak into the store.
+    createListener.mock.calls[0][0].feature.properties.name = 'tampered';
+    expect(draw.getFeatureById('b')!.properties.name).toBeUndefined();
+
+    draw.destroy();
+  });
+
+  it('should emit delete events on undo and create events on redo of addFeatures', () => {
+    const map = new FakeMap();
+    const draw = new LibreDraw(map.asMap(), { toolbar: false });
+
+    draw.addFeatures([makeFeature('b'), makeFeature('c')]);
+
+    const deleteListener = vi.fn();
+    const createListener = vi.fn();
+    draw.on('delete', deleteListener);
+    draw.on('create', createListener);
+
+    draw.undo();
+    expect(deleteListener).toHaveBeenCalledTimes(2);
+    expect(deleteListener.mock.calls.map((c) => c[0].feature.id)).toEqual(['c', 'b']);
+    expect(createListener).not.toHaveBeenCalled();
+
+    draw.redo();
+    expect(createListener).toHaveBeenCalledTimes(2);
+    expect(createListener.mock.calls.map((c) => c[0].feature.id)).toEqual(['b', 'c']);
+
+    draw.destroy();
+  });
+
+  it('should not record history or emit events for an empty addFeatures call', () => {
+    const map = new FakeMap();
+    const draw = new LibreDraw(map.asMap(), { toolbar: false });
+
+    const createListener = vi.fn();
+    draw.on('create', createListener);
+
+    draw.addFeatures([]);
+
+    expect(createListener).not.toHaveBeenCalled();
+    expect(draw.undo()).toBe(false);
+
+    draw.destroy();
+  });
+
+  it('should add nothing and record nothing when addFeatures receives an invalid feature', () => {
+    const map = new FakeMap();
+    const draw = new LibreDraw(map.asMap(), { toolbar: false });
+
+    const createListener = vi.fn();
+    draw.on('create', createListener);
+
+    expect(() =>
+      draw.addFeatures([makeFeature('b'), { type: 'Feature', geometry: null, properties: {} }]),
+    ).toThrow(LibreDrawError);
+
+    expect(draw.getFeatures()).toHaveLength(0);
+    expect(createListener).not.toHaveBeenCalled();
+    expect(draw.undo()).toBe(false);
+
+    draw.destroy();
+  });
+
+  it('should reject addFeatures when an id already exists or repeats within the call', () => {
+    const map = new FakeMap();
+    const draw = new LibreDraw(map.asMap(), { toolbar: false });
+
+    draw.addFeatures([makeFeature('a')]);
+
+    expect(() => draw.addFeatures([makeFeature('b'), makeFeature('a')])).toThrow(
+      /already exists: a/,
+    );
+    expect(draw.getFeatures().map((f) => f.id)).toEqual(['a']);
+
+    expect(() => draw.addFeatures([makeFeature('b'), makeFeature('b')])).toThrow(
+      /already exists: b/,
+    );
+    expect(draw.getFeatures().map((f) => f.id)).toEqual(['a']);
+
+    // Only the original addFeatures step is in the history.
+    expect(draw.undo()).toBe(true);
+    expect(draw.getFeatures()).toHaveLength(0);
+    expect(draw.undo()).toBe(false);
+
+    draw.destroy();
+  });
+
+  it('should still reset history when setFeatures follows addFeatures', () => {
+    const map = new FakeMap();
+    const draw = new LibreDraw(map.asMap(), { toolbar: false });
+
+    draw.addFeatures([makeFeature('a')]);
+    draw.setFeatures({ type: 'FeatureCollection', features: [makeFeature('b')] });
+
+    expect(draw.undo()).toBe(false);
+    expect(draw.getFeatures().map((f) => f.id)).toEqual(['b']);
+
+    draw.destroy();
+  });
+
+  it('should enable the toolbar undo button after addFeatures', () => {
+    const map = new FakeMap();
+    const container = map.getContainer();
+    const draw = new LibreDraw(map.asMap());
+
+    const undoButton = container.querySelector<HTMLButtonElement>('button[title="Undo"]');
+    expect(undoButton).not.toBeNull();
+    expect(undoButton!.disabled).toBe(true);
+
+    draw.addFeatures([makeFeature('a')]);
+    expect(undoButton!.disabled).toBe(false);
+
+    draw.undo();
+    expect(undoButton!.disabled).toBe(true);
 
     draw.destroy();
   });
