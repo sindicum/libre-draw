@@ -63,7 +63,13 @@ export interface FeatureCollection {
 /**
  * The type of history action.
  */
-export type ActionType = 'create' | 'update' | 'delete' | 'split' | 'setback';
+export type ActionType =
+  | 'create'
+  | 'update'
+  | 'delete'
+  | 'split'
+  | 'setback'
+  | 'batch';
 
 /**
  * A reversible action that can be applied and reverted on a FeatureStore.
@@ -209,5 +215,33 @@ export class SetbackAction implements Action {
   revert(store: FeatureStoreInterface): void {
     store.remove(this.resultFeature.id);
     store.add(this.originalFeature);
+  }
+}
+
+/**
+ * Action that groups multiple actions into a single history step.
+ *
+ * `apply` runs the child actions in order; `revert` runs them in reverse
+ * order so that later actions are undone before earlier ones. Used by
+ * `addFeatures()` so that one API call maps to one undo/redo step.
+ */
+export class BatchAction implements Action {
+  public readonly type: ActionType = 'batch';
+  public readonly actions: readonly Action[];
+
+  constructor(actions: readonly Action[]) {
+    this.actions = [...actions];
+  }
+
+  apply(store: FeatureStoreInterface): void {
+    for (const action of this.actions) {
+      action.apply(store);
+    }
+  }
+
+  revert(store: FeatureStoreInterface): void {
+    for (let i = this.actions.length - 1; i >= 0; i--) {
+      this.actions[i].revert(store);
+    }
   }
 }

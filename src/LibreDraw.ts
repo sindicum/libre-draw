@@ -17,6 +17,7 @@ import {
   UpdateAction,
   SplitAction,
   SetbackAction,
+  BatchAction,
 } from './types/features';
 import { EventBus } from './core/EventBus';
 import { FeatureStore } from './core/FeatureStore';
@@ -369,13 +370,20 @@ export class LibreDraw {
   /**
    * Add features to the store from an array of GeoJSON Feature objects.
    *
-   * Each feature is validated and added. Unlike {@link setFeatures},
-   * this does not clear existing features or history.
+   * All features are validated before any of them is added, so an invalid
+   * entry leaves the store untouched. Unlike {@link setFeatures}, this does
+   * not clear existing features or history: the whole call is recorded as
+   * a single undoable step (one `undo()` removes every feature added by
+   * this call), and a `'create'` event fires for each added feature.
    *
-   * @param features - An array of GeoJSON Feature objects with Polygon geometry.
+   * @param features - An array of GeoJSON Feature objects with Point,
+   *   LineString, or Polygon geometry. Features without an `id` get a
+   *   generated UUID.
    *
    * @throws {LibreDrawError} If this instance has been destroyed.
    * @throws {LibreDrawError} If any feature has invalid geometry.
+   * @throws {LibreDrawError} If a feature `id` already exists in the store
+   *   or appears more than once in the array.
    *
    * @example
    * ```ts
@@ -387,15 +395,38 @@ export class LibreDraw {
    *   },
    *   properties: { name: 'Zone A' }
    * }]);
+   * draw.undo(); // removes the feature added above
    * ```
    */
   addFeatures(features: unknown[]): void {
     this.assertNotDestroyed();
-    for (const feature of features) {
-      const validated = validateFeature(feature);
-      this.featureStore.add(validated);
+    if (features.length === 0) return;
+
+    // Validate everything first so a bad entry cannot leave a partial add
+    // behind (the call must map to exactly one history step or none).
+    const validated = features.map((feature) => validateFeature(feature));
+
+    // FeatureStore.add() silently overwrites an existing id. Recording that
+    // as a CreateAction would make undo remove the pre-existing feature, so
+    // duplicates are rejected up front.
+    const seenIds = new Set<string>();
+    for (const feature of validated) {
+      if (!feature.id) continue;
+      if (seenIds.has(feature.id) || this.featureStore.getById(feature.id)) {
+        throw new LibreDrawError(`Feature already exists: ${feature.id}`);
+      }
+      seenIds.add(feature.id);
+    }
+
+    const added = validated.map((feature) => this.featureStore.add(feature));
+    this.historyManager.push(
+      new BatchAction(added.map((feature) => new CreateAction(feature))),
+    );
+    for (const feature of added) {
+      this.eventBus.emit('create', { feature: cloneFeature(feature) });
     }
     this.renderAllFeatures();
+    this.updateToolbarHistoryState();
   }
 
   /**
@@ -945,7 +976,12 @@ export class LibreDraw {
    * Undo reverses the action, so create→delete, delete→create, etc.
    */
   private emitUndoEvent(action: Action): void {
-    if (action instanceof CreateAction) {
+    if (action instanceof BatchAction) {
+      // Children were reverted in reverse order; report them the same way.
+      for (let i = action.actions.length - 1; i >= 0; i--) {
+        this.emitUndoEvent(action.actions[i]);
+      }
+    } else if (action instanceof CreateAction) {
       this.eventBus.emit('delete', { feature: cloneFeature(action.feature) });
     } else if (action instanceof DeleteAction) {
       this.eventBus.emit('create', { feature: cloneFeature(action.feature) });
@@ -969,7 +1005,11 @@ export class LibreDraw {
    * Redo re-applies the action, so create→create, delete→delete, etc.
    */
   private emitRedoEvent(action: Action): void {
-    if (action instanceof CreateAction) {
+    if (action instanceof BatchAction) {
+      for (const child of action.actions) {
+        this.emitRedoEvent(child);
+      }
+    } else if (action instanceof CreateAction) {
       this.eventBus.emit('create', { feature: cloneFeature(action.feature) });
     } else if (action instanceof DeleteAction) {
       this.eventBus.emit('delete', { feature: cloneFeature(action.feature) });

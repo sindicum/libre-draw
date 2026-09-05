@@ -34,7 +34,7 @@ test-results/
 .agents
 .devcontainer
 .steering
-claude-docs
+agent-docs
 CLAUDE.md
 AGENTS.md
 MEMO.md

@@ -71,7 +71,7 @@ new LibreDraw(map: maplibregl.Map, options?: LibreDrawOptions)
 | `toGeoJSON()`             | Export all features as a GeoJSON FeatureCollection    |
 | `getFeatureById(id)`      | Get a single feature by ID                            |
 | `setFeatures(geojson)`    | Replace all features with a GeoJSON FeatureCollection |
-| `addFeatures(features)`   | Add an array of GeoJSON Feature objects               |
+| `addFeatures(features)`   | Add an array of GeoJSON Feature objects (undoable as one step) |
 | `deleteFeature(id)`       | Delete a feature by ID (undoable)                     |
 | `selectFeature(id)`       | Programmatically select a feature                     |
 | `clearSelection()`        | Clear the current selection                           |
