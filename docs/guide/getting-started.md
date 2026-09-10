@@ -44,7 +44,7 @@ const draw = new LibreDraw(map, {
     controls: {
       drawPoint: true,
       drawLine: true,
-      draw: true,
+      drawPolygon: true,
       select: true,
       split: true,
       setback: true,
@@ -67,7 +67,7 @@ const draw = new LibreDraw(map, { toolbar: false });
 // Control modes via API
 draw.setMode('draw-point');
 draw.setMode('draw-line');
-draw.setMode('draw');
+draw.setMode('draw-polygon');
 draw.setMode('draw-rectangle');
 draw.setMode('select');
 draw.setMode('idle');

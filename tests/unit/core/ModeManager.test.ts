@@ -31,11 +31,11 @@ describe('ModeManager', () => {
     const draw = createMockMode();
 
     manager.registerMode('idle', idle);
-    manager.registerMode('draw', draw);
+    manager.registerMode('draw-polygon', draw);
 
-    manager.setMode('draw');
+    manager.setMode('draw-polygon');
 
-    expect(manager.getMode()).toBe('draw');
+    expect(manager.getMode()).toBe('draw-polygon');
     expect(idle.deactivate).toHaveBeenCalledOnce();
     expect(draw.activate).toHaveBeenCalledOnce();
   });
@@ -58,12 +58,12 @@ describe('ModeManager', () => {
     const callback = vi.fn();
 
     manager.registerMode('idle', createMockMode());
-    manager.registerMode('draw', draw);
+    manager.registerMode('draw-polygon', draw);
     manager.setOnModeChange(callback);
 
-    manager.setMode('draw');
+    manager.setMode('draw-polygon');
 
-    expect(callback).toHaveBeenCalledWith('draw', 'idle');
+    expect(callback).toHaveBeenCalledWith('draw-polygon', 'idle');
   });
 
   it('should return the current mode implementation', () => {

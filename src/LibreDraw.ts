@@ -28,7 +28,7 @@ import type { ModeName } from './types/mode';
 import { LibreDrawError } from './core/errors';
 import { validateGeoJSON, validateFeature } from './validation/geojson';
 import { IdleMode } from './modes/IdleMode';
-import { DrawMode } from './modes/DrawMode';
+import { DrawPolygonMode } from './modes/DrawPolygonMode';
 import { DrawRectangleMode } from './modes/DrawRectangleMode';
 import { DrawPointMode } from './modes/DrawPointMode';
 import { DrawLineMode } from './modes/DrawLineMode';
@@ -53,7 +53,7 @@ import { cloneFeature } from './utils/featureSnapshot';
  * @example
  * ```ts
  * const draw = new LibreDraw(map, { toolbar: true });
- * draw.setMode('draw');
+ * draw.setMode('draw-polygon');
  * draw.on('create', (e) => console.log('Created:', e.feature));
  * ```
  */
@@ -188,7 +188,7 @@ export class LibreDraw {
 
     const drawPointMode = new DrawPointMode(modeContext);
     const drawLineMode = new DrawLineMode(modeContext);
-    const drawMode = new DrawMode(modeContext);
+    const drawPolygonMode = new DrawPolygonMode(modeContext);
     const drawRectangleMode = new DrawRectangleMode(modeContext);
     this.selectMode = new SelectMode(modeContext);
     const splitMode = new SplitMode(modeContext);
@@ -198,7 +198,7 @@ export class LibreDraw {
     this.modeManager.registerMode('idle', new IdleMode());
     this.modeManager.registerMode('draw-point', drawPointMode);
     this.modeManager.registerMode('draw-line', drawLineMode);
-    this.modeManager.registerMode('draw', drawMode);
+    this.modeManager.registerMode('draw-polygon', drawPolygonMode);
     this.modeManager.registerMode('draw-rectangle', drawRectangleMode);
     this.modeManager.registerMode('select', this.selectMode);
     this.modeManager.registerMode('split', splitMode);
@@ -251,14 +251,14 @@ export class LibreDraw {
    * event is emitted on every transition.
    *
    * @param mode - `'idle'` (no interaction), `'draw-point'` / `'draw-line'` /
-   *   `'draw'` / `'draw-rectangle'` (create features), `'select'` (select/edit
+   *   `'draw-polygon'` / `'draw-rectangle'` (create features), `'select'` (select/edit
    *   existing features), `'split'`, or `'setback'`.
    *
    * @throws {LibreDrawError} If this instance has been destroyed.
    *
    * @example
    * ```ts
-   * draw.setMode('draw');
+   * draw.setMode('draw-polygon');
    * draw.on('modechange', (e) => {
    *   console.log(`${e.previousMode} -> ${e.mode}`);
    * });
@@ -272,13 +272,13 @@ export class LibreDraw {
   /**
    * Get the current drawing mode.
    *
-   * @returns The active mode name (e.g. `'idle'`, `'draw'`, `'draw-rectangle'`, `'select'`).
+   * @returns The active mode name (e.g. `'idle'`, `'draw-polygon'`, `'draw-rectangle'`, `'select'`).
    *
    * @throws {LibreDrawError} If this instance has been destroyed.
    *
    * @example
    * ```ts
-   * if (draw.getMode() === 'draw') {
+   * if (draw.getMode() === 'draw-polygon') {
    *   console.log('Currently drawing');
    * }
    * ```
@@ -569,7 +569,7 @@ export class LibreDraw {
   /**
    * Finalize the in-progress draft of the active drawing mode.
    *
-   * Applies to `'draw'` (polygon) and `'draw-line'` (linestring) modes.
+   * Applies to `'draw-polygon'` and `'draw-line'` (linestring) modes.
    * On success, a feature is added to the store, a `'create'` event fires,
    * and a `'draftchange'` event with `vertexCount: 0` is emitted. The mode
    * remains active so the user can start a new draft.
@@ -585,7 +585,7 @@ export class LibreDraw {
    *
    * @example
    * ```ts
-   * draw.setMode('draw');
+   * draw.setMode('draw-polygon');
    * // ... user clicks to add vertices ...
    * if (draw.finishDrawing()) {
    *   draw.setMode('idle');
@@ -602,7 +602,7 @@ export class LibreDraw {
   /**
    * Discard the in-progress draft of the active drawing mode.
    *
-   * Applies to `'draw'`, `'draw-line'`, and `'draw-rectangle'` modes.
+   * Applies to `'draw-polygon'`, `'draw-line'`, and `'draw-rectangle'` modes.
    * Clears the preview, resets the vertex list, and emits a `'draftchange'` event with
    * `vertexCount: 0`. The mode remains active; to exit drawing use
    * {@link setMode} afterwards.
@@ -862,9 +862,9 @@ export class LibreDraw {
           const current = this.modeManager.getMode();
           this.modeManager.setMode(current === 'draw-line' ? 'idle' : 'draw-line');
         },
-        onDrawClick: () => {
+        onDrawPolygonClick: () => {
           const current = this.modeManager.getMode();
-          this.modeManager.setMode(current === 'draw' ? 'idle' : 'draw');
+          this.modeManager.setMode(current === 'draw-polygon' ? 'idle' : 'draw-polygon');
         },
         onDrawRectangleClick: () => {
           const current = this.modeManager.getMode();

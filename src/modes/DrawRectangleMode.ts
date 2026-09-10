@@ -217,7 +217,7 @@ export class DrawRectangleMode implements DraftCapableMode {
     this.context.render.clearVertices();
     this.context.render.clearSnapIndicator();
     // Always notify (even without a draft) so external UIs can reset,
-    // matching DrawMode / DrawLineMode and the facade's TSDoc.
+    // matching DrawPolygonMode / DrawLineMode and the facade's TSDoc.
     this.emitDraftChange();
   }
 

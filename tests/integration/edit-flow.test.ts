@@ -5,7 +5,7 @@ import { HistoryManager } from '../../src/core/HistoryManager';
 import { ModeManager } from '../../src/core/ModeManager';
 import type { ModeContext } from '../../src/core/ModeContext';
 import { IdleMode } from '../../src/modes/IdleMode';
-import { DrawMode } from '../../src/modes/DrawMode';
+import { DrawPolygonMode } from '../../src/modes/DrawPolygonMode';
 import { SelectMode } from '../../src/modes/SelectMode';
 import { DeleteAction } from '../../src/types/features';
 import type { NormalizedInputEvent } from '../../src/types/input';
@@ -65,11 +65,11 @@ describe('Edit Flow Integration', () => {
       getViewportBounds: () => ({ west: -180, south: -90, east: 180, north: 90 }),
     };
 
-    const drawMode = new DrawMode(modeContext);
+    const drawPolygonMode = new DrawPolygonMode(modeContext);
     const selectMode = new SelectMode(modeContext, vi.fn());
 
     modeManager.registerMode('idle', new IdleMode());
-    modeManager.registerMode('draw', drawMode);
+    modeManager.registerMode('draw-polygon', drawPolygonMode);
     modeManager.registerMode('select', selectMode);
 
     return { eventBus, store, history, modeManager, selectMode };
@@ -79,7 +79,7 @@ describe('Edit Flow Integration', () => {
    * Helper: draw a square polygon (0,0)-(10,0)-(10,10)-(0,10)
    */
   function drawSquare(modeManager: ModeManager) {
-    modeManager.setMode('draw');
+    modeManager.setMode('draw-polygon');
     const mode = modeManager.getCurrentMode()!;
     mode.onPointerDown(createPointerEvent(0, 0));
     mode.onPointerDown(createPointerEvent(10, 0));

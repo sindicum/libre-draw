@@ -46,7 +46,7 @@ const draw = new LibreDraw(map, {
     controls: {
       drawPoint: true,
       drawLine: true,
-      draw: true,
+      drawPolygon: true,
       select: true,
       split: true,
       setback: true,
@@ -79,9 +79,9 @@ Switching modes deactivates the current mode (clearing any in-progress state) an
 
 **Parameters:**
 
-| Name   | Type                              | Description                                                                                                  |
-| ------ | --------------------------------- | ------------------------------------------------------------------------------------------------------------ |
-| `mode` | [`ModeName`](/api/types#modename) | `'idle'`, `'draw-point'`, `'draw-line'`, `'draw'`, `'draw-rectangle'`, `'select'`, `'split'`, or `'setback'` |
+| Name   | Type                              | Description                                                                                                          |
+| ------ | --------------------------------- | -------------------------------------------------------------------------------------------------------------------- |
+| `mode` | [`ModeName`](/api/types#modename) | `'idle'`, `'draw-point'`, `'draw-line'`, `'draw-polygon'`, `'draw-rectangle'`, `'select'`, `'split'`, or `'setback'` |
 
 **Returns:** `void`
 
@@ -103,14 +103,14 @@ draw.on('modechange', (e) => {
 
 Get the current drawing mode.
 
-**Returns:** [`ModeName`](/api/types#modename) — `'idle'`, `'draw-point'`, `'draw-line'`, `'draw'`, `'draw-rectangle'`, `'select'`, `'split'`, or `'setback'`.
+**Returns:** [`ModeName`](/api/types#modename) — `'idle'`, `'draw-point'`, `'draw-line'`, `'draw-polygon'`, `'draw-rectangle'`, `'select'`, `'split'`, or `'setback'`.
 
 **Throws:** [`LibreDrawError`](/api/types#libredrawerror) if this instance has been destroyed.
 
 **Example:**
 
 ```ts
-if (draw.getMode() === 'draw') {
+if (draw.getMode() === 'draw-polygon') {
   console.log('Currently drawing');
 }
 ```
@@ -484,7 +484,7 @@ draw.redo(); // re-applies the undone action
 
 ## Draft Control
 
-Programmatically control the in-progress draft of the `'draw'` (polygon), `'draw-line'` (linestring), and `'draw-rectangle'` modes. Useful for implementing custom finish/cancel buttons or showing the current vertex count in a UI.
+Programmatically control the in-progress draft of the `'draw-polygon'` (polygon), `'draw-line'` (linestring), and `'draw-rectangle'` modes. Useful for implementing custom finish/cancel buttons or showing the current vertex count in a UI.
 
 ### `finishDrawing()`
 
@@ -499,7 +499,7 @@ On success, a feature is added to the store, a [`create`](/api/events#create) ev
 **Example:**
 
 ```ts
-draw.setMode('draw');
+draw.setMode('draw-polygon');
 // ... user clicks to add vertices ...
 if (draw.finishDrawing()) {
   draw.setMode('idle');

@@ -21,7 +21,7 @@ export type ToolbarPosition = 'top-left' | 'top-right' | 'bottom-left' | 'bottom
 export interface ToolbarControls {
   drawPoint?: boolean;
   drawLine?: boolean;
-  draw?: boolean;
+  drawPolygon?: boolean;
   drawRectangle?: boolean;
   select?: boolean;
   split?: boolean;
