@@ -57,6 +57,7 @@ export class DrawPolygonMode implements DraftCapableMode {
     this.isActive = false;
     this.vertices = [];
     this.context.render.clearPreview();
+    this.context.render.clearVertices();
     this.context.render.clearSnapIndicator();
     // Notify listeners regardless of prior state so UIs can reset on exit.
     this.context.events.emit('draftchange', { vertexCount: 0 });
@@ -93,6 +94,7 @@ export class DrawPolygonMode implements DraftCapableMode {
     this.vertices.push(newVertex);
     const previewCoords = this.buildPreviewCoordinates(newVertex);
     this.context.render.renderPreview(previewCoords);
+    this.renderDraftVertices();
     this.emitDraftChange();
   }
 
@@ -123,6 +125,8 @@ export class DrawPolygonMode implements DraftCapableMode {
     // (it would have been added in onPointerDown before onDoubleClick fires)
     if (this.vertices.length > MIN_VERTICES) {
       this.vertices.pop();
+      // tryFinalize() can still fail below, so keep the dots in step.
+      this.renderDraftVertices();
       this.emitDraftChange();
     }
 
@@ -144,6 +148,7 @@ export class DrawPolygonMode implements DraftCapableMode {
       } else {
         this.context.render.renderPreview(this.buildPreviewCoordinates());
       }
+      this.renderDraftVertices();
       this.emitDraftChange();
     }
   }
@@ -174,6 +179,7 @@ export class DrawPolygonMode implements DraftCapableMode {
     if (!this.isActive) return;
     this.vertices = [];
     this.context.render.clearPreview();
+    this.context.render.clearVertices();
     this.context.render.clearSnapIndicator();
     this.emitDraftChange();
   }
@@ -240,9 +246,23 @@ export class DrawPolygonMode implements DraftCapableMode {
     // Reset state for next drawing and notify listeners.
     this.vertices = [];
     this.context.render.clearPreview();
+    this.context.render.clearVertices();
     this.context.render.clearSnapIndicator();
     this.emitDraftChange();
     return true;
+  }
+
+  /**
+   * Render the placed vertices as dots. Each click or tap gets visible
+   * feedback of its own, which is the only feedback on touch: there is no
+   * hover to drive the rubber-band preview.
+   */
+  private renderDraftVertices(): void {
+    if (this.vertices.length === 0) {
+      this.context.render.clearVertices();
+      return;
+    }
+    this.context.render.renderVertices(this.vertices, []);
   }
 
   /**

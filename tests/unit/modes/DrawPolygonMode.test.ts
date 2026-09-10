@@ -311,4 +311,73 @@ describe('DrawPolygonMode', () => {
       expect(context.store.add).toHaveBeenCalled();
     });
   });
+
+  describe('draft vertex markers', () => {
+    it('should render a dot for each placed vertex', () => {
+      drawPolygonMode.activate();
+      drawPolygonMode.onPointerDown(createPointerEvent(0, 0));
+
+      expect(context.render.renderVertices).toHaveBeenLastCalledWith([[0, 0]], []);
+
+      drawPolygonMode.onPointerDown(createPointerEvent(10, 0));
+
+      expect(context.render.renderVertices).toHaveBeenLastCalledWith(
+        [
+          [0, 0],
+          [10, 0],
+        ],
+        []
+      );
+    });
+
+    it('should not add a dot for the hovered cursor position', () => {
+      drawPolygonMode.activate();
+      drawPolygonMode.onPointerDown(createPointerEvent(0, 0));
+      vi.mocked(context.render.renderVertices).mockClear();
+
+      drawPolygonMode.onPointerMove(createPointerEvent(5, 5));
+
+      // Only placed vertices get a dot; the cursor is shown by the preview.
+      expect(context.render.renderVertices).not.toHaveBeenCalled();
+    });
+
+    it('should drop the dot of the vertex removed by a long press', () => {
+      drawPolygonMode.activate();
+      drawPolygonMode.onPointerDown(createPointerEvent(0, 0));
+      drawPolygonMode.onPointerDown(createPointerEvent(10, 0));
+
+      drawPolygonMode.onLongPress(createPointerEvent(10, 0));
+
+      expect(context.render.renderVertices).toHaveBeenLastCalledWith([[0, 0]], []);
+    });
+
+    it('should clear the dots once the last vertex is removed', () => {
+      drawPolygonMode.activate();
+      drawPolygonMode.onPointerDown(createPointerEvent(0, 0));
+
+      drawPolygonMode.onLongPress(createPointerEvent(0, 0));
+
+      expect(context.render.clearVertices).toHaveBeenCalled();
+    });
+
+    it('should clear the dots on cancelDrawing()', () => {
+      drawPolygonMode.activate();
+      drawPolygonMode.onPointerDown(createPointerEvent(0, 0));
+      vi.mocked(context.render.clearVertices).mockClear();
+
+      drawPolygonMode.cancelDrawing();
+
+      expect(context.render.clearVertices).toHaveBeenCalled();
+    });
+
+    it('should clear the dots on deactivate()', () => {
+      drawPolygonMode.activate();
+      drawPolygonMode.onPointerDown(createPointerEvent(0, 0));
+      vi.mocked(context.render.clearVertices).mockClear();
+
+      drawPolygonMode.deactivate();
+
+      expect(context.render.clearVertices).toHaveBeenCalled();
+    });
+  });
 });

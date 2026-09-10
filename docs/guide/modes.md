@@ -85,7 +85,8 @@ In draw-line mode, you create new LineString features by clicking on the map.
 
 ### Behavior
 
-- A preview line follows the cursor while drawing
+- Each placed vertex is marked with a dot, so every click or tap has feedback of its own
+- A preview line follows the cursor while drawing (mouse only — touch has no hover)
 - Unlike polygon drawing, the line is **not closed** — it remains an open path
 - Minimum 2 vertices are required to finalize
 - The mode stays active after finalization for continuous drawing
@@ -124,7 +125,8 @@ In draw-polygon mode, you create new polygons by clicking on the map.
 
 ### Behavior
 
-- A preview line follows the cursor while drawing
+- Each placed vertex is marked with a dot, so every click or tap has feedback of its own
+- A preview line follows the cursor while drawing (mouse only — touch has no hover)
 - A semi-transparent polygon preview shows the current shape
 - Map panning is disabled during draw-polygon mode
 - Double-click zoom is disabled during draw-polygon mode
