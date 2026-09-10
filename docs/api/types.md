@@ -244,7 +244,7 @@ interface ToolbarControls {
 | --------------- | --------- | ------- | -------------------------------------------------- |
 | `drawPoint`     | `boolean` | `true`  | Show draw-point mode toggle button                 |
 | `drawLine`      | `boolean` | `true`  | Show draw-line mode toggle button                  |
-| `draw`          | `boolean` | `true`  | Show draw mode toggle button                       |
+| `drawPolygon`   | `boolean` | `true`  | Show draw-polygon mode toggle button               |
 | `drawRectangle` | `boolean` | `true`  | Show draw-rectangle mode toggle button             |
 | `select`        | `boolean` | `true`  | Show select mode toggle button                     |
 | `split`         | `boolean` | `true`  | Show split mode toggle button                      |
@@ -267,7 +267,7 @@ type ModeName =
   | 'idle'
   | 'draw-point'
   | 'draw-line'
-  | 'draw'
+  | 'draw-polygon'
   | 'draw-rectangle'
   | 'select'
   | 'split'
@@ -279,7 +279,7 @@ type ModeName =
 | `'idle'`           | No drawing interaction. Map behaves normally.                              |
 | `'draw-point'`     | Place point features by clicking/tapping.                                  |
 | `'draw-line'`      | Create lines by clicking/tapping vertices, double-click to finalize.       |
-| `'draw'`           | Create polygons by clicking/tapping vertices.                              |
+| `'draw-polygon'`   | Create polygons by clicking/tapping vertices.                              |
 | `'draw-rectangle'` | Create an axis-aligned rectangle by clicking/tapping two opposite corners. |
 | `'select'`         | Select and edit existing features (points, lines, and polygons).           |
 | `'split'`          | Split a polygon into two polygons with a two-point line.                   |

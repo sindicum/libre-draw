@@ -29,7 +29,7 @@ const draw = new LibreDraw(map, {
   toolbar: {
     position: 'top-left',
     controls: {
-      draw: true,
+      drawPolygon: true,
       drawRectangle: true,
       select: true,
       delete: true,

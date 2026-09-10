@@ -5,7 +5,7 @@ import { HistoryManager } from '../../src/core/HistoryManager';
 import { ModeManager } from '../../src/core/ModeManager';
 import type { ModeContext } from '../../src/core/ModeContext';
 import { IdleMode } from '../../src/modes/IdleMode';
-import { DrawMode } from '../../src/modes/DrawMode';
+import { DrawPolygonMode } from '../../src/modes/DrawPolygonMode';
 import { DrawLineMode } from '../../src/modes/DrawLineMode';
 import { DrawRectangleMode } from '../../src/modes/DrawRectangleMode';
 import { SelectMode } from '../../src/modes/SelectMode';
@@ -89,13 +89,13 @@ describe('Draw Flow Integration', () => {
       getViewportBounds: () => ({ west: -180, south: -90, east: 180, north: 90 }),
     };
 
-    const drawMode = new DrawMode(modeContext);
+    const drawPolygonMode = new DrawPolygonMode(modeContext);
     const drawLineMode = new DrawLineMode(modeContext);
     const drawRectangleMode = new DrawRectangleMode(modeContext);
     const selectMode = new SelectMode(modeContext, vi.fn());
 
     modeManager.registerMode('idle', new IdleMode());
-    modeManager.registerMode('draw', drawMode);
+    modeManager.registerMode('draw-polygon', drawPolygonMode);
     modeManager.registerMode('draw-line', drawLineMode);
     modeManager.registerMode('draw-rectangle', drawRectangleMode);
     modeManager.registerMode('select', selectMode);
@@ -105,7 +105,7 @@ describe('Draw Flow Integration', () => {
       store,
       history,
       modeManager,
-      drawMode,
+      drawPolygonMode,
       drawLineMode,
       drawRectangleMode,
       selectMode,
@@ -121,22 +121,22 @@ describe('Draw Flow Integration', () => {
     eventBus.on('delete', deleteListener);
 
     // Switch to draw mode
-    modeManager.setMode('draw');
-    const drawMode = modeManager.getCurrentMode()!;
+    modeManager.setMode('draw-polygon');
+    const drawPolygonMode = modeManager.getCurrentMode()!;
 
     // Draw a triangle
-    drawMode.onPointerDown(createPointerEvent(0, 0));
-    drawMode.onPointerDown(createPointerEvent(10, 0));
-    drawMode.onPointerDown(createPointerEvent(10, 10));
+    drawPolygonMode.onPointerDown(createPointerEvent(0, 0));
+    drawPolygonMode.onPointerDown(createPointerEvent(10, 0));
+    drawPolygonMode.onPointerDown(createPointerEvent(10, 10));
 
     // Add an extra vertex from the first click of the double-click
-    drawMode.onPointerDown(createPointerEvent(5, 5));
+    drawPolygonMode.onPointerDown(createPointerEvent(5, 5));
 
     // Finalize with double click
     const dblEvt = createPointerEvent(5, 5);
     vi.spyOn(dblEvt.originalEvent, 'preventDefault').mockImplementation(() => {});
     vi.spyOn(dblEvt.originalEvent, 'stopPropagation').mockImplementation(() => {});
-    drawMode.onDoubleClick(dblEvt);
+    drawPolygonMode.onDoubleClick(dblEvt);
 
     // Verify feature was created
     expect(store.getAll()).toHaveLength(1);
@@ -177,17 +177,17 @@ describe('Draw Flow Integration', () => {
     });
 
     // Draw
-    modeManager.setMode('draw');
-    const drawMode = modeManager.getCurrentMode()!;
-    drawMode.onPointerDown(createPointerEvent(0, 0));
-    drawMode.onPointerDown(createPointerEvent(10, 0));
-    drawMode.onPointerDown(createPointerEvent(10, 10));
-    drawMode.onPointerDown(createPointerEvent(5, 5));
+    modeManager.setMode('draw-polygon');
+    const drawPolygonMode = modeManager.getCurrentMode()!;
+    drawPolygonMode.onPointerDown(createPointerEvent(0, 0));
+    drawPolygonMode.onPointerDown(createPointerEvent(10, 0));
+    drawPolygonMode.onPointerDown(createPointerEvent(10, 10));
+    drawPolygonMode.onPointerDown(createPointerEvent(5, 5));
 
     const dblEvt = createPointerEvent(5, 5);
     vi.spyOn(dblEvt.originalEvent, 'preventDefault').mockImplementation(() => {});
     vi.spyOn(dblEvt.originalEvent, 'stopPropagation').mockImplementation(() => {});
-    drawMode.onDoubleClick(dblEvt);
+    drawPolygonMode.onDoubleClick(dblEvt);
 
     const featureId = store.getAll()[0].id;
     expect(createPayload).toBeDefined();
@@ -226,19 +226,19 @@ describe('Draw Flow Integration', () => {
   it('should undo the creation after drawing', () => {
     const { store, history, modeManager } = createDrawingSystem();
 
-    modeManager.setMode('draw');
-    const drawMode = modeManager.getCurrentMode()!;
+    modeManager.setMode('draw-polygon');
+    const drawPolygonMode = modeManager.getCurrentMode()!;
 
     // Draw a triangle
-    drawMode.onPointerDown(createPointerEvent(0, 0));
-    drawMode.onPointerDown(createPointerEvent(10, 0));
-    drawMode.onPointerDown(createPointerEvent(10, 10));
-    drawMode.onPointerDown(createPointerEvent(5, 5));
+    drawPolygonMode.onPointerDown(createPointerEvent(0, 0));
+    drawPolygonMode.onPointerDown(createPointerEvent(10, 0));
+    drawPolygonMode.onPointerDown(createPointerEvent(10, 10));
+    drawPolygonMode.onPointerDown(createPointerEvent(5, 5));
 
     const dblEvt = createPointerEvent(5, 5);
     vi.spyOn(dblEvt.originalEvent, 'preventDefault').mockImplementation(() => {});
     vi.spyOn(dblEvt.originalEvent, 'stopPropagation').mockImplementation(() => {});
-    drawMode.onDoubleClick(dblEvt);
+    drawPolygonMode.onDoubleClick(dblEvt);
 
     expect(store.getAll()).toHaveLength(1);
 
@@ -254,13 +254,13 @@ describe('Draw Flow Integration', () => {
   it('should cancel drawing with Escape', () => {
     const { store, modeManager } = createDrawingSystem();
 
-    modeManager.setMode('draw');
-    const drawMode = modeManager.getCurrentMode()!;
+    modeManager.setMode('draw-polygon');
+    const drawPolygonMode = modeManager.getCurrentMode()!;
 
-    drawMode.onPointerDown(createPointerEvent(0, 0));
-    drawMode.onPointerDown(createPointerEvent(10, 0));
+    drawPolygonMode.onPointerDown(createPointerEvent(0, 0));
+    drawPolygonMode.onPointerDown(createPointerEvent(10, 0));
 
-    drawMode.onKeyDown('Escape', new KeyboardEvent('keydown', { key: 'Escape' }));
+    drawPolygonMode.onKeyDown('Escape', new KeyboardEvent('keydown', { key: 'Escape' }));
 
     // No feature should be created
     expect(store.getAll()).toHaveLength(0);
@@ -272,8 +272,8 @@ describe('Draw Flow Integration', () => {
 
     modeManager.setOnModeChange(modeChangeListener);
 
-    modeManager.setMode('draw');
-    expect(modeManager.getMode()).toBe('draw');
+    modeManager.setMode('draw-polygon');
+    expect(modeManager.getMode()).toBe('draw-polygon');
 
     modeManager.setMode('select');
     expect(modeManager.getMode()).toBe('select');
@@ -284,109 +284,109 @@ describe('Draw Flow Integration', () => {
     expect(modeChangeListener).toHaveBeenCalledTimes(3);
   });
 
-  describe('draft control API (DrawMode)', () => {
+  describe('draft control API (DrawPolygonMode)', () => {
     it('should finalize a polygon via finishDrawing() and emit events in order', () => {
-      const { eventBus, store, modeManager, drawMode } = createDrawingSystem();
+      const { eventBus, store, modeManager, drawPolygonMode } = createDrawingSystem();
       const events: string[] = [];
       const createListener = vi.fn(() => events.push('create'));
       const draftListener = vi.fn((e: DraftChangeEvent) => events.push(`draft:${e.vertexCount}`));
       eventBus.on('create', createListener);
       eventBus.on('draftchange', draftListener);
 
-      modeManager.setMode('draw');
-      drawMode.onPointerDown(createPointerEvent(0, 0));
-      drawMode.onPointerDown(createPointerEvent(10, 0));
-      drawMode.onPointerDown(createPointerEvent(10, 10));
+      modeManager.setMode('draw-polygon');
+      drawPolygonMode.onPointerDown(createPointerEvent(0, 0));
+      drawPolygonMode.onPointerDown(createPointerEvent(10, 0));
+      drawPolygonMode.onPointerDown(createPointerEvent(10, 10));
 
-      expect(drawMode.getDraftVertexCount()).toBe(3);
+      expect(drawPolygonMode.getDraftVertexCount()).toBe(3);
 
-      const result = drawMode.finishDrawing();
+      const result = drawPolygonMode.finishDrawing();
 
       expect(result).toBe(true);
       expect(store.getAll()).toHaveLength(1);
       expect(createListener).toHaveBeenCalledOnce();
-      expect(drawMode.getDraftVertexCount()).toBe(0);
+      expect(drawPolygonMode.getDraftVertexCount()).toBe(0);
 
       // Order: vertex-adds (draft:1, 2, 3) -> create -> draft:0
       expect(events).toEqual(['draft:1', 'draft:2', 'draft:3', 'create', 'draft:0']);
     });
 
     it('should return false from finishDrawing() with fewer than 3 vertices', () => {
-      const { eventBus, store, modeManager, drawMode } = createDrawingSystem();
+      const { eventBus, store, modeManager, drawPolygonMode } = createDrawingSystem();
       const createListener = vi.fn();
       eventBus.on('create', createListener);
 
-      modeManager.setMode('draw');
-      drawMode.onPointerDown(createPointerEvent(0, 0));
-      drawMode.onPointerDown(createPointerEvent(10, 0));
+      modeManager.setMode('draw-polygon');
+      drawPolygonMode.onPointerDown(createPointerEvent(0, 0));
+      drawPolygonMode.onPointerDown(createPointerEvent(10, 0));
 
-      expect(drawMode.finishDrawing()).toBe(false);
+      expect(drawPolygonMode.finishDrawing()).toBe(false);
       expect(store.getAll()).toHaveLength(0);
       expect(createListener).not.toHaveBeenCalled();
       // Draft is preserved on failure
-      expect(drawMode.getDraftVertexCount()).toBe(2);
+      expect(drawPolygonMode.getDraftVertexCount()).toBe(2);
     });
 
     it('should return false from finishDrawing() when closing would self-intersect', () => {
-      const { eventBus, store, modeManager, drawMode } = createDrawingSystem();
+      const { eventBus, store, modeManager, drawPolygonMode } = createDrawingSystem();
       const createListener = vi.fn();
       eventBus.on('create', createListener);
 
-      modeManager.setMode('draw');
+      modeManager.setMode('draw-polygon');
       // Bowtie / figure-8 pattern: closing the ring crosses an existing edge
-      drawMode.onPointerDown(createPointerEvent(0, 0));
-      drawMode.onPointerDown(createPointerEvent(10, 0));
-      drawMode.onPointerDown(createPointerEvent(0, 10));
-      drawMode.onPointerDown(createPointerEvent(10, 10));
+      drawPolygonMode.onPointerDown(createPointerEvent(0, 0));
+      drawPolygonMode.onPointerDown(createPointerEvent(10, 0));
+      drawPolygonMode.onPointerDown(createPointerEvent(0, 10));
+      drawPolygonMode.onPointerDown(createPointerEvent(10, 10));
 
-      expect(drawMode.finishDrawing()).toBe(false);
+      expect(drawPolygonMode.finishDrawing()).toBe(false);
       expect(store.getAll()).toHaveLength(0);
       expect(createListener).not.toHaveBeenCalled();
-      expect(drawMode.getDraftVertexCount()).toBe(4);
+      expect(drawPolygonMode.getDraftVertexCount()).toBe(4);
     });
 
     it('should cancelDrawing() and preserve draw mode', () => {
-      const { eventBus, store, modeManager, drawMode } = createDrawingSystem();
+      const { eventBus, store, modeManager, drawPolygonMode } = createDrawingSystem();
       const draftListener = vi.fn();
       eventBus.on('draftchange', draftListener);
 
-      modeManager.setMode('draw');
-      drawMode.onPointerDown(createPointerEvent(0, 0));
-      drawMode.onPointerDown(createPointerEvent(10, 0));
+      modeManager.setMode('draw-polygon');
+      drawPolygonMode.onPointerDown(createPointerEvent(0, 0));
+      drawPolygonMode.onPointerDown(createPointerEvent(10, 0));
 
       draftListener.mockClear();
-      drawMode.cancelDrawing();
+      drawPolygonMode.cancelDrawing();
 
       expect(store.getAll()).toHaveLength(0);
-      expect(drawMode.getDraftVertexCount()).toBe(0);
-      expect(modeManager.getMode()).toBe('draw');
+      expect(drawPolygonMode.getDraftVertexCount()).toBe(0);
+      expect(modeManager.getMode()).toBe('draw-polygon');
       expect(draftListener).toHaveBeenCalledWith({ vertexCount: 0 });
     });
 
     it('should emit draftchange when long-press removes a vertex', () => {
-      const { eventBus, modeManager, drawMode } = createDrawingSystem();
+      const { eventBus, modeManager, drawPolygonMode } = createDrawingSystem();
       const draftListener = vi.fn();
       eventBus.on('draftchange', draftListener);
 
-      modeManager.setMode('draw');
-      drawMode.onPointerDown(createPointerEvent(0, 0));
-      drawMode.onPointerDown(createPointerEvent(10, 0));
+      modeManager.setMode('draw-polygon');
+      drawPolygonMode.onPointerDown(createPointerEvent(0, 0));
+      drawPolygonMode.onPointerDown(createPointerEvent(10, 0));
 
       draftListener.mockClear();
-      drawMode.onLongPress(createPointerEvent(10, 0));
+      drawPolygonMode.onLongPress(createPointerEvent(10, 0));
 
       expect(draftListener).toHaveBeenCalledWith({ vertexCount: 1 });
-      expect(drawMode.getDraftVertexCount()).toBe(1);
+      expect(drawPolygonMode.getDraftVertexCount()).toBe(1);
     });
 
     it('should emit draftchange(0) when exiting draw mode to any other mode', () => {
-      const { eventBus, modeManager, drawMode } = createDrawingSystem();
+      const { eventBus, modeManager, drawPolygonMode } = createDrawingSystem();
       const draftListener = vi.fn();
       eventBus.on('draftchange', draftListener);
 
-      modeManager.setMode('draw');
-      drawMode.onPointerDown(createPointerEvent(0, 0));
-      drawMode.onPointerDown(createPointerEvent(10, 0));
+      modeManager.setMode('draw-polygon');
+      drawPolygonMode.onPointerDown(createPointerEvent(0, 0));
+      drawPolygonMode.onPointerDown(createPointerEvent(10, 0));
       draftListener.mockClear();
 
       modeManager.setMode('select');
@@ -395,27 +395,27 @@ describe('Draw Flow Integration', () => {
     });
 
     it('should return 0 from getDraftVertexCount() in non-drawing modes', () => {
-      const { modeManager, drawMode } = createDrawingSystem();
+      const { modeManager, drawPolygonMode } = createDrawingSystem();
 
       modeManager.setMode('idle');
-      expect(drawMode.getDraftVertexCount()).toBe(0);
+      expect(drawPolygonMode.getDraftVertexCount()).toBe(0);
 
       modeManager.setMode('select');
-      expect(drawMode.getDraftVertexCount()).toBe(0);
+      expect(drawPolygonMode.getDraftVertexCount()).toBe(0);
     });
 
     it('should return false from finishDrawing() when mode is inactive', () => {
-      const { store, modeManager, drawMode } = createDrawingSystem();
+      const { store, modeManager, drawPolygonMode } = createDrawingSystem();
 
-      // idle by default — drawMode.activate() has not been called
-      expect(drawMode.finishDrawing()).toBe(false);
+      // idle by default — drawPolygonMode.activate() has not been called
+      expect(drawPolygonMode.finishDrawing()).toBe(false);
       expect(store.getAll()).toHaveLength(0);
 
       modeManager.setMode('idle');
-      expect(drawMode.finishDrawing()).toBe(false);
+      expect(drawPolygonMode.finishDrawing()).toBe(false);
 
       modeManager.setMode('select');
-      expect(drawMode.finishDrawing()).toBe(false);
+      expect(drawPolygonMode.finishDrawing()).toBe(false);
       expect(store.getAll()).toHaveLength(0);
     });
   });

@@ -243,7 +243,7 @@ describe('LibreDraw lifecycle integration', () => {
     vi.mocked(map.doubleClickZoom.enable).mockClear();
     vi.mocked(map.doubleClickZoom.disable).mockClear();
 
-    draw.setMode('draw');
+    draw.setMode('draw-polygon');
     expect(map.dragPan.disable).toHaveBeenCalledTimes(1);
     expect(map.doubleClickZoom.disable).toHaveBeenCalledTimes(1);
 
@@ -333,7 +333,7 @@ describe('LibreDraw lifecycle integration', () => {
     const map = new FakeMap();
     const draw = new LibreDraw(map.asMap(), { toolbar: false });
 
-    draw.setMode('draw');
+    draw.setMode('draw-polygon');
 
     // Manually add and create a feature to get a history entry
     draw.addFeatures([makeFeature('f1')]);
@@ -388,7 +388,7 @@ describe('LibreDraw lifecycle integration', () => {
     expect(draw.finishDrawing()).toBe(false);
     draw.cancelDrawing(); // must not throw
 
-    draw.setMode('draw');
+    draw.setMode('draw-polygon');
     expect(draw.getDraftVertexCount()).toBe(0);
 
     // Simulate three pointer-downs via the mode directly is internal;
@@ -675,7 +675,7 @@ describe('LibreDraw lifecycle integration', () => {
       expect(map.dragPan.disable).not.toHaveBeenCalled();
       expect(map.doubleClickZoom.disable).toHaveBeenCalled();
 
-      draw.setMode('draw');
+      draw.setMode('draw-polygon');
       expect(button.getAttribute('aria-pressed')).toBe('false');
       expect(drawButton.getAttribute('aria-pressed')).toBe('true');
 

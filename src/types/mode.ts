@@ -5,7 +5,7 @@ export type ModeName =
   | 'idle'
   | 'draw-point'
   | 'draw-line'
-  | 'draw'
+  | 'draw-polygon'
   | 'draw-rectangle'
   | 'select'
   | 'split'

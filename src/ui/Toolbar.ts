@@ -4,7 +4,7 @@ import type { PartialStyleConfig } from '../types/style';
 import { ToolbarButton } from './ToolbarButton';
 import { drawPointIcon } from './icons/draw-point';
 import { drawLineIcon } from './icons/draw-line';
-import { drawIcon } from './icons/draw';
+import { drawPolygonIcon } from './icons/draw-polygon';
 import { drawRectangleIcon } from './icons/draw-rectangle';
 import { selectIcon } from './icons/select';
 import { splitIcon } from './icons/split';
@@ -22,7 +22,7 @@ import { StylePanel } from './StylePanel';
 const DEFAULT_CONTROLS: Required<ToolbarControls> = {
   drawPoint: true,
   drawLine: true,
-  draw: true,
+  drawPolygon: true,
   drawRectangle: true,
   select: true,
   split: true,
@@ -39,7 +39,7 @@ const DEFAULT_CONTROLS: Required<ToolbarControls> = {
 export interface ToolbarCallbacks {
   onDrawPointClick(): void;
   onDrawLineClick(): void;
-  onDrawClick(): void;
+  onDrawPolygonClick(): void;
   onDrawRectangleClick(): void;
   onSelectClick(): void;
   onSplitClick(): void;
@@ -86,13 +86,13 @@ export class Toolbar {
 
   /**
    * Update the active mode displayed in the toolbar.
-   * @param mode - The active mode name ('idle', 'draw-point', 'draw-line', 'draw',
+   * @param mode - The active mode name ('idle', 'draw-point', 'draw-line', 'draw-polygon',
    *   'draw-rectangle', 'select', 'split', 'setback').
    */
   setActiveMode(mode: string): void {
     const drawPointBtn = this.buttons.get('draw-point');
     const drawLineBtn = this.buttons.get('draw-line');
-    const drawBtn = this.buttons.get('draw');
+    const drawPolygonBtn = this.buttons.get('draw-polygon');
     const drawRectangleBtn = this.buttons.get('draw-rectangle');
     const selectBtn = this.buttons.get('select');
     const splitBtn = this.buttons.get('split');
@@ -104,8 +104,8 @@ export class Toolbar {
     if (drawLineBtn) {
       drawLineBtn.setActive(mode === 'draw-line');
     }
-    if (drawBtn) {
-      drawBtn.setActive(mode === 'draw');
+    if (drawPolygonBtn) {
+      drawPolygonBtn.setActive(mode === 'draw-polygon');
     }
     if (drawRectangleBtn) {
       drawRectangleBtn.setActive(mode === 'draw-rectangle');
@@ -204,13 +204,13 @@ export class Toolbar {
       );
     }
 
-    if (controls.draw) {
+    if (controls.drawPolygon) {
       this.addButton(
-        'draw',
-        drawIcon,
+        'draw-polygon',
+        drawPolygonIcon,
         'Draw polygon',
         () => {
-          this.callbacks.onDrawClick();
+          this.callbacks.onDrawPolygonClick();
         },
         true
       );

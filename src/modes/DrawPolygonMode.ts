@@ -32,7 +32,7 @@ const MIN_VERTICES = 3;
  * Long press removes the last vertex (undo last point).
  * Escape or `cancelDrawing()` cancels the entire drawing.
  */
-export class DrawMode implements DraftCapableMode {
+export class DrawPolygonMode implements DraftCapableMode {
   private vertices: Position[] = [];
   private isActive = false;
   private context: ModeContext;

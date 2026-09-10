@@ -24,7 +24,7 @@ interface LibreDrawEventMap {
 ## `create`
 
 Emitted when a new feature is created.
-In `draw-point` mode this happens on each click/tap. In `draw-line` mode it happens when the line is finalized. In `draw` mode it happens when the polygon is completed. In `draw-rectangle` mode it happens on the second corner click.
+In `draw-point` mode this happens on each click/tap. In `draw-line` mode it happens when the line is finalized. In `draw-polygon` mode it happens when the polygon is completed. In `draw-rectangle` mode it happens on the second corner click.
 
 ### Payload: `CreateEvent`
 
@@ -285,10 +285,10 @@ interface ModeChangeEvent {
 }
 ```
 
-| Property       | Type                              | Description                                                                                                                        |
-| -------------- | --------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------- |
-| `mode`         | [`ModeName`](/api/types#modename) | The new active mode (`'idle'`, `'draw-point'`, `'draw-line'`, `'draw'`, `'draw-rectangle'`, `'select'`, `'split'`, or `'setback'`) |
-| `previousMode` | [`ModeName`](/api/types#modename) | The previous mode                                                                                                                  |
+| Property       | Type                              | Description                                                                                                                                |
+| -------------- | --------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------ |
+| `mode`         | [`ModeName`](/api/types#modename) | The new active mode (`'idle'`, `'draw-point'`, `'draw-line'`, `'draw-polygon'`, `'draw-rectangle'`, `'select'`, `'split'`, or `'setback'`) |
+| `previousMode` | [`ModeName`](/api/types#modename) | The previous mode                                                                                                                          |
 
 ### Example
 
@@ -297,7 +297,7 @@ draw.on('modechange', (e) => {
   console.log(`${e.previousMode} → ${e.mode}`);
 
   // Update your UI based on mode
-  drawButton.classList.toggle('active', e.mode === 'draw');
+  drawButton.classList.toggle('active', e.mode === 'draw-polygon');
   selectButton.classList.toggle('active', e.mode === 'select');
   splitButton.classList.toggle('active', e.mode === 'split');
   setbackButton.classList.toggle('active', e.mode === 'setback');
@@ -308,7 +308,7 @@ draw.on('modechange', (e) => {
 
 ## `draftchange`
 
-Emitted whenever the in-progress draft of a drawing mode (`'draw'`, `'draw-line'`, or `'draw-rectangle'`) changes.
+Emitted whenever the in-progress draft of a drawing mode (`'draw-polygon'`, `'draw-line'`, or `'draw-rectangle'`) changes.
 
 Fires when:
 

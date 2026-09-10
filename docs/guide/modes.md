@@ -4,16 +4,16 @@ LibreDraw uses a mode-based architecture. Only one mode is active at a time, and
 
 ## Overview
 
-| Mode             | Description                                                        | Activated by                                           |
-| ---------------- | ------------------------------------------------------------------ | ------------------------------------------------------ |
-| `idle`           | No drawing interaction. Map behaves normally.                      | Default / toolbar                                      |
-| `draw-point`     | Click to place a point feature.                                    | Toolbar draw-point button / `setMode('draw-point')`    |
-| `draw-line`      | Click to add vertices, double-click to finalize line.              | Toolbar draw-line button / `setMode('draw-line')`      |
-| `draw`           | Click to add vertices, double-click to close polygon.              | Toolbar draw button / `setMode('draw')`                |
-| `draw-rectangle` | Click two opposite corners to create a rectangle.                  | Toolbar rectangle button / `setMode('draw-rectangle')` |
-| `select`         | Click to select, drag to edit vertices or move point/line/polygon. | Toolbar select button / `setMode('select')`            |
-| `split`          | Split a polygon with a two-point line.                             | Toolbar split button / `setMode('split')`              |
-| `setback`        | Apply inward edge setback with distance input.                     | Toolbar setback button / `setMode('setback')`          |
+| Mode             | Description                                                        | Activated by                                            |
+| ---------------- | ------------------------------------------------------------------ | ------------------------------------------------------- |
+| `idle`           | No drawing interaction. Map behaves normally.                      | Default / toolbar                                       |
+| `draw-point`     | Click to place a point feature.                                    | Toolbar draw-point button / `setMode('draw-point')`     |
+| `draw-line`      | Click to add vertices, double-click to finalize line.              | Toolbar draw-line button / `setMode('draw-line')`       |
+| `draw-polygon`   | Click to add vertices, double-click to close polygon.              | Toolbar draw-polygon button / `setMode('draw-polygon')` |
+| `draw-rectangle` | Click two opposite corners to create a rectangle.                  | Toolbar rectangle button / `setMode('draw-rectangle')`  |
+| `select`         | Click to select, drag to edit vertices or move point/line/polygon. | Toolbar select button / `setMode('select')`             |
+| `split`          | Split a polygon with a two-point line.                             | Toolbar split button / `setMode('split')`               |
+| `setback`        | Apply inward edge setback with distance input.                     | Toolbar setback button / `setMode('setback')`           |
 
 ### Try it
 
@@ -102,9 +102,9 @@ draw.on('create', (e) => {
 });
 ```
 
-## Draw Mode
+## Draw Polygon Mode
 
-In draw mode, you create new polygons by clicking on the map.
+In draw-polygon mode, you create new polygons by clicking on the map.
 
 ### Mouse Interaction
 
@@ -126,16 +126,16 @@ In draw mode, you create new polygons by clicking on the map.
 
 - A preview line follows the cursor while drawing
 - A semi-transparent polygon preview shows the current shape
-- Map panning is disabled during draw mode
-- Double-click zoom is disabled during draw mode
+- Map panning is disabled during draw-polygon mode
+- Double-click zoom is disabled during draw-polygon mode
 - Self-intersecting polygons are automatically rejected
 
 ```ts
-draw.setMode('draw');
+draw.setMode('draw-polygon');
 
 draw.on('create', (e) => {
   console.log('New polygon:', e.feature);
-  // Remains in draw mode for continuous drawing
+  // Remains in draw-polygon mode for continuous drawing
 });
 ```
 
@@ -310,7 +310,7 @@ draw.on('setbackfailed', (e) => console.warn(e.reason));
            │                   └────────────┘
            │                         │
            ├─────────────────────────┘
-           │    setMode('draw')
+           │    setMode('draw-polygon')
            ├─────────────────────────┐
            │                         ▼
         ┌──────┐               ┌──────────┐

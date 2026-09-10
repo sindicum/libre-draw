@@ -102,7 +102,7 @@ onMounted(async () => {
         controls: {
           drawPoint: true,
           drawLine: true,
-          draw: true,
+          drawPolygon: true,
           select: true,
           split: true,
           setback: true,

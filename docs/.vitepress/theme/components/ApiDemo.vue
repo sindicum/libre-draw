@@ -49,7 +49,15 @@ const mapContainer = ref<HTMLDivElement | null>(null);
 const logContainer = ref<HTMLDivElement | null>(null);
 const logs = ref<LogEntry[]>([]);
 const currentMode = ref('idle');
-const modes = ['idle', 'draw-point', 'draw-line', 'draw', 'select', 'split', 'setback'] as const;
+const modes = [
+  'idle',
+  'draw-point',
+  'draw-line',
+  'draw-polygon',
+  'select',
+  'split',
+  'setback',
+] as const;
 
 const error = ref<string | null>(null);
 

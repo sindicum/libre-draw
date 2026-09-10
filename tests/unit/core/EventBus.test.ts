@@ -93,10 +93,10 @@ describe('EventBus', () => {
     const listener = vi.fn();
 
     bus.on('modechange', listener);
-    bus.emit('modechange', { mode: 'draw', previousMode: 'idle' });
+    bus.emit('modechange', { mode: 'draw-polygon', previousMode: 'idle' });
 
     expect(listener).toHaveBeenCalledWith({
-      mode: 'draw',
+      mode: 'draw-polygon',
       previousMode: 'idle',
     });
   });
