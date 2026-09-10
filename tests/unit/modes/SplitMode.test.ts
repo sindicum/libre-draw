@@ -199,7 +199,7 @@ describe('SplitMode', () => {
       expect.objectContaining({
         originalFeature: expect.objectContaining({ id: 'f1' }),
         features: expect.any(Array),
-      }),
+      })
     );
     expect(harness.mocks.setSelectedIds).toHaveBeenCalledWith([]);
     expect(harness.mocks.clearPreview).toHaveBeenCalled();
@@ -218,7 +218,7 @@ describe('SplitMode', () => {
       expect.objectContaining({
         reason: 'invalid-intersection-count',
         featureId: 'f1',
-      }),
+      })
     );
 
     // Should return to first-point state (can set a new first point)

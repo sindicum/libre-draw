@@ -116,7 +116,7 @@ describe('GeoJSON Roundtrip Integration', () => {
       validateGeoJSON({
         type: 'FeatureCollection',
         features: [{ type: 'Invalid' }],
-      }),
+      })
     ).toThrow();
   });
 
@@ -165,11 +165,9 @@ describe('GeoJSON Roundtrip Integration', () => {
       expect(reExported.features).toHaveLength(exported.features.length);
       expect(reExported.features[0].id).toBe(exported.features[0].id);
       expect(reExported.features[0].geometry.coordinates).toEqual(
-        exported.features[0].geometry.coordinates,
+        exported.features[0].geometry.coordinates
       );
-      expect(reExported.features[0].properties).toEqual(
-        exported.features[0].properties,
-      );
+      expect(reExported.features[0].properties).toEqual(exported.features[0].properties);
     });
 
     it('should reflect feature additions in toGeoJSON() output', () => {

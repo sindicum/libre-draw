@@ -26,18 +26,14 @@ function validateCoordinate(position: Position): void {
   const [lng, lat] = position;
   if (typeof lng !== 'number' || typeof lat !== 'number') {
     throw new LibreDrawError(
-      `Invalid coordinate: expected [number, number], got [${typeof lng}, ${typeof lat}]`,
+      `Invalid coordinate: expected [number, number], got [${typeof lng}, ${typeof lat}]`
     );
   }
   if (lng < -180 || lng > 180) {
-    throw new LibreDrawError(
-      `Invalid longitude: ${lng}. Must be between -180 and 180.`,
-    );
+    throw new LibreDrawError(`Invalid longitude: ${lng}. Must be between -180 and 180.`);
   }
   if (lat < -90 || lat > 90) {
-    throw new LibreDrawError(
-      `Invalid latitude: ${lat}. Must be between -90 and 90.`,
-    );
+    throw new LibreDrawError(`Invalid latitude: ${lat}. Must be between -90 and 90.`);
   }
 }
 
@@ -53,30 +49,26 @@ function validateRing(ring: Position[]): void {
   }
   if (ring.length < 4) {
     throw new LibreDrawError(
-      `Ring must have at least 4 positions (got ${ring.length}). A valid polygon ring requires 3 unique vertices plus a closing vertex.`,
+      `Ring must have at least 4 positions (got ${ring.length}). A valid polygon ring requires 3 unique vertices plus a closing vertex.`
     );
   }
 
   const first = ring[0];
   const last = ring[ring.length - 1];
   if (!positionsEqual(first, last)) {
-    throw new LibreDrawError(
-      'Ring is not closed. The first and last positions must be identical.',
-    );
+    throw new LibreDrawError('Ring is not closed. The first and last positions must be identical.');
   }
 
   for (const pos of ring) {
     if (!Array.isArray(pos) || pos.length < 2) {
-      throw new LibreDrawError(
-        'Each position in a ring must be an array of at least 2 numbers.',
-      );
+      throw new LibreDrawError('Each position in a ring must be an array of at least 2 numbers.');
     }
     validateCoordinate(pos as Position);
   }
 
   if (hasRingSelfIntersection(ring as Position[])) {
     throw new LibreDrawError(
-      'Ring has self-intersections. Polygon edges must not cross each other.',
+      'Ring has self-intersections. Polygon edges must not cross each other.'
     );
   }
 }
@@ -89,27 +81,17 @@ function validateFeatureEnvelope(feature: unknown): {
   id: string;
   properties: Record<string, unknown>;
 } {
-  if (
-    feature === null ||
-    feature === undefined ||
-    typeof feature !== 'object'
-  ) {
+  if (feature === null || feature === undefined || typeof feature !== 'object') {
     throw new LibreDrawError('Feature must be a non-null object.');
   }
 
   const f = feature as Record<string, unknown>;
 
   if (f.type !== 'Feature') {
-    throw new LibreDrawError(
-      `Feature.type must be "Feature", got "${String(f.type)}".`,
-    );
+    throw new LibreDrawError(`Feature.type must be "Feature", got "${String(f.type)}".`);
   }
 
-  if (
-    f.geometry === null ||
-    f.geometry === undefined ||
-    typeof f.geometry !== 'object'
-  ) {
+  if (f.geometry === null || f.geometry === undefined || typeof f.geometry !== 'object') {
     throw new LibreDrawError('Feature.geometry must be a non-null object.');
   }
 
@@ -134,19 +116,15 @@ function validateFeatureEnvelope(feature: unknown): {
 function validatePointFeature(
   geom: Record<string, unknown>,
   id: string,
-  properties: Record<string, unknown>,
+  properties: Record<string, unknown>
 ): LibreDrawFeature {
   if (!Array.isArray(geom.coordinates)) {
-    throw new LibreDrawError(
-      'Feature.geometry.coordinates must be an array.',
-    );
+    throw new LibreDrawError('Feature.geometry.coordinates must be an array.');
   }
 
   const coords = geom.coordinates as unknown[];
   if (coords.length < 2 || typeof coords[0] !== 'number' || typeof coords[1] !== 'number') {
-    throw new LibreDrawError(
-      'Point coordinates must be [longitude, latitude].',
-    );
+    throw new LibreDrawError('Point coordinates must be [longitude, latitude].');
   }
 
   const position: Position = [coords[0] as number, coords[1] as number];
@@ -169,18 +147,16 @@ function validatePointFeature(
 function validateLineStringFeature(
   geom: Record<string, unknown>,
   id: string,
-  properties: Record<string, unknown>,
+  properties: Record<string, unknown>
 ): LibreDrawFeature {
   if (!Array.isArray(geom.coordinates)) {
-    throw new LibreDrawError(
-      'Feature.geometry.coordinates must be an array.',
-    );
+    throw new LibreDrawError('Feature.geometry.coordinates must be an array.');
   }
 
   const coordinates = geom.coordinates as unknown[];
   if (coordinates.length < 2) {
     throw new LibreDrawError(
-      `LineString must have at least 2 positions (got ${coordinates.length}).`,
+      `LineString must have at least 2 positions (got ${coordinates.length}).`
     );
   }
 
@@ -188,14 +164,12 @@ function validateLineStringFeature(
   for (const pos of coordinates) {
     if (!Array.isArray(pos) || pos.length < 2) {
       throw new LibreDrawError(
-        'Each position in a LineString must be an array of at least 2 numbers.',
+        'Each position in a LineString must be an array of at least 2 numbers.'
       );
     }
     const position: Position = [pos[0] as number, pos[1] as number];
     if (typeof position[0] !== 'number' || typeof position[1] !== 'number') {
-      throw new LibreDrawError(
-        'Each position in a LineString must contain numeric coordinates.',
-      );
+      throw new LibreDrawError('Each position in a LineString must contain numeric coordinates.');
     }
     validateCoordinate(position);
     validatedCoords.push(position);
@@ -218,19 +192,15 @@ function validateLineStringFeature(
 function validatePolygonFeature(
   geom: Record<string, unknown>,
   id: string,
-  properties: Record<string, unknown>,
+  properties: Record<string, unknown>
 ): LibreDrawFeature {
   if (!Array.isArray(geom.coordinates)) {
-    throw new LibreDrawError(
-      'Feature.geometry.coordinates must be an array.',
-    );
+    throw new LibreDrawError('Feature.geometry.coordinates must be an array.');
   }
 
   const coordinates = geom.coordinates as Position[][];
   if (coordinates.length === 0) {
-    throw new LibreDrawError(
-      'Polygon must have at least one ring (outer ring).',
-    );
+    throw new LibreDrawError('Polygon must have at least one ring (outer ring).');
   }
 
   for (const ring of coordinates) {
@@ -243,7 +213,7 @@ function validatePolygonFeature(
     geometry: {
       type: 'Polygon',
       coordinates: coordinates.map((ring) =>
-        ring.map((position) => [position[0], position[1]] as Position),
+        ring.map((position) => [position[0], position[1]] as Position)
       ),
     },
     properties,
@@ -273,7 +243,7 @@ export function validateFeature(feature: unknown): LibreDrawFeature {
   }
 
   throw new LibreDrawError(
-    `Feature.geometry.type must be "Point", "LineString", or "Polygon", got "${String(geom.type)}".`,
+    `Feature.geometry.type must be "Point", "LineString", or "Polygon", got "${String(geom.type)}".`
   );
 }
 
@@ -288,11 +258,7 @@ export function validateGeoJSON(geojson: unknown): {
   type: 'FeatureCollection';
   features: LibreDrawFeature[];
 } {
-  if (
-    geojson === null ||
-    geojson === undefined ||
-    typeof geojson !== 'object'
-  ) {
+  if (geojson === null || geojson === undefined || typeof geojson !== 'object') {
     throw new LibreDrawError('GeoJSON must be a non-null object.');
   }
 
@@ -300,7 +266,7 @@ export function validateGeoJSON(geojson: unknown): {
 
   if (obj.type !== 'FeatureCollection') {
     throw new LibreDrawError(
-      `GeoJSON.type must be "FeatureCollection", got "${String(obj.type)}".`,
+      `GeoJSON.type must be "FeatureCollection", got "${String(obj.type)}".`
     );
   }
 
@@ -316,9 +282,7 @@ export function validateGeoJSON(geojson: unknown): {
       validatedFeatures.push(validateFeature(fc.features[i]));
     } catch (err) {
       if (err instanceof LibreDrawError) {
-        throw new LibreDrawError(
-          `Invalid feature at index ${i}: ${err.message}`,
-        );
+        throw new LibreDrawError(`Invalid feature at index ${i}: ${err.message}`);
       }
       throw err;
     }

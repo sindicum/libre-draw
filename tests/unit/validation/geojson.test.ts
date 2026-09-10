@@ -35,9 +35,7 @@ describe('validateFeature', () => {
 
     expect(result).not.toBe(feature);
     expect(result.geometry).not.toBe(feature.geometry);
-    expect(result.geometry.coordinates[0]).not.toBe(
-      feature.geometry.coordinates[0],
-    );
+    expect(result.geometry.coordinates[0]).not.toBe(feature.geometry.coordinates[0]);
 
     result.geometry.coordinates[0][0][0] = 999;
     result.properties.name = 'tampered';
@@ -60,13 +58,13 @@ describe('validateFeature', () => {
 
   it('should reject feature with wrong type', () => {
     expect(() => validateFeature(makeFeature({ type: 'Point' }))).toThrow(
-      'Feature.type must be "Feature"',
+      'Feature.type must be "Feature"'
     );
   });
 
   it('should reject feature with null geometry', () => {
     expect(() => validateFeature(makeFeature({ geometry: null }))).toThrow(
-      'Feature.geometry must be a non-null object',
+      'Feature.geometry must be a non-null object'
     );
   });
 
@@ -74,9 +72,15 @@ describe('validateFeature', () => {
     expect(() =>
       validateFeature(
         makeFeature({
-          geometry: { type: 'MultiPoint', coordinates: [[0, 0], [1, 1]] },
-        }),
-      ),
+          geometry: {
+            type: 'MultiPoint',
+            coordinates: [
+              [0, 0],
+              [1, 1],
+            ],
+          },
+        })
+      )
     ).toThrow('Feature.geometry.type must be "Point", "LineString", or "Polygon"');
   });
 
@@ -84,7 +88,11 @@ describe('validateFeature', () => {
     const feature = makeFeature({
       geometry: {
         type: 'LineString',
-        coordinates: [[0, 0], [10, 5], [20, 0]],
+        coordinates: [
+          [0, 0],
+          [10, 5],
+          [20, 0],
+        ],
       },
     });
     const result = validateFeature(feature);
@@ -99,8 +107,8 @@ describe('validateFeature', () => {
       validateFeature(
         makeFeature({
           geometry: { type: 'LineString', coordinates: [[0, 0]] },
-        }),
-      ),
+        })
+      )
     ).toThrow('LineString must have at least 2 positions');
   });
 
@@ -108,9 +116,15 @@ describe('validateFeature', () => {
     expect(() =>
       validateFeature(
         makeFeature({
-          geometry: { type: 'LineString', coordinates: [[200, 0], [10, 5]] },
-        }),
-      ),
+          geometry: {
+            type: 'LineString',
+            coordinates: [
+              [200, 0],
+              [10, 5],
+            ],
+          },
+        })
+      )
     ).toThrow('Invalid longitude');
   });
 
@@ -119,8 +133,8 @@ describe('validateFeature', () => {
       validateFeature(
         makeFeature({
           geometry: { type: 'Polygon', coordinates: [] },
-        }),
-      ),
+        })
+      )
     ).toThrow('Polygon must have at least one ring');
   });
 
@@ -138,8 +152,8 @@ describe('validateFeature', () => {
               ],
             ],
           },
-        }),
-      ),
+        })
+      )
     ).toThrow('Ring must have at least 4 positions');
   });
 
@@ -158,8 +172,8 @@ describe('validateFeature', () => {
               ],
             ],
           },
-        }),
-      ),
+        })
+      )
     ).toThrow('Ring is not closed');
   });
 
@@ -178,8 +192,8 @@ describe('validateFeature', () => {
               ],
             ],
           },
-        }),
-      ),
+        })
+      )
     ).toThrow('Invalid longitude');
   });
 
@@ -198,8 +212,8 @@ describe('validateFeature', () => {
               ],
             ],
           },
-        }),
-      ),
+        })
+      )
     ).toThrow('Invalid latitude');
   });
 
@@ -220,8 +234,8 @@ describe('validateFeature', () => {
               ],
             ],
           },
-        }),
-      ),
+        })
+      )
     ).toThrow('self-intersections');
   });
 
@@ -270,7 +284,7 @@ describe('validateGeoJSON', () => {
         fc.features[0] as {
           geometry: { coordinates: [number, number][][] };
         }
-      ).geometry.coordinates[0][0][0],
+      ).geometry.coordinates[0][0][0]
     ).toBe(0);
   });
 
@@ -289,14 +303,14 @@ describe('validateGeoJSON', () => {
 
   it('should reject wrong type', () => {
     expect(() => validateGeoJSON({ type: 'Feature', features: [] })).toThrow(
-      'GeoJSON.type must be "FeatureCollection"',
+      'GeoJSON.type must be "FeatureCollection"'
     );
   });
 
   it('should reject non-array features', () => {
-    expect(() =>
-      validateGeoJSON({ type: 'FeatureCollection', features: 'bad' }),
-    ).toThrow('GeoJSON.features must be an array');
+    expect(() => validateGeoJSON({ type: 'FeatureCollection', features: 'bad' })).toThrow(
+      'GeoJSON.features must be an array'
+    );
   });
 
   it('should report the index of an invalid feature', () => {

@@ -1,13 +1,16 @@
-import type { LibreDrawFeature, LineStringGeometry, PolygonGeometry, Position } from '../types/features';
+import type {
+  LibreDrawFeature,
+  LineStringGeometry,
+  PolygonGeometry,
+  Position,
+} from '../types/features';
 
 /**
  * Assert that the feature has LineString geometry and return it narrowed.
  */
 function assertLineString(feature: LibreDrawFeature): LineStringGeometry {
   if (feature.geometry.type !== 'LineString') {
-    throw new Error(
-      `Expected LineString geometry, got ${feature.geometry.type}`,
-    );
+    throw new Error(`Expected LineString geometry, got ${feature.geometry.type}`);
   }
   return feature.geometry;
 }
@@ -17,9 +20,7 @@ function assertLineString(feature: LibreDrawFeature): LineStringGeometry {
  */
 function assertPolygon(feature: LibreDrawFeature): PolygonGeometry {
   if (feature.geometry.type !== 'Polygon') {
-    throw new Error(
-      `Expected Polygon geometry, got ${feature.geometry.type}`,
-    );
+    throw new Error(`Expected Polygon geometry, got ${feature.geometry.type}`);
   }
   return feature.geometry;
 }
@@ -55,7 +56,7 @@ export function computeMidpoints(vertices: Position[]): Position[] {
 export function moveVertex(
   feature: LibreDrawFeature,
   vertexIndex: number,
-  newPos: Position,
+  newPos: Position
 ): LibreDrawFeature {
   const geom = assertPolygon(feature);
   const ring = [...geom.coordinates[0]];
@@ -85,12 +86,10 @@ export function moveVertex(
 export function movePolygon(
   feature: LibreDrawFeature,
   dLng: number,
-  dLat: number,
+  dLat: number
 ): LibreDrawFeature {
   const geom = assertPolygon(feature);
-  const ring = geom.coordinates[0].map(
-    (pos): Position => [pos[0] + dLng, pos[1] + dLat],
-  );
+  const ring = geom.coordinates[0].map((pos): Position => [pos[0] + dLng, pos[1] + dLat]);
 
   return {
     ...feature,
@@ -107,7 +106,7 @@ export function movePolygon(
 export function insertVertex(
   feature: LibreDrawFeature,
   insertIndex: number,
-  pos: Position,
+  pos: Position
 ): LibreDrawFeature {
   const geom = assertPolygon(feature);
   const ring = [...geom.coordinates[0]];
@@ -125,10 +124,7 @@ export function insertVertex(
 /**
  * Create a new feature with a vertex removed at the given index.
  */
-export function removeVertex(
-  feature: LibreDrawFeature,
-  vertexIndex: number,
-): LibreDrawFeature {
+export function removeVertex(feature: LibreDrawFeature, vertexIndex: number): LibreDrawFeature {
   const vertices = getVertices(feature);
   const newVertices = vertices.filter((_, i) => i !== vertexIndex);
   const ring: Position[] = [...newVertices, [...newVertices[0]] as Position];
@@ -173,7 +169,7 @@ export function computeLineMidpoints(vertices: Position[]): Position[] {
 export function moveLineVertex(
   feature: LibreDrawFeature,
   vertexIndex: number,
-  newPos: Position,
+  newPos: Position
 ): LibreDrawFeature {
   const geom = assertLineString(feature);
   const coords = [...geom.coordinates];
@@ -191,15 +187,9 @@ export function moveLineVertex(
 /**
  * Create a new LineString feature with all vertices translated by the given delta.
  */
-export function moveLine(
-  feature: LibreDrawFeature,
-  dLng: number,
-  dLat: number,
-): LibreDrawFeature {
+export function moveLine(feature: LibreDrawFeature, dLng: number, dLat: number): LibreDrawFeature {
   const geom = assertLineString(feature);
-  const coords = geom.coordinates.map(
-    (pos): Position => [pos[0] + dLng, pos[1] + dLat],
-  );
+  const coords = geom.coordinates.map((pos): Position => [pos[0] + dLng, pos[1] + dLat]);
 
   return {
     ...feature,
@@ -216,7 +206,7 @@ export function moveLine(
 export function insertLineVertex(
   feature: LibreDrawFeature,
   insertIndex: number,
-  pos: Position,
+  pos: Position
 ): LibreDrawFeature {
   const geom = assertLineString(feature);
   const coords = [...geom.coordinates];
@@ -235,15 +225,10 @@ export function insertLineVertex(
  * Create a new LineString feature with a vertex removed at the given index.
  * Maintains a minimum of 2 vertices.
  */
-export function removeLineVertex(
-  feature: LibreDrawFeature,
-  vertexIndex: number,
-): LibreDrawFeature {
+export function removeLineVertex(feature: LibreDrawFeature, vertexIndex: number): LibreDrawFeature {
   const geom = assertLineString(feature);
   if (geom.coordinates.length <= 2) {
-    throw new Error(
-      'Cannot remove vertex: LineString must maintain at least 2 vertices.',
-    );
+    throw new Error('Cannot remove vertex: LineString must maintain at least 2 vertices.');
   }
   const coords = geom.coordinates.filter((_, i) => i !== vertexIndex);
 

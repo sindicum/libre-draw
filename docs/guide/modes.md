@@ -4,16 +4,16 @@ LibreDraw uses a mode-based architecture. Only one mode is active at a time, and
 
 ## Overview
 
-| Mode | Description | Activated by |
-|------|-------------|--------------|
-| `idle` | No drawing interaction. Map behaves normally. | Default / toolbar |
-| `draw-point` | Click to place a point feature. | Toolbar draw-point button / `setMode('draw-point')` |
-| `draw-line` | Click to add vertices, double-click to finalize line. | Toolbar draw-line button / `setMode('draw-line')` |
-| `draw` | Click to add vertices, double-click to close polygon. | Toolbar draw button / `setMode('draw')` |
-| `draw-rectangle` | Click two opposite corners to create a rectangle. | Toolbar rectangle button / `setMode('draw-rectangle')` |
-| `select` | Click to select, drag to edit vertices or move point/line/polygon. | Toolbar select button / `setMode('select')` |
-| `split` | Split a polygon with a two-point line. | Toolbar split button / `setMode('split')` |
-| `setback` | Apply inward edge setback with distance input. | Toolbar setback button / `setMode('setback')` |
+| Mode             | Description                                                        | Activated by                                           |
+| ---------------- | ------------------------------------------------------------------ | ------------------------------------------------------ |
+| `idle`           | No drawing interaction. Map behaves normally.                      | Default / toolbar                                      |
+| `draw-point`     | Click to place a point feature.                                    | Toolbar draw-point button / `setMode('draw-point')`    |
+| `draw-line`      | Click to add vertices, double-click to finalize line.              | Toolbar draw-line button / `setMode('draw-line')`      |
+| `draw`           | Click to add vertices, double-click to close polygon.              | Toolbar draw button / `setMode('draw')`                |
+| `draw-rectangle` | Click two opposite corners to create a rectangle.                  | Toolbar rectangle button / `setMode('draw-rectangle')` |
+| `select`         | Click to select, drag to edit vertices or move point/line/polygon. | Toolbar select button / `setMode('select')`            |
+| `split`          | Split a polygon with a two-point line.                             | Toolbar split button / `setMode('split')`              |
+| `setback`        | Apply inward edge setback with distance input.                     | Toolbar setback button / `setMode('setback')`          |
 
 ### Try it
 
@@ -35,16 +35,16 @@ In draw-point mode, you place point features on the map. Each click/tap instantl
 
 ### Mouse Interaction
 
-| Action | Effect |
-|--------|--------|
-| Click | Place a point |
+| Action     | Effect               |
+| ---------- | -------------------- |
+| Click      | Place a point        |
 | Escape key | Clear snap indicator |
 
 ### Touch Interaction
 
-| Action | Effect |
-|--------|--------|
-| Tap | Place a point |
+| Action | Effect        |
+| ------ | ------------- |
+| Tap    | Place a point |
 
 ### Behavior
 
@@ -69,19 +69,19 @@ In draw-line mode, you create new LineString features by clicking on the map.
 
 ### Mouse Interaction
 
-| Action | Effect |
-|--------|--------|
-| Click | Add a vertex |
+| Action       | Effect                                 |
+| ------------ | -------------------------------------- |
+| Click        | Add a vertex                           |
 | Double-click | Finalize the line (minimum 2 vertices) |
-| Escape key | Cancel the current drawing |
+| Escape key   | Cancel the current drawing             |
 
 ### Touch Interaction
 
-| Action | Effect |
-|--------|--------|
-| Tap | Add a vertex |
+| Action     | Effect            |
+| ---------- | ----------------- |
+| Tap        | Add a vertex      |
 | Double-tap | Finalize the line |
-| Long-press | Undo last vertex |
+| Long-press | Undo last vertex  |
 
 ### Behavior
 
@@ -108,19 +108,19 @@ In draw mode, you create new polygons by clicking on the map.
 
 ### Mouse Interaction
 
-| Action | Effect |
-|--------|--------|
-| Click | Add a vertex |
+| Action       | Effect                                 |
+| ------------ | -------------------------------------- |
+| Click        | Add a vertex                           |
 | Double-click | Close the polygon (minimum 3 vertices) |
-| Escape key | Cancel the current drawing |
+| Escape key   | Cancel the current drawing             |
 
 ### Touch Interaction
 
-| Action | Effect |
-|--------|--------|
-| Tap | Add a vertex |
+| Action     | Effect            |
+| ---------- | ----------------- |
+| Tap        | Add a vertex      |
 | Double-tap | Close the polygon |
-| Long-press | Undo last vertex |
+| Long-press | Undo last vertex  |
 
 ### Behavior
 
@@ -145,22 +145,22 @@ In draw-rectangle mode, you create a rectangular polygon from two opposite corne
 
 ### Mouse Interaction
 
-| Action | Effect |
-|--------|--------|
-| Click | Place the first corner |
-| Move | Preview the rectangle spanned by the first corner and the cursor |
-| Click | Place the opposite corner and create the polygon |
-| Drag | Pan the map — never places a corner |
-| Escape key | Discard the first corner |
+| Action     | Effect                                                           |
+| ---------- | ---------------------------------------------------------------- |
+| Click      | Place the first corner                                           |
+| Move       | Preview the rectangle spanned by the first corner and the cursor |
+| Click      | Place the opposite corner and create the polygon                 |
+| Drag       | Pan the map — never places a corner                              |
+| Escape key | Discard the first corner                                         |
 
 ### Touch Interaction
 
-| Action | Effect |
-|--------|--------|
-| Tap | Place the first corner (marked with a dot) |
-| Tap | Place the opposite corner and create the polygon |
-| Drag (one finger) | Pan the map — never places a corner |
-| Long-press | Discard the first corner |
+| Action            | Effect                                           |
+| ----------------- | ------------------------------------------------ |
+| Tap               | Place the first corner (marked with a dot)       |
+| Tap               | Place the opposite corner and create the polygon |
+| Drag (one finger) | Pan the map — never places a corner              |
+| Long-press        | Discard the first corner                         |
 
 Touch has no hover, so there is no rubber-band preview between the two taps.
 The dot on the first corner is the feedback that it has been placed.
@@ -191,47 +191,47 @@ In select mode, you can select existing features (points, lines, and polygons) a
 
 ### Selecting
 
-| Action | Effect |
-|--------|--------|
-| Click on polygon | Select it (shows vertex handles) |
-| Click near line | Select it (within 20px threshold, shows vertex handles) |
-| Click near point | Select it (within 20px threshold) |
-| Click outside | Deselect |
-| Delete key | Delete selected feature |
+| Action           | Effect                                                  |
+| ---------------- | ------------------------------------------------------- |
+| Click on polygon | Select it (shows vertex handles)                        |
+| Click near line  | Select it (within 20px threshold, shows vertex handles) |
+| Click near point | Select it (within 20px threshold)                       |
+| Click outside    | Deselect                                                |
+| Delete key       | Delete selected feature                                 |
 
 ### Point Editing
 
 When a point is selected:
 
-| Action | Effect |
-|--------|--------|
+| Action         | Effect                    |
+| -------------- | ------------------------- |
 | Drag the point | Move it to a new position |
 
 ### Line Editing
 
 When a line is selected, vertex handles appear:
 
-| Action | Effect |
-|--------|--------|
-| Drag a vertex | Move the vertex |
-| Drag a midpoint | Insert a new vertex and drag it |
+| Action                | Effect                                   |
+| --------------------- | ---------------------------------------- |
+| Drag a vertex         | Move the vertex                          |
+| Drag a midpoint       | Insert a new vertex and drag it          |
 | Double-click a vertex | Delete the vertex (minimum 2 maintained) |
-| Drag near the line | Move the entire line |
+| Drag near the line    | Move the entire line                     |
 
 ### Vertex Editing
 
 When a polygon is selected, vertex handles appear:
 
-| Action | Effect |
-|--------|--------|
-| Drag a vertex | Move the vertex |
-| Drag a midpoint | Insert a new vertex and drag it |
+| Action              | Effect                                   |
+| ------------------- | ---------------------------------------- |
+| Drag a vertex       | Move the vertex                          |
+| Drag a midpoint     | Insert a new vertex and drag it          |
 | Long-press a vertex | Delete the vertex (minimum 3 maintained) |
 
 ### Polygon Dragging
 
-| Action | Effect |
-|--------|--------|
+| Action              | Effect                  |
+| ------------------- | ----------------------- |
 | Drag inside polygon | Move the entire polygon |
 
 ### Behavior
@@ -260,12 +260,12 @@ draw.on('selectionchange', (e) => {
 
 In split mode, you split one polygon into two polygons.
 
-| Action | Effect |
-|--------|--------|
-| Click on polygon | Select split target |
-| Click first point | Set split-line start |
-| Click second point | Execute split |
-| Escape key | Cancel current split interaction |
+| Action             | Effect                           |
+| ------------------ | -------------------------------- |
+| Click on polygon   | Select split target              |
+| Click first point  | Set split-line start             |
+| Click second point | Execute split                    |
+| Escape key         | Cancel current split interaction |
 
 ```ts
 draw.setMode('split');
@@ -277,13 +277,13 @@ draw.on('splitfailed', (e) => console.warn(e.reason));
 
 In setback mode, you select an edge and apply inward offset by distance.
 
-| Action | Effect |
-|--------|--------|
-| Click on polygon | Select setback target |
-| Click edge | Start preview |
-| Change distance | Update preview line |
-| Enter / execute button | Apply setback |
-| Escape key | Cancel and reset |
+| Action                 | Effect                |
+| ---------------------- | --------------------- |
+| Click on polygon       | Select setback target |
+| Click edge             | Start preview         |
+| Change distance        | Update preview line   |
+| Enter / execute button | Apply setback         |
+| Escape key             | Cancel and reset      |
 
 ```ts
 draw.setMode('setback');

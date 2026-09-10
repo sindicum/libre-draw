@@ -16,12 +16,10 @@ describe('setback utils', () => {
       [0, 10],
     ];
 
-    const hit = findNearestEdge(
-      vertices,
-      { x: 50, y: 2 },
-      10,
-      ({ lng, lat }) => ({ x: lng * 10, y: lat * 10 }),
-    );
+    const hit = findNearestEdge(vertices, { x: 50, y: 2 }, 10, ({ lng, lat }) => ({
+      x: lng * 10,
+      y: lat * 10,
+    }));
 
     expect(hit).not.toBeNull();
     expect(hit?.edgeIndex).toBe(0);
@@ -35,12 +33,10 @@ describe('setback utils', () => {
       [0, 10],
     ];
 
-    const hit = findNearestEdge(
-      vertices,
-      { x: 200, y: 200 },
-      5,
-      ({ lng, lat }) => ({ x: lng * 10, y: lat * 10 }),
-    );
+    const hit = findNearestEdge(vertices, { x: 200, y: 200 }, 5, ({ lng, lat }) => ({
+      x: lng * 10,
+      y: lat * 10,
+    }));
 
     expect(hit).toBeNull();
   });
@@ -63,11 +59,7 @@ describe('setback utils', () => {
       [10, 0],
     ];
 
-    const normal = computeInwardNormal(
-      clockwiseSquare[0],
-      clockwiseSquare[1],
-      clockwiseSquare,
-    );
+    const normal = computeInwardNormal(clockwiseSquare[0], clockwiseSquare[1], clockwiseSquare);
 
     // Left edge of CW square should point to +x (inside)
     expect(normal[0]).toBeGreaterThan(0);
@@ -75,12 +67,7 @@ describe('setback utils', () => {
   });
 
   it('computeOffsetLine should move edge toward inward normal by meters', () => {
-    const [offsetStart, offsetEnd] = computeOffsetLine(
-      [0, 0],
-      [0.01, 0],
-      1000,
-      [0, 1],
-    );
+    const [offsetStart, offsetEnd] = computeOffsetLine([0, 0], [0.01, 0], 1000, [0, 1]);
 
     // Move north from equator by ~1km
     expect(offsetStart[1]).toBeGreaterThan(0);

@@ -90,11 +90,23 @@ draw.on('delete', (e) => {
 });
 
 draw.on('split', (e) => {
-  console.log('Polygon split:', e.originalFeature.id, '->', e.features.map(f => f.id));
+  console.log(
+    'Polygon split:',
+    e.originalFeature.id,
+    '->',
+    e.features.map((f) => f.id)
+  );
 });
 
 draw.on('setback', (e) => {
-  console.log('Setback applied:', e.originalFeature.id, 'edge:', e.edgeIndex, 'distance:', e.distance);
+  console.log(
+    'Setback applied:',
+    e.originalFeature.id,
+    'edge:',
+    e.edgeIndex,
+    'distance:',
+    e.distance
+  );
 });
 
 draw.on('selectionchange', (e) => {
@@ -137,8 +149,8 @@ draw.setFeatures({
         coordinates: [
           [
             [139.69, 35.69],
-            [139.70, 35.69],
-            [139.70, 35.68],
+            [139.7, 35.69],
+            [139.7, 35.68],
             [139.69, 35.68],
             [139.69, 35.69],
           ],

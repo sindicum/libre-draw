@@ -34,8 +34,8 @@ interface CreateEvent {
 }
 ```
 
-| Property | Type | Description |
-|----------|------|-------------|
+| Property  | Type                                              | Description                                             |
+| --------- | ------------------------------------------------- | ------------------------------------------------------- |
 | `feature` | [`LibreDrawFeature`](/api/types#libredrawfeature) | The newly created Point, LineString, or Polygon feature |
 
 ### Example
@@ -66,10 +66,10 @@ interface UpdateEvent {
 }
 ```
 
-| Property | Type | Description |
-|----------|------|-------------|
-| `feature` | [`LibreDrawFeature`](/api/types#libredrawfeature) | The updated Point, LineString, or Polygon feature (new state) |
-| `oldFeature` | [`LibreDrawFeature`](/api/types#libredrawfeature) | The feature before the update (previous state) |
+| Property     | Type                                              | Description                                                   |
+| ------------ | ------------------------------------------------- | ------------------------------------------------------------- |
+| `feature`    | [`LibreDrawFeature`](/api/types#libredrawfeature) | The updated Point, LineString, or Polygon feature (new state) |
+| `oldFeature` | [`LibreDrawFeature`](/api/types#libredrawfeature) | The feature before the update (previous state)                |
 
 ### Example
 
@@ -95,8 +95,8 @@ interface DeleteEvent {
 }
 ```
 
-| Property | Type | Description |
-|----------|------|-------------|
+| Property  | Type                                              | Description                                       |
+| --------- | ------------------------------------------------- | ------------------------------------------------- |
 | `feature` | [`LibreDrawFeature`](/api/types#libredrawfeature) | The deleted Point, LineString, or Polygon feature |
 
 ### Example
@@ -122,17 +122,20 @@ interface SplitEvent {
 }
 ```
 
-| Property | Type | Description |
-|----------|------|-------------|
+| Property          | Type                                              | Description                     |
+| ----------------- | ------------------------------------------------- | ------------------------------- |
 | `originalFeature` | [`LibreDrawFeature`](/api/types#libredrawfeature) | The source polygon before split |
-| `features` | <code>[LibreDrawFeature, LibreDrawFeature]</code> | The two resulting polygons |
+| `features`        | <code>[LibreDrawFeature, LibreDrawFeature]</code> | The two resulting polygons      |
 
 ### Example
 
 ```ts
 draw.on('split', (e) => {
   console.log('Split source:', e.originalFeature.id);
-  console.log('Result polygons:', e.features.map((f) => f.id));
+  console.log(
+    'Result polygons:',
+    e.features.map((f) => f.id)
+  );
 });
 ```
 
@@ -158,10 +161,10 @@ interface SplitFailedEvent {
 }
 ```
 
-| Property | Type | Description |
-|----------|------|-------------|
-| `reason` | `SplitFailReason` | Reason of split failure |
-| `featureId` | `string` | Target feature ID |
+| Property    | Type              | Description             |
+| ----------- | ----------------- | ----------------------- |
+| `reason`    | `SplitFailReason` | Reason of split failure |
+| `featureId` | `string`          | Target feature ID       |
 
 ### Example
 
@@ -188,12 +191,12 @@ interface SetbackEvent {
 }
 ```
 
-| Property | Type | Description |
-|----------|------|-------------|
+| Property          | Type                                              | Description                       |
+| ----------------- | ------------------------------------------------- | --------------------------------- |
 | `originalFeature` | [`LibreDrawFeature`](/api/types#libredrawfeature) | The source polygon before setback |
-| `feature` | [`LibreDrawFeature`](/api/types#libredrawfeature) | Result polygon after setback |
-| `edgeIndex` | `number` | Applied edge index |
-| `distance` | `number` | Setback distance in meters |
+| `feature`         | [`LibreDrawFeature`](/api/types#libredrawfeature) | Result polygon after setback      |
+| `edgeIndex`       | `number`                                          | Applied edge index                |
+| `distance`        | `number`                                          | Setback distance in meters        |
 
 ### Example
 
@@ -221,10 +224,10 @@ interface SetbackFailedEvent {
 }
 ```
 
-| Property | Type | Description |
-|----------|------|-------------|
-| `reason` | `SetbackFailReason` | Reason of setback failure |
-| `featureId` | `string` | Target feature ID |
+| Property    | Type                | Description               |
+| ----------- | ------------------- | ------------------------- |
+| `reason`    | `SetbackFailReason` | Reason of setback failure |
+| `featureId` | `string`            | Target feature ID         |
 
 ### Example
 
@@ -248,8 +251,8 @@ interface SelectionChangeEvent {
 }
 ```
 
-| Property | Type | Description |
-|----------|------|-------------|
+| Property      | Type       | Description                                                                    |
+| ------------- | ---------- | ------------------------------------------------------------------------------ |
 | `selectedIds` | `string[]` | Array of currently selected feature IDs. Empty array when nothing is selected. |
 
 ### Example
@@ -282,10 +285,10 @@ interface ModeChangeEvent {
 }
 ```
 
-| Property | Type | Description |
-|----------|------|-------------|
-| `mode` | [`ModeName`](/api/types#modename) | The new active mode (`'idle'`, `'draw-point'`, `'draw-line'`, `'draw'`, `'draw-rectangle'`, `'select'`, `'split'`, or `'setback'`) |
-| `previousMode` | [`ModeName`](/api/types#modename) | The previous mode |
+| Property       | Type                              | Description                                                                                                                        |
+| -------------- | --------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------- |
+| `mode`         | [`ModeName`](/api/types#modename) | The new active mode (`'idle'`, `'draw-point'`, `'draw-line'`, `'draw'`, `'draw-rectangle'`, `'select'`, `'split'`, or `'setback'`) |
+| `previousMode` | [`ModeName`](/api/types#modename) | The previous mode                                                                                                                  |
 
 ### Example
 
@@ -325,8 +328,8 @@ interface DraftChangeEvent {
 }
 ```
 
-| Property | Type | Description |
-|----------|------|-------------|
+| Property      | Type     | Description                                                                                      |
+| ------------- | -------- | ------------------------------------------------------------------------------------------------ |
 | `vertexCount` | `number` | The number of vertices in the current draft (`0` after finalization, cancellation, or mode exit) |
 
 ### Example
@@ -369,4 +372,5 @@ const handler = (e: CreateEvent) => console.log(e);
 draw.on('create', handler);
 draw.off('create', handler);
 ```
+
 :::

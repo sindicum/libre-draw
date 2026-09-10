@@ -8,10 +8,7 @@ export class SelectionManager {
   private context: ModeContext;
   private onSelectionChange?: (selectedIds: string[]) => void;
 
-  constructor(
-    context: ModeContext,
-    onSelectionChange?: (selectedIds: string[]) => void,
-  ) {
+  constructor(context: ModeContext, onSelectionChange?: (selectedIds: string[]) => void) {
     this.context = context;
     this.onSelectionChange = onSelectionChange;
   }

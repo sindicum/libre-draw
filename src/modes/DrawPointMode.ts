@@ -95,26 +95,17 @@ export class DrawPointMode implements Mode {
     }
   }
 
-  private findSnap(
-    lngLat: { lng: number; lat: number },
-  ): ReturnType<typeof findSnapTarget> {
+  private findSnap(lngLat: { lng: number; lat: number }): ReturnType<typeof findSnapTarget> {
     const snapConfig = this.context.getSnapConfig();
     if (!snapConfig.enabled) return null;
 
-    return findSnapTarget(
-      lngLat,
-      this.context.store.getAll(),
-      this.context.getScreenPoint,
-      {
-        threshold: snapConfig.threshold ?? 10,
-        viewportBounds: this.context.getViewportBounds(),
-      },
-    );
+    return findSnapTarget(lngLat, this.context.store.getAll(), this.context.getScreenPoint, {
+      threshold: snapConfig.threshold ?? 10,
+      viewportBounds: this.context.getViewportBounds(),
+    });
   }
 
-  private applySnap(
-    lngLat: { lng: number; lat: number },
-  ): { lng: number; lat: number } {
+  private applySnap(lngLat: { lng: number; lat: number }): { lng: number; lat: number } {
     const snapTarget = this.findSnap(lngLat);
     if (snapTarget) {
       this.context.render.renderSnapIndicator(snapTarget.position);

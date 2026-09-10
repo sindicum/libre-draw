@@ -168,9 +168,7 @@ export function mergeStyleConfig(overrides?: PartialStyleConfig): StyleConfig {
     preview: {
       ...DEFAULT_STYLE_CONFIG.preview,
       ...overrides?.preview,
-      dasharray: [
-        ...(overrides?.preview?.dasharray ?? DEFAULT_STYLE_CONFIG.preview.dasharray),
-      ],
+      dasharray: [...(overrides?.preview?.dasharray ?? DEFAULT_STYLE_CONFIG.preview.dasharray)],
     },
     editVertex: {
       ...DEFAULT_STYLE_CONFIG.editVertex,

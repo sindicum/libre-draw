@@ -124,11 +124,7 @@ export class LibreDraw {
 
     // Rendering
     this.sourceManager = new SourceManager(map);
-    this.renderManager = new RenderManager(
-      map,
-      this.sourceManager,
-      options.style,
-    );
+    this.renderManager = new RenderManager(map, this.sourceManager, options.style);
 
     // Mode setup
     const modeContext: ModeContext = {
@@ -152,15 +148,18 @@ export class LibreDraw {
         renderFeatures: () => this.renderAllFeatures(),
         renderPreview: (coords) => this.renderManager.renderPreview(coords),
         clearPreview: () => this.renderManager.clearPreview(),
-        renderEdgeHighlight: (coords) =>
-          this.renderManager.renderEdgeHighlight(coords),
+        renderEdgeHighlight: (coords) => this.renderManager.renderEdgeHighlight(coords),
         clearEdgeHighlight: () => this.renderManager.clearEdgeHighlight(),
         renderVertices: (vertices, midpoints, highlightIndex, midpointHighlightIndex) =>
-          this.renderManager.renderVertices(vertices, midpoints, highlightIndex, midpointHighlightIndex),
+          this.renderManager.renderVertices(
+            vertices,
+            midpoints,
+            highlightIndex,
+            midpointHighlightIndex
+          ),
         clearVertices: () => this.renderManager.clearVertices(),
         setSelectedIds: (ids) => this.renderManager.setSelectedIds(ids),
-        renderSnapIndicator: (pos) =>
-          this.renderManager.renderSnapIndicator(pos),
+        renderSnapIndicator: (pos) => this.renderManager.renderSnapIndicator(pos),
         clearSnapIndicator: () => this.renderManager.clearSnapIndicator(),
       },
       getScreenPoint: (lngLat) => {
@@ -224,10 +223,7 @@ export class LibreDraw {
     }
 
     // Input handling
-    this.inputHandler = new InputHandler(
-      map,
-      () => this.modeManager.getCurrentMode(),
-    );
+    this.inputHandler = new InputHandler(map, () => this.modeManager.getCurrentMode());
 
     // Toolbar
     if (options.toolbar !== false) {
@@ -423,9 +419,7 @@ export class LibreDraw {
     }
 
     const added = validated.map((feature) => this.featureStore.add(feature));
-    this.historyManager.push(
-      new BatchAction(added.map((feature) => new CreateAction(feature))),
-    );
+    this.historyManager.push(new BatchAction(added.map((feature) => new CreateAction(feature))));
     for (const feature of added) {
       this.eventBus.emit('create', { feature: cloneFeature(feature) });
     }
@@ -768,7 +762,7 @@ export class LibreDraw {
    */
   on<K extends keyof LibreDrawEventMap>(
     type: K,
-    listener: (payload: LibreDrawEventMap[K]) => void,
+    listener: (payload: LibreDrawEventMap[K]) => void
   ): void {
     this.assertNotDestroyed();
     this.eventBus.on(type, listener);
@@ -793,7 +787,7 @@ export class LibreDraw {
    */
   off<K extends keyof LibreDrawEventMap>(
     type: K,
-    listener: (payload: LibreDrawEventMap[K]) => void,
+    listener: (payload: LibreDrawEventMap[K]) => void
   ): void {
     this.assertNotDestroyed();
     this.eventBus.off(type, listener);
@@ -862,15 +856,11 @@ export class LibreDraw {
       {
         onDrawPointClick: () => {
           const current = this.modeManager.getMode();
-          this.modeManager.setMode(
-            current === 'draw-point' ? 'idle' : 'draw-point',
-          );
+          this.modeManager.setMode(current === 'draw-point' ? 'idle' : 'draw-point');
         },
         onDrawLineClick: () => {
           const current = this.modeManager.getMode();
-          this.modeManager.setMode(
-            current === 'draw-line' ? 'idle' : 'draw-line',
-          );
+          this.modeManager.setMode(current === 'draw-line' ? 'idle' : 'draw-line');
         },
         onDrawClick: () => {
           const current = this.modeManager.getMode();
@@ -878,15 +868,11 @@ export class LibreDraw {
         },
         onDrawRectangleClick: () => {
           const current = this.modeManager.getMode();
-          this.modeManager.setMode(
-            current === 'draw-rectangle' ? 'idle' : 'draw-rectangle',
-          );
+          this.modeManager.setMode(current === 'draw-rectangle' ? 'idle' : 'draw-rectangle');
         },
         onSelectClick: () => {
           const current = this.modeManager.getMode();
-          this.modeManager.setMode(
-            current === 'select' ? 'idle' : 'select',
-          );
+          this.modeManager.setMode(current === 'select' ? 'idle' : 'select');
         },
         onSplitClick: () => {
           const current = this.modeManager.getMode();
@@ -894,9 +880,7 @@ export class LibreDraw {
         },
         onSetbackClick: () => {
           const current = this.modeManager.getMode();
-          this.modeManager.setMode(
-            current === 'setback' ? 'idle' : 'setback',
-          );
+          this.modeManager.setMode(current === 'setback' ? 'idle' : 'setback');
         },
         onSetbackExecute: (distance) => {
           this.setbackMode.executeFromUi(distance);
@@ -922,15 +906,12 @@ export class LibreDraw {
           this.redo();
         },
       },
-      options,
+      options
     );
 
     // Set initial states
     this.toolbar.setActiveMode(this.modeManager.getMode());
-    this.toolbar.setHistoryState(
-      this.historyManager.canUndo(),
-      this.historyManager.canRedo(),
-    );
+    this.toolbar.setHistoryState(this.historyManager.canUndo(), this.historyManager.canRedo());
   }
 
   /**
@@ -955,10 +936,7 @@ export class LibreDraw {
    */
   private updateToolbarHistoryState(): void {
     if (this.toolbar) {
-      this.toolbar.setHistoryState(
-        this.historyManager.canUndo(),
-        this.historyManager.canRedo(),
-      );
+      this.toolbar.setHistoryState(this.historyManager.canUndo(), this.historyManager.canRedo());
     }
   }
 
@@ -1056,9 +1034,7 @@ export class LibreDraw {
    */
   private assertNotDestroyed(): void {
     if (this.destroyed) {
-      throw new LibreDrawError(
-        'This LibreDraw instance has been destroyed.',
-      );
+      throw new LibreDrawError('This LibreDraw instance has been destroyed.');
     }
   }
 }

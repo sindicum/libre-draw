@@ -3,8 +3,7 @@ import { resolve } from 'path';
 
 export default defineConfig({
   title: 'LibreDraw',
-  description:
-    'MapLibre GL JS polygon drawing and editing library for TypeScript',
+  description: 'MapLibre GL JS polygon drawing and editing library for TypeScript',
 
   base: '/libre-draw/',
 
@@ -38,9 +37,7 @@ export default defineConfig({
       ],
     },
 
-    socialLinks: [
-      { icon: 'github', link: 'https://github.com/sindicum/libre-draw' },
-    ],
+    socialLinks: [{ icon: 'github', link: 'https://github.com/sindicum/libre-draw' }],
 
     footer: {
       message: 'Released under the MIT License.',

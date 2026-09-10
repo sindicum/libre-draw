@@ -22,8 +22,7 @@ class FakeMap {
   private canvas: HTMLDivElement;
   private sources: Map<string, FakeGeoJSONSource> = new Map();
   private layers: Map<string, unknown> = new Map();
-  private listeners: Map<string, Set<(...args: unknown[]) => void>> =
-    new Map();
+  private listeners: Map<string, Set<(...args: unknown[]) => void>> = new Map();
 
   public dragPan = {
     enable: vi.fn(),
@@ -113,10 +112,7 @@ class FakeMap {
     return this.sources.get(id) as T | undefined;
   }
 
-  addSource(
-    id: string,
-    source: { type: 'geojson'; data: GeoJSON.FeatureCollection },
-  ): void {
+  addSource(id: string, source: { type: 'geojson'; data: GeoJSON.FeatureCollection }): void {
     this.sources.set(id, new FakeGeoJSONSource(source.data));
   }
 
@@ -171,13 +167,10 @@ function makeFeature(id: string): GeoJSON.Feature {
 
 describe('LibreDraw lifecycle integration', () => {
   beforeEach(() => {
-    vi.stubGlobal(
-      'requestAnimationFrame',
-      ((cb: FrameRequestCallback): number => {
-        cb(0);
-        return 1;
-      }) as typeof requestAnimationFrame,
-    );
+    vi.stubGlobal('requestAnimationFrame', ((cb: FrameRequestCallback): number => {
+      cb(0);
+      return 1;
+    }) as typeof requestAnimationFrame);
   });
 
   afterEach(() => {
@@ -321,16 +314,16 @@ describe('LibreDraw lifecycle integration', () => {
     ]);
 
     // Point features should have _isPoint property set
-    draw.addFeatures([{
-      type: 'Feature',
-      geometry: { type: 'Point', coordinates: [1, 2] },
-      properties: {},
-    } as unknown as ReturnType<typeof makeFeature>]);
+    draw.addFeatures([
+      {
+        type: 'Feature',
+        geometry: { type: 'Point', coordinates: [1, 2] },
+        properties: {},
+      } as unknown as ReturnType<typeof makeFeature>,
+    ]);
 
     const sourceData = map.getSourceData(SOURCE_IDS.FEATURES);
-    const pointFeature = sourceData?.features.find(
-      (f) => f.geometry.type === 'Point',
-    );
+    const pointFeature = sourceData?.features.find((f) => f.geometry.type === 'Point');
     expect(pointFeature?.properties?._isPoint).toBe(true);
 
     draw.destroy();
@@ -356,7 +349,7 @@ describe('LibreDraw lifecycle integration', () => {
     expect(createListener).toHaveBeenCalledWith(
       expect.objectContaining({
         feature: expect.objectContaining({ id: 'f1' }),
-      }),
+      })
     );
 
     draw.destroy();
@@ -380,7 +373,7 @@ describe('LibreDraw lifecycle integration', () => {
     expect(deleteListener).toHaveBeenCalledWith(
       expect.objectContaining({
         feature: expect.objectContaining({ id: 'f1' }),
-      }),
+      })
     );
 
     draw.destroy();
@@ -570,7 +563,7 @@ describe('LibreDraw lifecycle integration', () => {
     draw.on('create', createListener);
 
     expect(() =>
-      draw.addFeatures([makeFeature('b'), { type: 'Feature', geometry: null, properties: {} }]),
+      draw.addFeatures([makeFeature('b'), { type: 'Feature', geometry: null, properties: {} }])
     ).toThrow(LibreDrawError);
 
     expect(draw.getFeatures()).toHaveLength(0);
@@ -587,12 +580,12 @@ describe('LibreDraw lifecycle integration', () => {
     draw.addFeatures([makeFeature('a')]);
 
     expect(() => draw.addFeatures([makeFeature('b'), makeFeature('a')])).toThrow(
-      /already exists: a/,
+      /already exists: a/
     );
     expect(draw.getFeatures().map((f) => f.id)).toEqual(['a']);
 
     expect(() => draw.addFeatures([makeFeature('b'), makeFeature('b')])).toThrow(
-      /already exists: b/,
+      /already exists: b/
     );
     expect(draw.getFeatures().map((f) => f.id)).toEqual(['a']);
 
@@ -641,9 +634,7 @@ describe('LibreDraw lifecycle integration', () => {
       const container = map.getContainer();
       const draw = new LibreDraw(map.asMap());
 
-      const button = container.querySelector<HTMLButtonElement>(
-        'button[title="Draw rectangle"]',
-      );
+      const button = container.querySelector<HTMLButtonElement>('button[title="Draw rectangle"]');
       expect(button).not.toBeNull();
       expect(button!.dataset.libreDrawButton).toBe('draw-rectangle');
 
@@ -670,11 +661,9 @@ describe('LibreDraw lifecycle integration', () => {
       const map = new FakeMap();
       const container = map.getContainer();
       const draw = new LibreDraw(map.asMap());
-      const button = container.querySelector<HTMLButtonElement>(
-        'button[title="Draw rectangle"]',
-      )!;
+      const button = container.querySelector<HTMLButtonElement>('button[title="Draw rectangle"]')!;
       const drawButton = container.querySelector<HTMLButtonElement>(
-        'button[title="Draw polygon"]',
+        'button[title="Draw polygon"]'
       )!;
 
       draw.setMode('draw-rectangle');

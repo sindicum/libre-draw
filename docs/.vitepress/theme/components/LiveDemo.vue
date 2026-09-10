@@ -2,19 +2,12 @@
   <ClientOnly>
     <div class="demo-container">
       <div v-if="error" class="demo-error">{{ error }}</div>
-      <div
-        ref="mapContainer"
-        :class="fullsize ? 'demo-map-fullsize' : 'demo-map'"
-      ></div>
+      <div ref="mapContainer" :class="fullsize ? 'demo-map-fullsize' : 'demo-map'"></div>
       <div class="demo-log" ref="logContainer">
         <p v-if="logs.length === 0" class="demo-log-empty">
           Place a point or draw a polygon to see events here...
         </p>
-        <p
-          v-for="(log, index) in logs"
-          :key="index"
-          class="demo-log-entry"
-        >
+        <p v-for="(log, index) in logs" :key="index" class="demo-log-entry">
           <span class="log-type">[{{ log.type }}]</span> {{ log.message }}
         </p>
       </div>
@@ -137,7 +130,7 @@ onMounted(async () => {
     draw.on('split', (e) => {
       addLog(
         'split',
-        `${e.originalFeature.id.slice(0, 8)}... -> ${e.features.map((f) => f.id.slice(0, 8) + '...').join(', ')}`,
+        `${e.originalFeature.id.slice(0, 8)}... -> ${e.features.map((f) => f.id.slice(0, 8) + '...').join(', ')}`
       );
     });
 
@@ -148,7 +141,7 @@ onMounted(async () => {
     draw.on('setback', (e) => {
       addLog(
         'setback',
-        `${e.originalFeature.id.slice(0, 8)}... edge ${e.edgeIndex} distance ${e.distance}`,
+        `${e.originalFeature.id.slice(0, 8)}... edge ${e.edgeIndex} distance ${e.distance}`
       );
     });
 
@@ -160,7 +153,7 @@ onMounted(async () => {
       if (e.selectedIds.length > 0) {
         addLog(
           'selectionchange',
-          `Selected: ${e.selectedIds.map((id) => id.slice(0, 8) + '...').join(', ')}`,
+          `Selected: ${e.selectedIds.map((id) => id.slice(0, 8) + '...').join(', ')}`
         );
       } else {
         addLog('selectionchange', 'Selection cleared');

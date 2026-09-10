@@ -1,11 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import type { LibreDrawFeature } from '../../../src/types/features';
 import type { ViewportBounds } from '../../../src/utils/snap';
-import {
-  findSnapTarget,
-  isFeatureInBounds,
-  projectPointOnSegment,
-} from '../../../src/utils/snap';
+import { findSnapTarget, isFeatureInBounds, projectPointOnSegment } from '../../../src/utils/snap';
 
 function makeFeature(
   id: string,
@@ -15,7 +11,7 @@ function makeFeature(
     [10, 10],
     [0, 10],
     [0, 0],
-  ],
+  ]
 ): LibreDrawFeature {
   return {
     id,
@@ -37,52 +33,32 @@ const identityGetScreenPoint = (lngLat: { lng: number; lat: number }) => ({
 describe('snap utils', () => {
   describe('projectPointOnSegment', () => {
     it('projects onto the midpoint of a horizontal segment', () => {
-      const result = projectPointOnSegment(
-        { x: 5, y: 5 },
-        { x: 0, y: 0 },
-        { x: 10, y: 0 },
-      );
+      const result = projectPointOnSegment({ x: 5, y: 5 }, { x: 0, y: 0 }, { x: 10, y: 0 });
       expect(result.x).toBeCloseTo(5, 5);
       expect(result.y).toBeCloseTo(0, 5);
     });
 
     it('clamps to start point when projection falls before segment', () => {
-      const result = projectPointOnSegment(
-        { x: -5, y: 0 },
-        { x: 0, y: 0 },
-        { x: 10, y: 0 },
-      );
+      const result = projectPointOnSegment({ x: -5, y: 0 }, { x: 0, y: 0 }, { x: 10, y: 0 });
       expect(result.x).toBeCloseTo(0, 5);
       expect(result.y).toBeCloseTo(0, 5);
     });
 
     it('clamps to end point when projection falls beyond segment', () => {
-      const result = projectPointOnSegment(
-        { x: 15, y: 0 },
-        { x: 0, y: 0 },
-        { x: 10, y: 0 },
-      );
+      const result = projectPointOnSegment({ x: 15, y: 0 }, { x: 0, y: 0 }, { x: 10, y: 0 });
       expect(result.x).toBeCloseTo(10, 5);
       expect(result.y).toBeCloseTo(0, 5);
     });
 
     it('computes perpendicular foot on a diagonal segment', () => {
       // Segment from (0,0) to (10,10). Point (10,0) projects to (5,5).
-      const result = projectPointOnSegment(
-        { x: 10, y: 0 },
-        { x: 0, y: 0 },
-        { x: 10, y: 10 },
-      );
+      const result = projectPointOnSegment({ x: 10, y: 0 }, { x: 0, y: 0 }, { x: 10, y: 10 });
       expect(result.x).toBeCloseTo(5, 5);
       expect(result.y).toBeCloseTo(5, 5);
     });
 
     it('handles degenerate segment (zero length)', () => {
-      const result = projectPointOnSegment(
-        { x: 5, y: 5 },
-        { x: 3, y: 3 },
-        { x: 3, y: 3 },
-      );
+      const result = projectPointOnSegment({ x: 5, y: 5 }, { x: 3, y: 3 }, { x: 3, y: 3 });
       expect(result.x).toBeCloseTo(3, 5);
       expect(result.y).toBeCloseTo(3, 5);
     });
@@ -148,12 +124,9 @@ describe('snap utils', () => {
   describe('findSnapTarget - vertex snap', () => {
     it('snaps to a vertex within threshold', () => {
       const feature = makeFeature('f1');
-      const result = findSnapTarget(
-        { lng: 0.5, lat: 0.5 },
-        [feature],
-        identityGetScreenPoint,
-        { threshold: 1 },
-      );
+      const result = findSnapTarget({ lng: 0.5, lat: 0.5 }, [feature], identityGetScreenPoint, {
+        threshold: 1,
+      });
       expect(result).not.toBeNull();
       expect(result!.type).toBe('vertex');
       expect(result!.position).toEqual([0, 0]);
@@ -162,36 +135,28 @@ describe('snap utils', () => {
 
     it('returns null when no vertex is within threshold', () => {
       const feature = makeFeature('f1');
-      const result = findSnapTarget(
-        { lng: 5, lat: 5 },
-        [feature],
-        identityGetScreenPoint,
-        { threshold: 1 },
-      );
+      const result = findSnapTarget({ lng: 5, lat: 5 }, [feature], identityGetScreenPoint, {
+        threshold: 1,
+      });
       expect(result).toBeNull();
     });
 
     it('selects the nearest vertex among multiple candidates', () => {
       const feature = makeFeature('f1');
       // Point (0.3, 0.1) is closer to vertex (0,0) than (10,0)
-      const result = findSnapTarget(
-        { lng: 0.3, lat: 0.1 },
-        [feature],
-        identityGetScreenPoint,
-        { threshold: 1 },
-      );
+      const result = findSnapTarget({ lng: 0.3, lat: 0.1 }, [feature], identityGetScreenPoint, {
+        threshold: 1,
+      });
       expect(result).not.toBeNull();
       expect(result!.position).toEqual([0, 0]);
     });
 
     it('excludes feature by excludeFeatureId', () => {
       const feature = makeFeature('f1');
-      const result = findSnapTarget(
-        { lng: 0.5, lat: 0.5 },
-        [feature],
-        identityGetScreenPoint,
-        { threshold: 1, excludeFeatureId: 'f1' },
-      );
+      const result = findSnapTarget({ lng: 0.5, lat: 0.5 }, [feature], identityGetScreenPoint, {
+        threshold: 1,
+        excludeFeatureId: 'f1',
+      });
       expect(result).toBeNull();
     });
   });
@@ -207,12 +172,9 @@ describe('snap utils', () => {
         [0, 100],
         [0, 0],
       ]);
-      const result = findSnapTarget(
-        { lng: 50, lat: 3 },
-        [feature],
-        identityGetScreenPoint,
-        { threshold: 5 },
-      );
+      const result = findSnapTarget({ lng: 50, lat: 3 }, [feature], identityGetScreenPoint, {
+        threshold: 5,
+      });
       expect(result).not.toBeNull();
       expect(result!.type).toBe('edge');
       expect(result!.position[0]).toBeCloseTo(50, 1);
@@ -227,12 +189,9 @@ describe('snap utils', () => {
         [0, 100],
         [0, 0],
       ]);
-      const result = findSnapTarget(
-        { lng: 50, lat: 50 },
-        [feature],
-        identityGetScreenPoint,
-        { threshold: 5 },
-      );
+      const result = findSnapTarget({ lng: 50, lat: 50 }, [feature], identityGetScreenPoint, {
+        threshold: 5,
+      });
       expect(result).toBeNull();
     });
   });
@@ -248,12 +207,9 @@ describe('snap utils', () => {
         [0, 100],
         [0, 0],
       ]);
-      const result = findSnapTarget(
-        { lng: 0.3, lat: 0.3 },
-        [feature],
-        identityGetScreenPoint,
-        { threshold: 1 },
-      );
+      const result = findSnapTarget({ lng: 0.3, lat: 0.3 }, [feature], identityGetScreenPoint, {
+        threshold: 1,
+      });
       expect(result).not.toBeNull();
       expect(result!.type).toBe('vertex');
       expect(result!.position).toEqual([0, 0]);
@@ -284,7 +240,7 @@ describe('snap utils', () => {
         {
           threshold: 1,
           viewportBounds: { west: -10, south: -10, east: 20, north: 20 },
-        },
+        }
       );
 
       expect(result).not.toBeNull();
@@ -293,15 +249,10 @@ describe('snap utils', () => {
 
     it('snaps correctly when all features are in viewport', () => {
       const feature = makeFeature('f1');
-      const result = findSnapTarget(
-        { lng: 0.5, lat: 0.5 },
-        [feature],
-        identityGetScreenPoint,
-        {
-          threshold: 1,
-          viewportBounds: { west: -10, south: -10, east: 20, north: 20 },
-        },
-      );
+      const result = findSnapTarget({ lng: 0.5, lat: 0.5 }, [feature], identityGetScreenPoint, {
+        threshold: 1,
+        viewportBounds: { west: -10, south: -10, east: 20, north: 20 },
+      });
       expect(result).not.toBeNull();
       expect(result!.type).toBe('vertex');
     });

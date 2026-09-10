@@ -13,7 +13,7 @@ import type { NormalizedInputEvent } from '../../src/types/input';
 function createPointerEvent(
   lng: number,
   lat: number,
-  inputType: 'mouse' | 'touch' = 'mouse',
+  inputType: 'mouse' | 'touch' = 'mouse'
 ): NormalizedInputEvent {
   return {
     lngLat: { lng, lat },
@@ -90,12 +90,8 @@ describe('Edit Flow Integration', () => {
     mode.onPointerDown(createPointerEvent(5, 5));
 
     const dblEvt = createPointerEvent(5, 5);
-    vi.spyOn(dblEvt.originalEvent, 'preventDefault').mockImplementation(
-      () => {},
-    );
-    vi.spyOn(dblEvt.originalEvent, 'stopPropagation').mockImplementation(
-      () => {},
-    );
+    vi.spyOn(dblEvt.originalEvent, 'preventDefault').mockImplementation(() => {});
+    vi.spyOn(dblEvt.originalEvent, 'stopPropagation').mockImplementation(() => {});
     mode.onDoubleClick(dblEvt);
   }
 
@@ -146,8 +142,7 @@ describe('Edit Flow Integration', () => {
     const featureId = store.getAll()[0].id;
 
     // Original ring has 5 unique vertices (4 square + 1 extra from draw) + closing
-    const originalRingLength =
-      store.getById(featureId)!.geometry.coordinates[0].length;
+    const originalRingLength = store.getById(featureId)!.geometry.coordinates[0].length;
 
     // Switch to select and select
     modeManager.setMode('select');
@@ -160,14 +155,12 @@ describe('Edit Flow Integration', () => {
     selectImpl.onPointerUp(createPointerEvent(5, -2)); // commit
 
     // Ring should have one more vertex
-    const newRingLength =
-      store.getById(featureId)!.geometry.coordinates[0].length;
+    const newRingLength = store.getById(featureId)!.geometry.coordinates[0].length;
     expect(newRingLength).toBe(originalRingLength + 1);
 
     // Undo should restore original vertex count
     history.undo(store);
-    const undoneRingLength =
-      store.getById(featureId)!.geometry.coordinates[0].length;
+    const undoneRingLength = store.getById(featureId)!.geometry.coordinates[0].length;
     expect(undoneRingLength).toBe(originalRingLength);
   });
 
@@ -177,8 +170,7 @@ describe('Edit Flow Integration', () => {
     // Draw a square
     drawSquare(modeManager);
     const featureId = store.getAll()[0].id;
-    const originalRingLength =
-      store.getById(featureId)!.geometry.coordinates[0].length;
+    const originalRingLength = store.getById(featureId)!.geometry.coordinates[0].length;
 
     // Switch to select and select
     modeManager.setMode('select');
@@ -187,23 +179,17 @@ describe('Edit Flow Integration', () => {
 
     // Double-click on vertex (0,0) to delete it
     const dblEvt = createPointerEvent(0, 0);
-    vi.spyOn(dblEvt.originalEvent, 'preventDefault').mockImplementation(
-      () => {},
-    );
-    vi.spyOn(dblEvt.originalEvent, 'stopPropagation').mockImplementation(
-      () => {},
-    );
+    vi.spyOn(dblEvt.originalEvent, 'preventDefault').mockImplementation(() => {});
+    vi.spyOn(dblEvt.originalEvent, 'stopPropagation').mockImplementation(() => {});
     selectImpl.onDoubleClick(dblEvt);
 
     // Ring should have one fewer vertex
-    const newRingLength =
-      store.getById(featureId)!.geometry.coordinates[0].length;
+    const newRingLength = store.getById(featureId)!.geometry.coordinates[0].length;
     expect(newRingLength).toBe(originalRingLength - 1);
 
     // Undo should restore
     history.undo(store);
-    const undoneRingLength =
-      store.getById(featureId)!.geometry.coordinates[0].length;
+    const undoneRingLength = store.getById(featureId)!.geometry.coordinates[0].length;
     expect(undoneRingLength).toBe(originalRingLength);
   });
 
@@ -213,8 +199,7 @@ describe('Edit Flow Integration', () => {
     // Draw a square
     drawSquare(modeManager);
     const featureId = store.getAll()[0].id;
-    const originalRingLength =
-      store.getById(featureId)!.geometry.coordinates[0].length;
+    const originalRingLength = store.getById(featureId)!.geometry.coordinates[0].length;
 
     // Switch to select and select
     modeManager.setMode('select');
@@ -225,14 +210,12 @@ describe('Edit Flow Integration', () => {
     selectImpl.onLongPress(createPointerEvent(0, 0));
 
     // Ring should have one fewer vertex
-    const newRingLength =
-      store.getById(featureId)!.geometry.coordinates[0].length;
+    const newRingLength = store.getById(featureId)!.geometry.coordinates[0].length;
     expect(newRingLength).toBe(originalRingLength - 1);
 
     // Undo should restore
     history.undo(store);
-    const undoneRingLength =
-      store.getById(featureId)!.geometry.coordinates[0].length;
+    const undoneRingLength = store.getById(featureId)!.geometry.coordinates[0].length;
     expect(undoneRingLength).toBe(originalRingLength);
   });
 
@@ -244,9 +227,9 @@ describe('Edit Flow Integration', () => {
     expect(store.getAll()).toHaveLength(1);
 
     const featureId = store.getAll()[0].id;
-    const originalCoords = store.getById(featureId)!.geometry.coordinates[0].map(
-      (pos: number[]) => [...pos],
-    );
+    const originalCoords = store
+      .getById(featureId)!
+      .geometry.coordinates[0].map((pos: number[]) => [...pos]);
 
     // Switch to select mode and select the polygon
     modeManager.setMode('select');

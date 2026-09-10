@@ -75,9 +75,7 @@ interface SelectModeMocks {
   setDragPan: ReturnType<typeof vi.fn>;
 }
 
-function createCallbacks(
-  featureMap: Map<string, LibreDrawFeature>,
-): SelectModeMocks {
+function createCallbacks(featureMap: Map<string, LibreDrawFeature>): SelectModeMocks {
   return {
     removeFeatureFromStore: vi.fn((id: string) => {
       const f = featureMap.get(id);
@@ -167,7 +165,7 @@ describe('SelectMode', () => {
     expect(selectMode.getSelectedIds()).toContain('f1');
     expect(callbacks.emitEvent).toHaveBeenCalledWith(
       'selectionchange',
-      expect.objectContaining({ selectedIds: ['f1'] }),
+      expect.objectContaining({ selectedIds: ['f1'] })
     );
   });
 
@@ -198,16 +196,13 @@ describe('SelectMode', () => {
     selectMode.activate();
     selectMode.onPointerDown(createPointerEvent(5, 5)); // select
 
-    selectMode.onKeyDown(
-      'Delete',
-      new KeyboardEvent('keydown', { key: 'Delete' }),
-    );
+    selectMode.onKeyDown('Delete', new KeyboardEvent('keydown', { key: 'Delete' }));
 
     expect(callbacks.removeFeatureFromStore).toHaveBeenCalledWith('f1');
     expect(callbacks.pushToHistory).toHaveBeenCalled();
     expect(callbacks.emitEvent).toHaveBeenCalledWith(
       'delete',
-      expect.objectContaining({ feature: expect.objectContaining({ id: 'f1' }) }),
+      expect.objectContaining({ feature: expect.objectContaining({ id: 'f1' }) })
     );
   });
 
@@ -215,10 +210,7 @@ describe('SelectMode', () => {
     selectMode.activate();
     selectMode.onPointerDown(createPointerEvent(5, 5));
 
-    selectMode.onKeyDown(
-      'Backspace',
-      new KeyboardEvent('keydown', { key: 'Backspace' }),
-    );
+    selectMode.onKeyDown('Backspace', new KeyboardEvent('keydown', { key: 'Backspace' }));
 
     expect(callbacks.removeFeatureFromStore).toHaveBeenCalledWith('f1');
   });
@@ -245,10 +237,7 @@ describe('SelectMode', () => {
 
   it('should not delete when nothing is selected', () => {
     selectMode.activate();
-    selectMode.onKeyDown(
-      'Delete',
-      new KeyboardEvent('keydown', { key: 'Delete' }),
-    );
+    selectMode.onKeyDown('Delete', new KeyboardEvent('keydown', { key: 'Delete' }));
 
     expect(callbacks.removeFeatureFromStore).not.toHaveBeenCalled();
   });
@@ -270,7 +259,7 @@ describe('SelectMode', () => {
       expect.any(Array),
       expect.any(Array),
       undefined,
-      undefined,
+      undefined
     );
   });
 
@@ -304,7 +293,7 @@ describe('SelectMode', () => {
       expect.any(Array),
       expect.any(Array),
       undefined,
-      undefined,
+      undefined
     );
   });
 
@@ -363,7 +352,7 @@ describe('SelectMode', () => {
         expect.objectContaining({
           feature: expect.any(Object),
           oldFeature: expect.any(Object),
-        }),
+        })
       );
       expect(callbacks.setDragPan).toHaveBeenCalledWith(true);
     });
@@ -437,7 +426,7 @@ describe('SelectMode', () => {
         expect.any(Array),
         expect.any(Array),
         1, // newly inserted vertex at midpoint index 0 → vertex index 1
-        undefined,
+        undefined
       );
     });
   });
@@ -516,7 +505,7 @@ describe('SelectMode', () => {
         expect.any(Array),
         expect.any(Array),
         0, // highlight index for vertex (0,0)
-        undefined,
+        undefined
       );
     });
 
@@ -536,7 +525,7 @@ describe('SelectMode', () => {
         expect.any(Array),
         expect.any(Array),
         undefined, // no vertex highlight
-        undefined, // no midpoint highlight
+        undefined // no midpoint highlight
       );
     });
 
@@ -574,7 +563,7 @@ describe('SelectMode', () => {
         expect.any(Array),
         expect.any(Array),
         undefined, // no vertex highlight
-        0, // midpoint highlight index
+        0 // midpoint highlight index
       );
     });
 
@@ -591,7 +580,7 @@ describe('SelectMode', () => {
         expect.any(Array),
         expect.any(Array),
         0, // vertex highlight
-        undefined, // no midpoint highlight (vertex wins)
+        undefined // no midpoint highlight (vertex wins)
       );
     });
 
@@ -611,7 +600,7 @@ describe('SelectMode', () => {
         expect.any(Array),
         expect.any(Array),
         undefined,
-        undefined,
+        undefined
       );
     });
   });
@@ -639,10 +628,7 @@ describe('SelectMode', () => {
       expect(ring.length).toBe(4);
 
       expect(callbacks.pushToHistory).toHaveBeenCalled();
-      expect(callbacks.emitEvent).toHaveBeenCalledWith(
-        'update',
-        expect.any(Object),
-      );
+      expect(callbacks.emitEvent).toHaveBeenCalledWith('update', expect.any(Object));
     });
 
     it('should not delete vertex when polygon has only 3 vertices', () => {
@@ -730,7 +716,7 @@ describe('SelectMode', () => {
         expect.objectContaining({
           feature: expect.any(Object),
           oldFeature: expect.any(Object),
-        }),
+        })
       );
       expect(callbacks.setDragPan).toHaveBeenCalledWith(true);
     });
@@ -771,7 +757,7 @@ describe('SelectMode', () => {
         expect.any(Array),
         expect.any(Array),
         undefined,
-        undefined,
+        undefined
       );
     });
 
@@ -801,7 +787,7 @@ describe('SelectMode', () => {
       expect(callbacks.renderVertices).toHaveBeenCalled();
       expect(callbacks.emitEvent).toHaveBeenCalledWith(
         'selectionchange',
-        expect.objectContaining({ selectedIds: ['f1'] }),
+        expect.objectContaining({ selectedIds: ['f1'] })
       );
       expect(callbacks.renderFeatures).toHaveBeenCalled();
     });
@@ -854,7 +840,7 @@ describe('SelectMode', () => {
       expect(callbacks.clearVertices).toHaveBeenCalled();
       expect(callbacks.emitEvent).toHaveBeenCalledWith(
         'selectionchange',
-        expect.objectContaining({ selectedIds: [] }),
+        expect.objectContaining({ selectedIds: [] })
       );
     });
 

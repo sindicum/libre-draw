@@ -17,7 +17,7 @@ function makeFeature(
     [10, 10],
     [0, 10],
     [0, 0],
-  ],
+  ]
 ): LibreDrawFeature {
   return {
     id,

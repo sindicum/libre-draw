@@ -17,7 +17,7 @@ interface ScreenPoint {
 function pointToSegmentDistance(
   point: ScreenPoint,
   segmentStart: ScreenPoint,
-  segmentEnd: ScreenPoint,
+  segmentEnd: ScreenPoint
 ): number {
   const abX = segmentEnd.x - segmentStart.x;
   const abY = segmentEnd.y - segmentStart.y;
@@ -55,7 +55,7 @@ export function findNearestEdge(
   vertices: Position[],
   clickPoint: ScreenPoint,
   threshold: number,
-  getScreenPoint: (lngLat: { lng: number; lat: number }) => ScreenPoint,
+  getScreenPoint: (lngLat: { lng: number; lat: number }) => ScreenPoint
 ): EdgeHit | null {
   if (vertices.length < 2) return null;
 
@@ -88,7 +88,7 @@ export function findNearestEdge(
 export function computeInwardNormal(
   edgeStart: Position,
   edgeEnd: Position,
-  polygonVertices?: Position[],
+  polygonVertices?: Position[]
 ): Position {
   const dX = edgeEnd[0] - edgeStart[0];
   const dY = edgeEnd[1] - edgeStart[1];
@@ -120,38 +120,23 @@ export function computeOffsetLine(
   edgeStart: Position,
   edgeEnd: Position,
   distanceMeters: number,
-  inwardNormal: Position,
+  inwardNormal: Position
 ): [Position, Position] {
   const bearing = (Math.atan2(inwardNormal[0], inwardNormal[1]) * 180) / Math.PI;
   const distanceKm = distanceMeters / 1000;
 
-  const startOffset = destination(
-    turfPoint(edgeStart),
-    distanceKm,
-    bearing,
-    { units: 'kilometers' },
-  );
-  const endOffset = destination(
-    turfPoint(edgeEnd),
-    distanceKm,
-    bearing,
-    { units: 'kilometers' },
-  );
+  const startOffset = destination(turfPoint(edgeStart), distanceKm, bearing, {
+    units: 'kilometers',
+  });
+  const endOffset = destination(turfPoint(edgeEnd), distanceKm, bearing, { units: 'kilometers' });
 
-  return [
-    startOffset.geometry.coordinates as Position,
-    endOffset.geometry.coordinates as Position,
-  ];
+  return [startOffset.geometry.coordinates as Position, endOffset.geometry.coordinates as Position];
 }
 
 /**
  * Extend a line in both directions by a ratio of its own length.
  */
-export function extendLine(
-  start: Position,
-  end: Position,
-  ratio: number,
-): [Position, Position] {
+export function extendLine(start: Position, end: Position, ratio: number): [Position, Position] {
   const dX = end[0] - start[0];
   const dY = end[1] - start[1];
 

@@ -4,7 +4,8 @@
       <div v-if="error" class="demo-error">{{ error }}</div>
       <div ref="mapContainer" class="demo-map-compact"></div>
       <div class="demo-hint">
-        Click <strong>draw-point</strong> to place a point, or <strong>draw</strong> to add polygon vertices and double-click to finish.
+        Click <strong>draw-point</strong> to place a point, or <strong>draw</strong> to add polygon
+        vertices and double-click to finish.
       </div>
     </div>
   </ClientOnly>

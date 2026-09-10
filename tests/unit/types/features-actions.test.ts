@@ -1,11 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { FeatureStore } from '../../../src/core/FeatureStore';
-import {
-  BatchAction,
-  CreateAction,
-  DeleteAction,
-  UpdateAction,
-} from '../../../src/types/features';
+import { BatchAction, CreateAction, DeleteAction, UpdateAction } from '../../../src/types/features';
 import type { Action } from '../../../src/types/features';
 import type { LibreDrawFeature } from '../../../src/types/features';
 

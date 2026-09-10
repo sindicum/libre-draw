@@ -189,9 +189,7 @@ export class DrawMode implements DraftCapableMode {
    * Build the preview coordinate ring for rendering,
    * including cursor position if available.
    */
-  private buildPreviewCoordinates(
-    cursorPos?: Position,
-  ): Position[] {
+  private buildPreviewCoordinates(cursorPos?: Position): Position[] {
     const coords = [...this.vertices];
     if (cursorPos) {
       coords.push(cursorPos);
@@ -221,10 +219,7 @@ export class DrawMode implements DraftCapableMode {
     if (wouldClosingCauseIntersection(this.vertices)) return false;
 
     // Close the ring
-    const ring: Position[] = [
-      ...this.vertices,
-      [...this.vertices[0]] as Position,
-    ];
+    const ring: Position[] = [...this.vertices, [...this.vertices[0]] as Position];
 
     const feature: LibreDrawFeature = {
       id: crypto.randomUUID(),
@@ -262,29 +257,20 @@ export class DrawMode implements DraftCapableMode {
   /**
    * Find a snap target for the given position (excluding drawing-in-progress vertices).
    */
-  private findSnap(
-    lngLat: { lng: number; lat: number },
-  ): ReturnType<typeof findSnapTarget> {
+  private findSnap(lngLat: { lng: number; lat: number }): ReturnType<typeof findSnapTarget> {
     const snapConfig = this.context.getSnapConfig();
     if (!snapConfig.enabled) return null;
 
-    return findSnapTarget(
-      lngLat,
-      this.context.store.getAll(),
-      this.context.getScreenPoint,
-      {
-        threshold: snapConfig.threshold ?? 10,
-        viewportBounds: this.context.getViewportBounds(),
-      },
-    );
+    return findSnapTarget(lngLat, this.context.store.getAll(), this.context.getScreenPoint, {
+      threshold: snapConfig.threshold ?? 10,
+      viewportBounds: this.context.getViewportBounds(),
+    });
   }
 
   /**
    * Apply snap to a position and return the (possibly snapped) geographic coordinates.
    */
-  private applySnap(
-    lngLat: { lng: number; lat: number },
-  ): { lng: number; lat: number } {
+  private applySnap(lngLat: { lng: number; lat: number }): { lng: number; lat: number } {
     const snapTarget = this.findSnap(lngLat);
     if (snapTarget) {
       this.context.render.renderSnapIndicator(snapTarget.position);

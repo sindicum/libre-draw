@@ -63,13 +63,7 @@ export interface FeatureCollection {
 /**
  * The type of history action.
  */
-export type ActionType =
-  | 'create'
-  | 'update'
-  | 'delete'
-  | 'split'
-  | 'setback'
-  | 'batch';
+export type ActionType = 'create' | 'update' | 'delete' | 'split' | 'setback' | 'batch';
 
 /**
  * A reversible action that can be applied and reverted on a FeatureStore.
@@ -120,11 +114,7 @@ export class UpdateAction implements Action {
   public readonly oldFeature: LibreDrawFeature;
   public readonly newFeature: LibreDrawFeature;
 
-  constructor(
-    id: string,
-    oldFeature: LibreDrawFeature,
-    newFeature: LibreDrawFeature,
-  ) {
+  constructor(id: string, oldFeature: LibreDrawFeature, newFeature: LibreDrawFeature) {
     this.id = id;
     this.oldFeature = cloneFeature(oldFeature);
     this.newFeature = cloneFeature(newFeature);
@@ -171,7 +161,7 @@ export class SplitAction implements Action {
   constructor(
     originalFeature: LibreDrawFeature,
     featureA: LibreDrawFeature,
-    featureB: LibreDrawFeature,
+    featureB: LibreDrawFeature
   ) {
     this.originalFeature = cloneFeature(originalFeature);
     this.featureA = cloneFeature(featureA);
@@ -199,10 +189,7 @@ export class SetbackAction implements Action {
   public readonly originalFeature: LibreDrawFeature;
   public readonly resultFeature: LibreDrawFeature;
 
-  constructor(
-    originalFeature: LibreDrawFeature,
-    resultFeature: LibreDrawFeature,
-  ) {
+  constructor(originalFeature: LibreDrawFeature, resultFeature: LibreDrawFeature) {
     this.originalFeature = cloneFeature(originalFeature);
     this.resultFeature = cloneFeature(resultFeature);
   }

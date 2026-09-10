@@ -1,12 +1,5 @@
-import type {
-  LibreDrawFeature,
-  FeatureStoreInterface,
-  FeatureCollection,
-} from '../types/features';
-import {
-  cloneFeature,
-  cloneFeatureCollection,
-} from '../utils/featureSnapshot';
+import type { LibreDrawFeature, FeatureStoreInterface, FeatureCollection } from '../types/features';
+import { cloneFeature, cloneFeatureCollection } from '../utils/featureSnapshot';
 
 /**
  * Internal store for managing LibreDraw features.
@@ -62,9 +55,7 @@ export class FeatureStore implements FeatureStoreInterface {
    * @returns An array of all features.
    */
   getAll(): LibreDrawFeature[] {
-    return Array.from(this.features.values(), (feature) =>
-      cloneFeature(feature),
-    );
+    return Array.from(this.features.values(), (feature) => cloneFeature(feature));
   }
 
   /**

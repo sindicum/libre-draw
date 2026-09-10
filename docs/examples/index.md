@@ -3,6 +3,7 @@
 Try LibreDraw directly in your browser. Use the toolbar buttons on the map to place points, draw lines, draw polygons, and edit existing features.
 
 **Controls:**
+
 - **Draw Point** (pin icon): Click or tap to place a point
 - **Draw Line** (line icon): Click to add vertices, double-click to finalize the line
   - Finalizing a line keeps draw-line mode active so you can continue drawing

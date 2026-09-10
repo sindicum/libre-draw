@@ -76,9 +76,7 @@ export interface DraftCapableMode extends Mode {
 /**
  * Type guard that checks whether a mode implements DraftCapableMode.
  */
-export function isDraftCapableMode(
-  mode: Mode | undefined,
-): mode is DraftCapableMode {
+export function isDraftCapableMode(mode: Mode | undefined): mode is DraftCapableMode {
   if (!mode) return false;
   const candidate = mode as Partial<DraftCapableMode>;
   return (

@@ -23,11 +23,7 @@ function createRect(): DOMRect {
   } as DOMRect;
 }
 
-function createTouchLike(
-  identifier: number,
-  clientX: number,
-  clientY: number,
-): Touch {
+function createTouchLike(identifier: number, clientX: number, clientY: number): Touch {
   return {
     identifier,
     clientX,
@@ -39,7 +35,7 @@ function dispatchTouchEvent(
   target: HTMLElement,
   type: 'touchstart' | 'touchmove' | 'touchend' | 'touchcancel',
   touches: Touch[],
-  changedTouches: Touch[],
+  changedTouches: Touch[]
 ): void {
   const event = new Event(type, { bubbles: true, cancelable: true }) as TouchEvent;
   Object.defineProperty(event, 'touches', {

@@ -22,10 +22,7 @@ export class EventBus {
    * @param type - The event type to listen for.
    * @param listener - The callback to invoke when the event fires.
    */
-  on<K extends keyof LibreDrawEventMap>(
-    type: K,
-    listener: Listener<LibreDrawEventMap[K]>,
-  ): void {
+  on<K extends keyof LibreDrawEventMap>(type: K, listener: Listener<LibreDrawEventMap[K]>): void {
     let set = this.listeners.get(type as string);
     if (!set) {
       set = new Set();
@@ -39,10 +36,7 @@ export class EventBus {
    * @param type - The event type to stop listening for.
    * @param listener - The callback to remove.
    */
-  off<K extends keyof LibreDrawEventMap>(
-    type: K,
-    listener: Listener<LibreDrawEventMap[K]>,
-  ): void {
+  off<K extends keyof LibreDrawEventMap>(type: K, listener: Listener<LibreDrawEventMap[K]>): void {
     const set = this.listeners.get(type as string);
     if (set) {
       set.delete(listener as AnyListener);
@@ -54,10 +48,7 @@ export class EventBus {
    * @param type - The event type to emit.
    * @param payload - The event payload.
    */
-  emit<K extends keyof LibreDrawEventMap>(
-    type: K,
-    payload: LibreDrawEventMap[K],
-  ): void {
+  emit<K extends keyof LibreDrawEventMap>(type: K, payload: LibreDrawEventMap[K]): void {
     const set = this.listeners.get(type as string);
     if (set) {
       for (const listener of set) {

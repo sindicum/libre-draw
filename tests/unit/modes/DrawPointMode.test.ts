@@ -47,10 +47,7 @@ function createMockContext(): ModeContext {
   };
 }
 
-function createPointerEvent(
-  lng: number,
-  lat: number,
-): NormalizedInputEvent {
+function createPointerEvent(lng: number, lat: number): NormalizedInputEvent {
   return {
     lngLat: { lng, lat },
     point: { x: lng * 10, y: lat * 10 },
@@ -84,7 +81,7 @@ describe('DrawPointMode', () => {
           type: 'Point',
           coordinates: [139.7, 35.6],
         },
-      }),
+      })
     );
     expect(context.history.push).toHaveBeenCalled();
     expect(context.events.emit).toHaveBeenCalledWith(
@@ -93,7 +90,7 @@ describe('DrawPointMode', () => {
         feature: expect.objectContaining({
           geometry: { type: 'Point', coordinates: [139.7, 35.6] },
         }),
-      }),
+      })
     );
     expect(context.render.renderFeatures).toHaveBeenCalled();
   });
@@ -115,10 +112,7 @@ describe('DrawPointMode', () => {
 
   it('should clear snap indicator on Escape', () => {
     mode.activate();
-    mode.onKeyDown(
-      'Escape',
-      new KeyboardEvent('keydown', { key: 'Escape' }),
-    );
+    mode.onKeyDown('Escape', new KeyboardEvent('keydown', { key: 'Escape' }));
 
     expect(context.render.clearSnapIndicator).toHaveBeenCalled();
   });
@@ -144,7 +138,15 @@ describe('DrawPointMode', () => {
       type: 'Feature',
       geometry: {
         type: 'Polygon',
-        coordinates: [[[0, 0], [10, 0], [10, 10], [0, 10], [0, 0]]],
+        coordinates: [
+          [
+            [0, 0],
+            [10, 0],
+            [10, 10],
+            [0, 10],
+            [0, 0],
+          ],
+        ],
       },
       properties: {},
     };

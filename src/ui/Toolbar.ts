@@ -71,11 +71,7 @@ export class Toolbar {
   private callbacks: ToolbarCallbacks;
   private options: ToolbarOptions;
 
-  constructor(
-    map: MaplibreMap,
-    callbacks: ToolbarCallbacks,
-    options: ToolbarOptions = {},
-  ) {
+  constructor(map: MaplibreMap, callbacks: ToolbarCallbacks, options: ToolbarOptions = {}) {
     this.map = map;
     this.callbacks = callbacks;
     this.options = options;
@@ -154,10 +150,7 @@ export class Toolbar {
       this.setbackInput = null;
     }
     if (this.handleOutsideClick) {
-      document.removeEventListener(
-        'pointerdown',
-        this.handleOutsideClick,
-      );
+      document.removeEventListener('pointerdown', this.handleOutsideClick);
       this.handleOutsideClick = null;
     }
     if (this.stylePanel) {
@@ -188,39 +181,75 @@ export class Toolbar {
     };
 
     if (controls.drawPoint) {
-      this.addButton('draw-point', drawPointIcon, 'Draw point', () => {
-        this.callbacks.onDrawPointClick();
-      }, true);
+      this.addButton(
+        'draw-point',
+        drawPointIcon,
+        'Draw point',
+        () => {
+          this.callbacks.onDrawPointClick();
+        },
+        true
+      );
     }
 
     if (controls.drawLine) {
-      this.addButton('draw-line', drawLineIcon, 'Draw line', () => {
-        this.callbacks.onDrawLineClick();
-      }, true);
+      this.addButton(
+        'draw-line',
+        drawLineIcon,
+        'Draw line',
+        () => {
+          this.callbacks.onDrawLineClick();
+        },
+        true
+      );
     }
 
     if (controls.draw) {
-      this.addButton('draw', drawIcon, 'Draw polygon', () => {
-        this.callbacks.onDrawClick();
-      }, true);
+      this.addButton(
+        'draw',
+        drawIcon,
+        'Draw polygon',
+        () => {
+          this.callbacks.onDrawClick();
+        },
+        true
+      );
     }
 
     if (controls.drawRectangle) {
-      this.addButton('draw-rectangle', drawRectangleIcon, 'Draw rectangle', () => {
-        this.callbacks.onDrawRectangleClick();
-      }, true);
+      this.addButton(
+        'draw-rectangle',
+        drawRectangleIcon,
+        'Draw rectangle',
+        () => {
+          this.callbacks.onDrawRectangleClick();
+        },
+        true
+      );
     }
 
     if (controls.select) {
-      this.addButton('select', selectIcon, 'Select feature', () => {
-        this.callbacks.onSelectClick();
-      }, true);
+      this.addButton(
+        'select',
+        selectIcon,
+        'Select feature',
+        () => {
+          this.callbacks.onSelectClick();
+        },
+        true
+      );
     }
 
     if (controls.split) {
-      this.addButton('split', splitIcon, 'Split feature', () => {
-        this.callbacks.onSplitClick();
-      }, true);
+      this.addButton(
+        'split',
+        splitIcon,
+        'Split feature',
+        () => {
+          this.callbacks.onSplitClick();
+        },
+        true
+      );
     }
 
     if (controls.setback) {
@@ -259,7 +288,7 @@ export class Toolbar {
     icon: string,
     title: string,
     onClick: () => void,
-    isToggle?: boolean,
+    isToggle?: boolean
   ): void {
     const button = new ToolbarButton({ id, icon, title, onClick, isToggle });
     this.buttons.set(id, button);
@@ -329,8 +358,7 @@ export class Toolbar {
     });
 
     const position = this.options.position || 'top-right';
-    const isRight =
-      position === 'top-right' || position === 'bottom-right';
+    const isRight = position === 'top-right' || position === 'bottom-right';
     this.stylePanel.setPosition(isRight ? 'left' : 'right');
 
     // Attach panel to toolbar container so top aligns with toolbar top
@@ -368,9 +396,7 @@ export class Toolbar {
 
     // MapLibre organizes controls into positioned containers
     const mapContainer = this.map.getContainer();
-    const controlContainer = mapContainer.querySelector(
-      `.maplibregl-ctrl-${position}`,
-    );
+    const controlContainer = mapContainer.querySelector(`.maplibregl-ctrl-${position}`);
 
     if (controlContainer) {
       controlContainer.appendChild(this.container);

@@ -55,7 +55,7 @@ export function findSnapTarget(
   lngLat: { lng: number; lat: number },
   features: LibreDrawFeature[],
   getScreenPoint: GetScreenPointFn,
-  options: SnapOptions,
+  options: SnapOptions
 ): SnapTarget | null {
   const candidates = filterFeatures(features, options);
   if (candidates.length === 0) return null;
@@ -67,26 +67,17 @@ export function findSnapTarget(
     screenPoint,
     candidates,
     getScreenPoint,
-    options.threshold,
+    options.threshold
   );
   if (vertexTarget) return vertexTarget;
 
-  return findNearestEdge(
-    screenPoint,
-    lngLat,
-    candidates,
-    getScreenPoint,
-    options.threshold,
-  );
+  return findNearestEdge(screenPoint, lngLat, candidates, getScreenPoint, options.threshold);
 }
 
 /**
  * Filter features by excludeFeatureId and viewport bounds.
  */
-function filterFeatures(
-  features: LibreDrawFeature[],
-  options: SnapOptions,
-): LibreDrawFeature[] {
+function filterFeatures(features: LibreDrawFeature[], options: SnapOptions): LibreDrawFeature[] {
   let result = features;
 
   if (options.excludeFeatureId) {
@@ -94,9 +85,7 @@ function filterFeatures(
   }
 
   if (options.viewportBounds) {
-    result = result.filter((f) =>
-      isFeatureInBounds(f, options.viewportBounds!),
-    );
+    result = result.filter((f) => isFeatureInBounds(f, options.viewportBounds!));
   }
 
   return result;
@@ -108,18 +97,10 @@ function filterFeatures(
  * Uses a fast min/max scan over the outer ring coordinates.
  * No map.project() calls are needed.
  */
-export function isFeatureInBounds(
-  feature: LibreDrawFeature,
-  bounds: ViewportBounds,
-): boolean {
+export function isFeatureInBounds(feature: LibreDrawFeature, bounds: ViewportBounds): boolean {
   if (feature.geometry.type === 'Point') {
     const [lng, lat] = feature.geometry.coordinates;
-    return (
-      lng >= bounds.west &&
-      lng <= bounds.east &&
-      lat >= bounds.south &&
-      lat <= bounds.north
-    );
+    return lng >= bounds.west && lng <= bounds.east && lat >= bounds.south && lat <= bounds.north;
   }
 
   if (feature.geometry.type === 'LineString') {
@@ -177,7 +158,7 @@ function findNearestVertex(
   screenPoint: ScreenPoint,
   features: LibreDrawFeature[],
   getScreenPoint: GetScreenPointFn,
-  threshold: number,
+  threshold: number
 ): SnapTarget | null {
   let best: SnapTarget | null = null;
 
@@ -250,7 +231,7 @@ function findNearestEdge(
   lngLat: { lng: number; lat: number },
   features: LibreDrawFeature[],
   getScreenPoint: GetScreenPointFn,
-  threshold: number,
+  threshold: number
 ): SnapTarget | null {
   let best: SnapTarget | null = null;
 
@@ -331,7 +312,7 @@ function findNearestEdge(
 export function projectPointOnSegment(
   point: ScreenPoint,
   segStart: ScreenPoint,
-  segEnd: ScreenPoint,
+  segEnd: ScreenPoint
 ): ScreenPoint {
   const dx = segEnd.x - segStart.x;
   const dy = segEnd.y - segStart.y;
@@ -343,7 +324,7 @@ export function projectPointOnSegment(
   // Parametric position along the segment [0, 1]
   const t = Math.max(
     0,
-    Math.min(1, ((point.x - segStart.x) * dx + (point.y - segStart.y) * dy) / lenSq),
+    Math.min(1, ((point.x - segStart.x) * dx + (point.y - segStart.y) * dy) / lenSq)
   );
 
   return {
@@ -359,7 +340,7 @@ export function projectPointOnSegment(
 function computeParametricT(
   segStart: ScreenPoint,
   segEnd: ScreenPoint,
-  projected: ScreenPoint,
+  projected: ScreenPoint
 ): number {
   const dx = segEnd.x - segStart.x;
   const dy = segEnd.y - segStart.y;

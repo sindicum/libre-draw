@@ -39,7 +39,7 @@ export function computeIntersectionPoint(
   p1: Position,
   p2: Position,
   p3: Position,
-  p4: Position,
+  p4: Position
 ): Position | null {
   const rX = p2[0] - p1[0];
   const rY = p2[1] - p1[1];
@@ -69,12 +69,7 @@ export function computeIntersectionPoint(
  * Check if two line segments (p1-p2) and (p3-p4) truly intersect.
  * Segments that share an endpoint are NOT considered intersecting.
  */
-export function segmentsIntersect(
-  p1: Position,
-  p2: Position,
-  p3: Position,
-  p4: Position,
-): boolean {
+export function segmentsIntersect(p1: Position, p2: Position, p3: Position, p4: Position): boolean {
   // Skip if segments share an endpoint
   if (posEqual(p1, p3) || posEqual(p1, p4) || posEqual(p2, p3) || posEqual(p2, p4)) {
     return false;
@@ -132,7 +127,7 @@ export function hasRingSelfIntersection(ring: Position[]): boolean {
  */
 export function wouldNewVertexCauseIntersection(
   vertices: Position[],
-  newVertex: Position,
+  newVertex: Position
 ): boolean {
   // Need at least 2 existing vertices to have an edge to check against
   if (vertices.length < 2) return false;

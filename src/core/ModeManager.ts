@@ -27,9 +27,7 @@ export class ModeManager {
    * Set a callback to be invoked on mode changes.
    * @param callback - The callback receiving (newMode, previousMode).
    */
-  setOnModeChange(
-    callback: (mode: ModeName, previousMode: ModeName) => void,
-  ): void {
+  setOnModeChange(callback: (mode: ModeName, previousMode: ModeName) => void): void {
     this.onModeChange = callback;
   }
 

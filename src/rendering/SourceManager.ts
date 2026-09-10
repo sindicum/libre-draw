@@ -39,10 +39,10 @@ export class SourceManager {
   hasAllSources(): boolean {
     return Boolean(
       this.map.getSource(SOURCE_IDS.FEATURES) &&
-        this.map.getSource(SOURCE_IDS.PREVIEW) &&
-        this.map.getSource(SOURCE_IDS.EDGE_HIGHLIGHT) &&
-        this.map.getSource(SOURCE_IDS.EDIT_VERTICES) &&
-        this.map.getSource(SOURCE_IDS.SNAP_INDICATOR),
+      this.map.getSource(SOURCE_IDS.PREVIEW) &&
+      this.map.getSource(SOURCE_IDS.EDGE_HIGHLIGHT) &&
+      this.map.getSource(SOURCE_IDS.EDIT_VERTICES) &&
+      this.map.getSource(SOURCE_IDS.SNAP_INDICATOR)
     );
   }
 

@@ -58,12 +58,6 @@ export type {
   PartialStyleConfig,
 } from './style';
 
-export {
-  DEFAULT_STYLE_CONFIG,
-  mergeStyleConfig,
-} from './style';
+export { DEFAULT_STYLE_CONFIG, mergeStyleConfig } from './style';
 
-export type {
-  InputType,
-  NormalizedInputEvent,
-} from './input';
+export type { InputType, NormalizedInputEvent } from './input';

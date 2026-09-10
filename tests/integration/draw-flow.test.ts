@@ -20,7 +20,7 @@ import type {
 function createPointerEvent(
   lng: number,
   lat: number,
-  inputType: 'mouse' | 'touch' = 'mouse',
+  inputType: 'mouse' | 'touch' = 'mouse'
 ): NormalizedInputEvent {
   return {
     lngLat: { lng, lat },
@@ -41,7 +41,7 @@ function clickAt(
   },
   lng: number,
   lat: number,
-  inputType: 'mouse' | 'touch' = 'mouse',
+  inputType: 'mouse' | 'touch' = 'mouse'
 ): void {
   mode.onPointerDown(createPointerEvent(lng, lat, inputType));
   mode.onPointerUp(createPointerEvent(lng, lat, inputType));
@@ -113,8 +113,7 @@ describe('Draw Flow Integration', () => {
   }
 
   it('should draw a polygon, select it, and delete it', () => {
-    const { eventBus, store, history, modeManager, selectMode } =
-      createDrawingSystem();
+    const { eventBus, store, history, modeManager, selectMode } = createDrawingSystem();
 
     const createListener = vi.fn();
     const deleteListener = vi.fn();
@@ -154,10 +153,7 @@ describe('Draw Flow Integration', () => {
     expect(selectMode.getSelectedIds()).toHaveLength(1);
 
     // Delete with keyboard
-    selectModeImpl.onKeyDown(
-      'Delete',
-      new KeyboardEvent('keydown', { key: 'Delete' }),
-    );
+    selectModeImpl.onKeyDown('Delete', new KeyboardEvent('keydown', { key: 'Delete' }));
 
     expect(store.getAll()).toHaveLength(0);
     expect(deleteListener).toHaveBeenCalledOnce();
@@ -217,10 +213,7 @@ describe('Draw Flow Integration', () => {
     expect(store.getById(featureId)!.geometry.coordinates[0][0][0]).toBe(2);
 
     // Delete
-    selectMode.onKeyDown(
-      'Delete',
-      new KeyboardEvent('keydown', { key: 'Delete' }),
-    );
+    selectMode.onKeyDown('Delete', new KeyboardEvent('keydown', { key: 'Delete' }));
     expect(deletePayload).toBeDefined();
 
     deletePayload!.feature.geometry.coordinates[0][0][0] = 555;
@@ -296,9 +289,7 @@ describe('Draw Flow Integration', () => {
       const { eventBus, store, modeManager, drawMode } = createDrawingSystem();
       const events: string[] = [];
       const createListener = vi.fn(() => events.push('create'));
-      const draftListener = vi.fn((e: DraftChangeEvent) =>
-        events.push(`draft:${e.vertexCount}`),
-      );
+      const draftListener = vi.fn((e: DraftChangeEvent) => events.push(`draft:${e.vertexCount}`));
       eventBus.on('create', createListener);
       eventBus.on('draftchange', draftListener);
 
@@ -317,13 +308,7 @@ describe('Draw Flow Integration', () => {
       expect(drawMode.getDraftVertexCount()).toBe(0);
 
       // Order: vertex-adds (draft:1, 2, 3) -> create -> draft:0
-      expect(events).toEqual([
-        'draft:1',
-        'draft:2',
-        'draft:3',
-        'create',
-        'draft:0',
-      ]);
+      expect(events).toEqual(['draft:1', 'draft:2', 'draft:3', 'create', 'draft:0']);
     });
 
     it('should return false from finishDrawing() with fewer than 3 vertices', () => {
@@ -437,13 +422,10 @@ describe('Draw Flow Integration', () => {
 
   describe('draft control API (DrawLineMode)', () => {
     it('should finalize a line via finishDrawing() with 2 vertices', () => {
-      const { eventBus, store, modeManager, drawLineMode } =
-        createDrawingSystem();
+      const { eventBus, store, modeManager, drawLineMode } = createDrawingSystem();
       const events: string[] = [];
       const createListener = vi.fn(() => events.push('create'));
-      const draftListener = vi.fn((e: DraftChangeEvent) =>
-        events.push(`draft:${e.vertexCount}`),
-      );
+      const draftListener = vi.fn((e: DraftChangeEvent) => events.push(`draft:${e.vertexCount}`));
       eventBus.on('create', createListener);
       eventBus.on('draftchange', draftListener);
 
@@ -474,8 +456,7 @@ describe('Draw Flow Integration', () => {
     });
 
     it('should cancelDrawing() clear the draft without creating a feature', () => {
-      const { eventBus, store, modeManager, drawLineMode } =
-        createDrawingSystem();
+      const { eventBus, store, modeManager, drawLineMode } = createDrawingSystem();
       const draftListener = vi.fn();
       eventBus.on('draftchange', draftListener);
 
@@ -495,13 +476,10 @@ describe('Draw Flow Integration', () => {
 
   describe('draw-rectangle flow', () => {
     it('should create a rectangle with two clicks, then undo and redo it', () => {
-      const { eventBus, store, history, modeManager, drawRectangleMode } =
-        createDrawingSystem();
+      const { eventBus, store, history, modeManager, drawRectangleMode } = createDrawingSystem();
       const events: string[] = [];
       eventBus.on('create', () => events.push('create'));
-      eventBus.on('draftchange', (e: DraftChangeEvent) =>
-        events.push(`draft:${e.vertexCount}`),
-      );
+      eventBus.on('draftchange', (e: DraftChangeEvent) => events.push(`draft:${e.vertexCount}`));
 
       modeManager.setMode('draw-rectangle');
       clickAt(drawRectangleMode, 0, 0);
@@ -592,8 +570,7 @@ describe('Draw Flow Integration', () => {
     });
 
     it('should never finalize via finishDrawing() and discard the draft via cancelDrawing()', () => {
-      const { eventBus, store, modeManager, drawRectangleMode } =
-        createDrawingSystem();
+      const { eventBus, store, modeManager, drawRectangleMode } = createDrawingSystem();
       const draftListener = vi.fn();
       eventBus.on('draftchange', draftListener);
 

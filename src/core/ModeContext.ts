@@ -18,10 +18,7 @@ export interface ModeContext {
     push(action: Action): void;
   };
   events: {
-    emit<K extends keyof LibreDrawEventMap>(
-      type: K,
-      payload: LibreDrawEventMap[K],
-    ): void;
+    emit<K extends keyof LibreDrawEventMap>(type: K, payload: LibreDrawEventMap[K]): void;
   };
   render: {
     renderFeatures(): void;
@@ -33,7 +30,7 @@ export interface ModeContext {
       vertices: Position[],
       midpoints: Position[],
       highlightIndex?: number,
-      midpointHighlightIndex?: number,
+      midpointHighlightIndex?: number
     ): void;
     clearVertices(): void;
     setSelectedIds(ids: string[]): void;

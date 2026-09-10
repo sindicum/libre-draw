@@ -37,33 +37,134 @@ export class StylePanel {
       {
         title: '地物スタイル',
         fields: [
-          { label: 'ライン色', type: 'color', section: 'outline.color', getValue: () => d.outline.color },
-          { label: 'ライン太さ', type: 'number', section: 'outline.width', getValue: () => String(d.outline.width), min: 1, max: 10, step: 1 },
-          { label: 'ポリゴン色', type: 'color', section: 'fill.color', getValue: () => d.fill.color },
-          { label: 'ポリゴン透明度', type: 'number', section: 'fill.opacity', getValue: () => String(d.fill.opacity), min: 0, max: 1, step: 0.1 },
+          {
+            label: 'ライン色',
+            type: 'color',
+            section: 'outline.color',
+            getValue: () => d.outline.color,
+          },
+          {
+            label: 'ライン太さ',
+            type: 'number',
+            section: 'outline.width',
+            getValue: () => String(d.outline.width),
+            min: 1,
+            max: 10,
+            step: 1,
+          },
+          {
+            label: 'ポリゴン色',
+            type: 'color',
+            section: 'fill.color',
+            getValue: () => d.fill.color,
+          },
+          {
+            label: 'ポリゴン透明度',
+            type: 'number',
+            section: 'fill.opacity',
+            getValue: () => String(d.fill.opacity),
+            min: 0,
+            max: 1,
+            step: 0.1,
+          },
           { label: '点の色', type: 'color', section: 'point.color', getValue: () => d.point.color },
-          { label: '点の大きさ', type: 'number', section: 'point.radius', getValue: () => String(d.point.radius), min: 2, max: 20, step: 1 },
-          { label: '点のhover色', type: 'color', section: 'point.hoverColor', getValue: () => d.point.hoverColor },
+          {
+            label: '点の大きさ',
+            type: 'number',
+            section: 'point.radius',
+            getValue: () => String(d.point.radius),
+            min: 2,
+            max: 20,
+            step: 1,
+          },
+          {
+            label: '点のhover色',
+            type: 'color',
+            section: 'point.hoverColor',
+            getValue: () => d.point.hoverColor,
+          },
         ],
       },
       {
         title: '選択時スタイル',
         fields: [
-          { label: '頂点の色', type: 'color', section: 'editVertex.color', getValue: () => d.editVertex.color },
-          { label: '頂点の大きさ', type: 'number', section: 'editVertex.radius', getValue: () => String(d.editVertex.radius), min: 2, max: 20, step: 1 },
-          { label: '中間点の色', type: 'color', section: 'midpoint.color', getValue: () => d.midpoint.color },
-          { label: '中間点の大きさ', type: 'number', section: 'midpoint.radius', getValue: () => String(d.midpoint.radius), min: 2, max: 20, step: 1 },
-          { label: 'hover色', type: 'color', section: 'editVertex.highlightedColor', getValue: () => d.editVertex.highlightedColor },
-          { label: 'ライン色', type: 'color', section: 'outline.selectedColor', getValue: () => d.outline.selectedColor },
-          { label: 'ポリゴン色', type: 'color', section: 'fill.selectedColor', getValue: () => d.fill.selectedColor },
-          { label: 'ポリゴン透明度', type: 'number', section: 'fill.selectedOpacity', getValue: () => String(d.fill.selectedOpacity), min: 0, max: 1, step: 0.1 },
+          {
+            label: '頂点の色',
+            type: 'color',
+            section: 'editVertex.color',
+            getValue: () => d.editVertex.color,
+          },
+          {
+            label: '頂点の大きさ',
+            type: 'number',
+            section: 'editVertex.radius',
+            getValue: () => String(d.editVertex.radius),
+            min: 2,
+            max: 20,
+            step: 1,
+          },
+          {
+            label: '中間点の色',
+            type: 'color',
+            section: 'midpoint.color',
+            getValue: () => d.midpoint.color,
+          },
+          {
+            label: '中間点の大きさ',
+            type: 'number',
+            section: 'midpoint.radius',
+            getValue: () => String(d.midpoint.radius),
+            min: 2,
+            max: 20,
+            step: 1,
+          },
+          {
+            label: 'hover色',
+            type: 'color',
+            section: 'editVertex.highlightedColor',
+            getValue: () => d.editVertex.highlightedColor,
+          },
+          {
+            label: 'ライン色',
+            type: 'color',
+            section: 'outline.selectedColor',
+            getValue: () => d.outline.selectedColor,
+          },
+          {
+            label: 'ポリゴン色',
+            type: 'color',
+            section: 'fill.selectedColor',
+            getValue: () => d.fill.selectedColor,
+          },
+          {
+            label: 'ポリゴン透明度',
+            type: 'number',
+            section: 'fill.selectedOpacity',
+            getValue: () => String(d.fill.selectedOpacity),
+            min: 0,
+            max: 1,
+            step: 0.1,
+          },
         ],
       },
       {
         title: 'ガイドライン',
         fields: [
-          { label: '破線の色', type: 'color', section: 'preview.color', getValue: () => d.preview.color },
-          { label: '破線の太さ', type: 'number', section: 'preview.width', getValue: () => String(d.preview.width), min: 1, max: 10, step: 1 },
+          {
+            label: '破線の色',
+            type: 'color',
+            section: 'preview.color',
+            getValue: () => d.preview.color,
+          },
+          {
+            label: '破線の太さ',
+            type: 'number',
+            section: 'preview.width',
+            getValue: () => String(d.preview.width),
+            min: 1,
+            max: 10,
+            step: 1,
+          },
         ],
       },
     ];
@@ -106,10 +207,8 @@ export class StylePanel {
   }
 
   private collectStyle(): PartialStyleConfig {
-    const get = (key: string): string =>
-      this.inputs.get(key)?.value ?? '';
-    const num = (key: string): number =>
-      Number(this.inputs.get(key)?.value ?? 0);
+    const get = (key: string): string => this.inputs.get(key)?.value ?? '';
+    const num = (key: string): number => Number(this.inputs.get(key)?.value ?? 0);
 
     return {
       fill: {

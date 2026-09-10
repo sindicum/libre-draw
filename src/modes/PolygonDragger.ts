@@ -14,10 +14,7 @@ export class PolygonDragger {
   private dragStartFeature: LibreDrawFeature | null = null;
   private dragStartLngLat: { lng: number; lat: number } | null = null;
 
-  constructor(
-    context: ModeContext,
-    onFeatureMoved: (feature: LibreDrawFeature) => void,
-  ) {
+  constructor(context: ModeContext, onFeatureMoved: (feature: LibreDrawFeature) => void) {
     this.context = context;
     this.onFeatureMoved = onFeatureMoved;
   }
@@ -30,10 +27,7 @@ export class PolygonDragger {
     return this.dragStartFeature;
   }
 
-  startDrag(
-    feature: LibreDrawFeature,
-    startLngLat: { lng: number; lat: number },
-  ): void {
+  startDrag(feature: LibreDrawFeature, startLngLat: { lng: number; lat: number }): void {
     this.dragging = true;
     this.dragStartFeature = cloneFeature(feature);
     this.dragStartLngLat = startLngLat;
@@ -46,9 +40,10 @@ export class PolygonDragger {
 
     const dLng = event.lngLat.lng - this.dragStartLngLat.lng;
     const dLat = event.lngLat.lat - this.dragStartLngLat.lat;
-    const updatedFeature = this.dragStartFeature.geometry.type === 'LineString'
-      ? moveLine(this.dragStartFeature, dLng, dLat)
-      : movePolygon(this.dragStartFeature, dLng, dLat);
+    const updatedFeature =
+      this.dragStartFeature.geometry.type === 'LineString'
+        ? moveLine(this.dragStartFeature, dLng, dLat)
+        : movePolygon(this.dragStartFeature, dLng, dLat);
 
     this.context.store.update(selectedId, updatedFeature);
     this.context.render.renderFeatures();

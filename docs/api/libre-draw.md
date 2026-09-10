@@ -18,10 +18,10 @@ Initializes all internal modules and sets up map integration. The instance is re
 
 **Parameters:**
 
-| Name | Type | Required | Description |
-|------|------|----------|-------------|
-| `map` | `maplibregl.Map` | Yes | The MapLibre GL JS map instance to draw on |
-| `options` | [`LibreDrawOptions`](/api/types#libredrawoptions) | No | Configuration options. Defaults to toolbar enabled and 100-action history limit (with built-in default layer style) |
+| Name      | Type                                              | Required | Description                                                                                                         |
+| --------- | ------------------------------------------------- | -------- | ------------------------------------------------------------------------------------------------------------------- |
+| `map`     | `maplibregl.Map`                                  | Yes      | The MapLibre GL JS map instance to draw on                                                                          |
+| `options` | [`LibreDrawOptions`](/api/types#libredrawoptions) | No       | Configuration options. Defaults to toolbar enabled and 100-action history limit (with built-in default layer style) |
 
 **Example:**
 
@@ -79,8 +79,8 @@ Switching modes deactivates the current mode (clearing any in-progress state) an
 
 **Parameters:**
 
-| Name | Type | Description |
-|------|------|-------------|
+| Name   | Type                              | Description                                                                                                  |
+| ------ | --------------------------------- | ------------------------------------------------------------------------------------------------------------ |
 | `mode` | [`ModeName`](/api/types#modename) | `'idle'`, `'draw-point'`, `'draw-line'`, `'draw'`, `'draw-rectangle'`, `'select'`, `'split'`, or `'setback'` |
 
 **Returns:** `void`
@@ -173,13 +173,14 @@ Validates the input, clears the current store and history, and re-renders the ma
 
 **Parameters:**
 
-| Name | Type | Description |
-|------|------|-------------|
+| Name      | Type      | Description                                                                       |
+| --------- | --------- | --------------------------------------------------------------------------------- |
 | `geojson` | `unknown` | A GeoJSON FeatureCollection containing Point, LineString, and/or Polygon features |
 
 **Returns:** `void`
 
 **Throws:**
+
 - [`LibreDrawError`](/api/types#libredrawerror) if this instance has been destroyed.
 - [`LibreDrawError`](/api/types#libredrawerror) if the input is not a valid FeatureCollection or contains invalid Point, LineString, or Polygon geometries.
 
@@ -193,7 +194,15 @@ draw.setFeatures({
       type: 'Feature',
       geometry: {
         type: 'Polygon',
-        coordinates: [[[0, 0], [10, 0], [10, 10], [0, 10], [0, 0]]],
+        coordinates: [
+          [
+            [0, 0],
+            [10, 0],
+            [10, 10],
+            [0, 10],
+            [0, 0],
+          ],
+        ],
       },
       properties: {},
     },
@@ -211,13 +220,14 @@ All features are validated before any of them is added, so an invalid entry leav
 
 **Parameters:**
 
-| Name | Type | Description |
-|------|------|-------------|
+| Name       | Type        | Description                                                                                                                         |
+| ---------- | ----------- | ----------------------------------------------------------------------------------------------------------------------------------- |
 | `features` | `unknown[]` | An array of GeoJSON Feature objects with Point, LineString, and/or Polygon geometry. Features without an `id` get a generated UUID. |
 
 **Returns:** `void`
 
 **Throws:**
+
 - [`LibreDrawError`](/api/types#libredrawerror) if this instance has been destroyed.
 - [`LibreDrawError`](/api/types#libredrawerror) if any feature has invalid geometry.
 - [`LibreDrawError`](/api/types#libredrawerror) if a feature `id` already exists in the store or appears more than once in the array.
@@ -230,7 +240,15 @@ draw.addFeatures([
     type: 'Feature',
     geometry: {
       type: 'Polygon',
-      coordinates: [[[0, 0], [5, 0], [5, 5], [0, 5], [0, 0]]],
+      coordinates: [
+        [
+          [0, 0],
+          [5, 0],
+          [5, 5],
+          [0, 5],
+          [0, 0],
+        ],
+      ],
     },
     properties: { name: 'Zone A' },
   },
@@ -247,8 +265,8 @@ Get a feature by its ID.
 
 **Parameters:**
 
-| Name | Type | Description |
-|------|------|-------------|
+| Name | Type     | Description                          |
+| ---- | -------- | ------------------------------------ |
 | `id` | `string` | The unique identifier of the feature |
 
 **Returns:** [`LibreDrawFeature`](/api/types#libredrawfeature) `| undefined`
@@ -274,8 +292,8 @@ Removes the feature from the store, records a delete action in the history (maki
 
 **Parameters:**
 
-| Name | Type | Description |
-|------|------|-------------|
+| Name | Type     | Description                                    |
+| ---- | -------- | ---------------------------------------------- |
 | `id` | `string` | The unique identifier of the feature to delete |
 
 **Returns:** [`LibreDrawFeature`](/api/types#libredrawfeature) `| undefined` — the deleted feature, or `undefined` if not found.
@@ -304,13 +322,14 @@ Switches to select mode if not already active. The feature must exist in the sto
 
 **Parameters:**
 
-| Name | Type | Description |
-|------|------|-------------|
+| Name | Type     | Description                                    |
+| ---- | -------- | ---------------------------------------------- |
 | `id` | `string` | The unique identifier of the feature to select |
 
 **Returns:** `void`
 
 **Throws:**
+
 - [`LibreDrawError`](/api/types#libredrawerror) if this instance has been destroyed.
 - [`LibreDrawError`](/api/types#libredrawerror) if no feature with the given ID exists.
 
@@ -375,8 +394,8 @@ Merges the given partial overrides with the current style and applies changes to
 
 **Parameters:**
 
-| Name | Type | Description |
-|------|------|-------------|
+| Name    | Type                                                  | Description                      |
+| ------- | ----------------------------------------------------- | -------------------------------- |
 | `style` | [`PartialStyleConfig`](/api/types#partialstyleconfig) | Partial style overrides to apply |
 
 **Returns:** `void`
@@ -534,10 +553,10 @@ Register an event listener.
 
 **Parameters:**
 
-| Name | Type | Description |
-|------|------|-------------|
-| `type` | `keyof` [`LibreDrawEventMap`](/api/events) | The event type to listen for |
-| `listener` | `(payload) => void` | The callback to invoke when the event fires |
+| Name       | Type                                       | Description                                 |
+| ---------- | ------------------------------------------ | ------------------------------------------- |
+| `type`     | `keyof` [`LibreDrawEventMap`](/api/events) | The event type to listen for                |
+| `listener` | `(payload) => void`                        | The callback to invoke when the event fires |
 
 **Returns:** `void`
 
@@ -568,10 +587,10 @@ The listener must be the **same function reference** passed to [`on`](#on-type-l
 
 **Parameters:**
 
-| Name | Type | Description |
-|------|------|-------------|
-| `type` | `keyof` [`LibreDrawEventMap`](/api/events) | The event type to stop listening for |
-| `listener` | `(payload) => void` | The callback to remove |
+| Name       | Type                                       | Description                          |
+| ---------- | ------------------------------------------ | ------------------------------------ |
+| `type`     | `keyof` [`LibreDrawEventMap`](/api/events) | The event type to stop listening for |
+| `listener` | `(payload) => void`                        | The callback to remove               |
 
 **Returns:** `void`
 

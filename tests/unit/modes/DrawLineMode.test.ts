@@ -47,10 +47,7 @@ function createMockContext(): ModeContext {
   };
 }
 
-function createPointerEvent(
-  lng: number,
-  lat: number,
-): NormalizedInputEvent {
+function createPointerEvent(lng: number, lat: number): NormalizedInputEvent {
   return {
     lngLat: { lng, lat },
     point: { x: lng * 10, y: lat * 10 },
@@ -95,9 +92,12 @@ describe('DrawLineMode', () => {
         type: 'Feature',
         geometry: {
           type: 'LineString',
-          coordinates: [[0, 0], [10, 5]],
+          coordinates: [
+            [0, 0],
+            [10, 5],
+          ],
         },
-      }),
+      })
     );
     expect(context.history.push).toHaveBeenCalled();
     expect(context.events.emit).toHaveBeenCalledWith(
@@ -106,7 +106,7 @@ describe('DrawLineMode', () => {
         feature: expect.objectContaining({
           geometry: expect.objectContaining({ type: 'LineString' }),
         }),
-      }),
+      })
     );
   });
 
@@ -167,9 +167,12 @@ describe('DrawLineMode', () => {
       expect.objectContaining({
         geometry: {
           type: 'LineString',
-          coordinates: [[0, 0], [10, 5]],
+          coordinates: [
+            [0, 0],
+            [10, 5],
+          ],
         },
-      }),
+      })
     );
   });
 
@@ -201,7 +204,15 @@ describe('DrawLineMode', () => {
       type: 'Feature',
       geometry: {
         type: 'Polygon',
-        coordinates: [[[5, 5], [15, 5], [15, 15], [5, 15], [5, 5]]],
+        coordinates: [
+          [
+            [5, 5],
+            [15, 5],
+            [15, 15],
+            [5, 15],
+            [5, 5],
+          ],
+        ],
       },
       properties: {},
     };

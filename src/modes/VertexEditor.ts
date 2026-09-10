@@ -60,7 +60,7 @@ export class VertexEditor {
   tryStartVertexDragOrInsert(
     feature: LibreDrawFeature,
     selectedId: string,
-    event: NormalizedInputEvent,
+    event: NormalizedInputEvent
   ): boolean {
     const isLine = feature.geometry.type === 'LineString';
     const vertices = isLine ? getLineVertices(feature) : getVertices(feature);
@@ -117,7 +117,9 @@ export class VertexEditor {
       if (snappedPos.lng !== event.lngLat.lng || snappedPos.lat !== event.lngLat.lat) {
         const unsnappedPos: Position = [event.lngLat.lng, event.lngLat.lat];
         const unsnappedFeature = moveVertex(feature, this.dragVertexIndex, unsnappedPos);
-        if (!hasRingSelfIntersection((unsnappedFeature.geometry as PolygonGeometry).coordinates[0])) {
+        if (
+          !hasRingSelfIntersection((unsnappedFeature.geometry as PolygonGeometry).coordinates[0])
+        ) {
           this.context.render.clearSnapIndicator();
           this.context.store.update(selectedId, unsnappedFeature);
           this.context.render.renderFeatures();
@@ -134,10 +136,7 @@ export class VertexEditor {
     return true;
   }
 
-  updateHighlightIfNeeded(
-    feature: LibreDrawFeature,
-    event: NormalizedInputEvent,
-  ): void {
+  updateHighlightIfNeeded(feature: LibreDrawFeature, event: NormalizedInputEvent): void {
     const isLine = feature.geometry.type === 'LineString';
     const vertices = isLine ? getLineVertices(feature) : getVertices(feature);
     const threshold = this.getThreshold(event);
@@ -152,7 +151,10 @@ export class VertexEditor {
       nearMidIdx = this.findNearestPoint(midpoints, event.point, threshold);
     }
 
-    if (nearVertexIdx !== this.highlightedVertexIndex || nearMidIdx !== this.highlightedMidpointIndex) {
+    if (
+      nearVertexIdx !== this.highlightedVertexIndex ||
+      nearMidIdx !== this.highlightedMidpointIndex
+    ) {
       this.highlightedVertexIndex = nearVertexIdx;
       this.highlightedMidpointIndex = nearMidIdx;
       this.renderHandles(feature);
@@ -162,7 +164,7 @@ export class VertexEditor {
   deleteVertexAtPointer(
     selectedId: string,
     feature: LibreDrawFeature,
-    event: NormalizedInputEvent,
+    event: NormalizedInputEvent
   ): boolean {
     if (feature.geometry.type === 'Point') return false;
     const isLine = feature.geometry.type === 'LineString';
@@ -182,11 +184,7 @@ export class VertexEditor {
 
     this.context.store.update(selectedId, updatedFeature);
 
-    const action = new UpdateAction(
-      selectedId,
-      oldFeature,
-      cloneFeature(updatedFeature),
-    );
+    const action = new UpdateAction(selectedId, oldFeature, cloneFeature(updatedFeature));
     this.context.history.push(action);
     this.context.events.emit('update', {
       feature: cloneFeature(updatedFeature),
@@ -206,7 +204,7 @@ export class VertexEditor {
       vertices,
       midpoints,
       this.highlightedVertexIndex >= 0 ? this.highlightedVertexIndex : undefined,
-      this.highlightedMidpointIndex >= 0 ? this.highlightedMidpointIndex : undefined,
+      this.highlightedMidpointIndex >= 0 ? this.highlightedMidpointIndex : undefined
     );
   }
 
@@ -224,7 +222,7 @@ export class VertexEditor {
     feature: LibreDrawFeature,
     vertexIndex: number,
     // Midpoint insertion passes the pre-insert snapshot so undo restores original shape.
-    startFeatureSnapshot: LibreDrawFeature = cloneFeature(feature),
+    startFeatureSnapshot: LibreDrawFeature = cloneFeature(feature)
   ): void {
     this.dragging = true;
     this.dragVertexIndex = vertexIndex;
@@ -236,15 +234,13 @@ export class VertexEditor {
   }
 
   private getThreshold(event: NormalizedInputEvent): number {
-    return event.inputType === 'touch'
-      ? HIT_THRESHOLD_TOUCH_PX
-      : HIT_THRESHOLD_MOUSE_PX;
+    return event.inputType === 'touch' ? HIT_THRESHOLD_TOUCH_PX : HIT_THRESHOLD_MOUSE_PX;
   }
 
   private findNearestVertex(
     vertices: Position[],
     clickPoint: { x: number; y: number },
-    threshold?: number,
+    threshold?: number
   ): number {
     return this.findNearestPoint(vertices, clickPoint, threshold);
   }
@@ -252,7 +248,7 @@ export class VertexEditor {
   private findNearestPoint(
     points: Position[],
     clickPoint: { x: number; y: number },
-    threshold: number = HIT_THRESHOLD_MOUSE_PX,
+    threshold: number = HIT_THRESHOLD_MOUSE_PX
   ): number {
     let minDist = Infinity;
     let minIdx = -1;
@@ -279,7 +275,7 @@ export class VertexEditor {
    */
   private applySnapForDrag(
     lngLat: { lng: number; lat: number },
-    excludeFeatureId: string,
+    excludeFeatureId: string
   ): { lng: number; lat: number } {
     const snapConfig = this.context.getSnapConfig();
     if (!snapConfig.enabled) return lngLat;
@@ -292,7 +288,7 @@ export class VertexEditor {
         threshold: snapConfig.threshold ?? 10,
         excludeFeatureId,
         viewportBounds: this.context.getViewportBounds(),
-      },
+      }
     );
 
     if (snapTarget) {

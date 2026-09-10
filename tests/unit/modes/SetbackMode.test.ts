@@ -84,9 +84,7 @@ interface Harness {
   };
 }
 
-function createHarness(
-  feature: LibreDrawFeature = makeSquare('f1'),
-): Harness {
+function createHarness(feature: LibreDrawFeature = makeSquare('f1')): Harness {
   const features = new Map<string, LibreDrawFeature>();
   features.set(feature.id, feature);
 
@@ -242,7 +240,7 @@ describe('SetbackMode', () => {
       expect.objectContaining({
         edgeIndex: 0,
         distance: 1000,
-      }),
+      })
     );
   });
 
@@ -301,7 +299,7 @@ describe('SetbackMode', () => {
         feature: expect.any(Object),
         edgeIndex: 0,
         distance: 1000,
-      }),
+      })
     );
   });
 
@@ -378,7 +376,7 @@ describe('SetbackMode', () => {
       'setback',
       expect.objectContaining({
         edgeIndex: 1,
-      }),
+      })
     );
   });
 
@@ -399,9 +397,7 @@ describe('SetbackMode', () => {
 
     // The result should NOT contain the original bottom edge y=0 vertices
     // (those belong to the band that was removed)
-    const hasOriginalBottomEdge = firstVertices.some(
-      (v: number[]) => Math.abs(v[1]) < 0.001,
-    );
+    const hasOriginalBottomEdge = firstVertices.some((v: number[]) => Math.abs(v[1]) < 0.001);
     expect(hasOriginalBottomEdge).toBe(false);
 
     // Second setback: select the result polygon, choose top edge, execute
@@ -411,11 +407,9 @@ describe('SetbackMode', () => {
 
     // Click inside the result polygon (it's shifted upward from y=0)
     const midY =
-      firstVertices.reduce((sum: number, v: number[]) => sum + v[1], 0) /
-      firstVertices.length;
+      firstVertices.reduce((sum: number, v: number[]) => sum + v[1], 0) / firstVertices.length;
     const midX =
-      firstVertices.reduce((sum: number, v: number[]) => sum + v[0], 0) /
-      firstVertices.length;
+      firstVertices.reduce((sum: number, v: number[]) => sum + v[0], 0) / firstVertices.length;
     mode.onPointerDown(pointerEvent(midX, midY)); // select polygon
 
     // Click near top edge (y=10)
@@ -427,9 +421,7 @@ describe('SetbackMode', () => {
     const secondVertices = secondResult.geometry.coordinates[0];
 
     // The result should NOT contain the original top edge y=10 vertices
-    const hasOriginalTopEdge = secondVertices.some(
-      (v: number[]) => Math.abs(v[1] - 10) < 0.001,
-    );
+    const hasOriginalTopEdge = secondVertices.some((v: number[]) => Math.abs(v[1] - 10) < 0.001);
     expect(hasOriginalTopEdge).toBe(false);
 
     // The result should still be a valid polygon (at least 4 points including closing)
@@ -450,7 +442,7 @@ describe('SetbackMode', () => {
       'setback',
       expect.objectContaining({
         edgeIndex: 1,
-      }),
+      })
     );
   });
 });

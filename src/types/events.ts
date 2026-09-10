@@ -39,9 +39,7 @@ export interface SplitFailedEvent {
   featureId: string;
 }
 
-export type SetbackFailReason =
-  | 'has-holes'
-  | 'invalid-split';
+export type SetbackFailReason = 'has-holes' | 'invalid-split';
 
 /**
  * Event payload for successful setback operation.

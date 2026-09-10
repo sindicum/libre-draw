@@ -46,10 +46,7 @@ export type {
   MidpointStyle,
 } from './types';
 
-export type {
-  NormalizedInputEvent,
-  InputType,
-} from './types';
+export type { NormalizedInputEvent, InputType } from './types';
 
 // Mode name type
 export type { ModeName } from './types';
@@ -58,10 +55,7 @@ export type { ModeName } from './types';
 export { LibreDrawError } from './core/errors';
 
 // Style helpers
-export {
-  DEFAULT_STYLE_CONFIG,
-  mergeStyleConfig,
-} from './types';
+export { DEFAULT_STYLE_CONFIG, mergeStyleConfig } from './types';
 
 // Split history action
 export { SplitAction } from './types';

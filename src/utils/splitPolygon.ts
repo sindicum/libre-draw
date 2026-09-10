@@ -1,6 +1,10 @@
 import type { LibreDrawFeature, Position } from '../types/features';
 import { cloneProperties } from './featureSnapshot';
-import { computeIntersectionPoint, hasRingSelfIntersection, EPSILON } from '../validation/intersection';
+import {
+  computeIntersectionPoint,
+  hasRingSelfIntersection,
+  EPSILON,
+} from '../validation/intersection';
 
 /**
  * Intersection of the split line with a polygon edge.
@@ -75,18 +79,12 @@ function edgeParameter(start: Position, end: Position, point: Position): number 
 function normalizeRing(openPoints: Position[]): Position[] | null {
   const deduped: Position[] = [];
   for (const point of openPoints) {
-    if (
-      deduped.length === 0 ||
-      !positionsEqual(deduped[deduped.length - 1], point)
-    ) {
+    if (deduped.length === 0 || !positionsEqual(deduped[deduped.length - 1], point)) {
       deduped.push(clonePosition(point));
     }
   }
 
-  if (
-    deduped.length >= 2 &&
-    positionsEqual(deduped[0], deduped[deduped.length - 1])
-  ) {
+  if (deduped.length >= 2 && positionsEqual(deduped[0], deduped[deduped.length - 1])) {
     deduped.pop();
   }
 
@@ -162,7 +160,7 @@ export type SplitResult =
 export function splitLine(
   feature: LibreDrawFeature,
   lineStart: Position,
-  lineEnd: Position,
+  lineEnd: Position
 ): SplitResult {
   if (positionsEqual(lineStart, lineEnd)) {
     return { type: 'error', reason: 'same-points' };
@@ -244,7 +242,7 @@ export function splitLine(
 export function splitPolygon(
   feature: LibreDrawFeature,
   lineStart: Position,
-  lineEnd: Position,
+  lineEnd: Position
 ): SplitResult {
   if (positionsEqual(lineStart, lineEnd)) {
     return { type: 'error', reason: 'same-points' };
@@ -287,7 +285,7 @@ export function splitPolygon(
   const uniqueIntersections: UniqueIntersection[] = [];
   for (const intersection of candidates) {
     const existing = uniqueIntersections.find((entry) =>
-      positionsEqual(entry.point, intersection.point),
+      positionsEqual(entry.point, intersection.point)
     );
 
     if (existing) {

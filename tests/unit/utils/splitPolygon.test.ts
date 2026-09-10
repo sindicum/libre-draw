@@ -5,7 +5,7 @@ import { splitPolygon, splitLine } from '../../../src/utils/splitPolygon';
 function makeFeature(
   id: string,
   ring: Position[],
-  properties: Record<string, unknown> = {},
+  properties: Record<string, unknown> = {}
 ): LibreDrawFeature {
   return {
     id,
@@ -21,7 +21,7 @@ function makeFeature(
 function makeFeatureWithHoles(
   id: string,
   outerRing: Position[],
-  holes: Position[][],
+  holes: Position[][]
 ): LibreDrawFeature {
   return {
     id,
@@ -135,7 +135,7 @@ describe('splitPolygon', () => {
         meta: {
           level: 2,
         },
-      },
+      }
     );
 
     const result = splitPolygon(feature, [5, -5], [5, 15]);
@@ -191,7 +191,7 @@ describe('splitPolygon', () => {
           [15, 5],
           [5, 5],
         ],
-      ],
+      ]
     );
 
     const result = splitPolygon(feature, [10, -5], [10, 25]);
@@ -229,7 +229,8 @@ describe('splitPolygon', () => {
 
     if (result.type !== 'success') return;
     const [a, b] = result.features;
-    const totalArea = Math.abs(signedArea(a.geometry.coordinates[0])) +
+    const totalArea =
+      Math.abs(signedArea(a.geometry.coordinates[0])) +
       Math.abs(signedArea(b.geometry.coordinates[0]));
     // Original L-shape area = 10*5 + 5*5 = 75
     expect(totalArea).toBeCloseTo(75, 8);
@@ -257,8 +258,22 @@ describe('splitPolygon', () => {
     // Polygon with hole
     const withHole = makeFeatureWithHoles(
       'h',
-      [[0, 0], [10, 0], [10, 10], [0, 10], [0, 0]],
-      [[[2, 2], [2, 8], [8, 8], [8, 2], [2, 2]]],
+      [
+        [0, 0],
+        [10, 0],
+        [10, 10],
+        [0, 10],
+        [0, 0],
+      ],
+      [
+        [
+          [2, 2],
+          [2, 8],
+          [8, 8],
+          [8, 2],
+          [2, 2],
+        ],
+      ]
     );
     const r3 = splitPolygon(withHole, [5, -1], [5, 11]);
     expect(r3.type).toBe('error');
@@ -269,7 +284,7 @@ describe('splitPolygon', () => {
 function makeLineFeature(
   id: string,
   coords: Position[],
-  properties: Record<string, unknown> = {},
+  properties: Record<string, unknown> = {}
 ): LibreDrawFeature {
   return {
     id,
@@ -281,7 +296,10 @@ function makeLineFeature(
 
 describe('splitLine', () => {
   it('should split a horizontal line at the intersection point', () => {
-    const feature = makeLineFeature('line1', [[0, 0], [10, 0]]);
+    const feature = makeLineFeature('line1', [
+      [0, 0],
+      [10, 0],
+    ]);
     const result = splitLine(feature, [5, -5], [5, 5]);
 
     expect(result.type).toBe('success');
@@ -292,12 +310,23 @@ describe('splitLine', () => {
     expect(b.geometry.type).toBe('LineString');
 
     if (a.geometry.type !== 'LineString' || b.geometry.type !== 'LineString') return;
-    expect(a.geometry.coordinates).toEqual([[0, 0], [5, 0]]);
-    expect(b.geometry.coordinates).toEqual([[5, 0], [10, 0]]);
+    expect(a.geometry.coordinates).toEqual([
+      [0, 0],
+      [5, 0],
+    ]);
+    expect(b.geometry.coordinates).toEqual([
+      [5, 0],
+      [10, 0],
+    ]);
   });
 
   it('should split a multi-segment line at the first intersection', () => {
-    const feature = makeLineFeature('line2', [[0, 0], [10, 0], [10, 10], [0, 10]]);
+    const feature = makeLineFeature('line2', [
+      [0, 0],
+      [10, 0],
+      [10, 10],
+      [0, 10],
+    ]);
     const result = splitLine(feature, [5, -5], [5, 5]);
 
     expect(result.type).toBe('success');
@@ -305,24 +334,45 @@ describe('splitLine', () => {
 
     const [a, b] = result.features;
     if (a.geometry.type !== 'LineString' || b.geometry.type !== 'LineString') return;
-    expect(a.geometry.coordinates).toEqual([[0, 0], [5, 0]]);
-    expect(b.geometry.coordinates).toEqual([[5, 0], [10, 0], [10, 10], [0, 10]]);
+    expect(a.geometry.coordinates).toEqual([
+      [0, 0],
+      [5, 0],
+    ]);
+    expect(b.geometry.coordinates).toEqual([
+      [5, 0],
+      [10, 0],
+      [10, 10],
+      [0, 10],
+    ]);
   });
 
   it('should return error when split line does not intersect', () => {
-    const feature = makeLineFeature('line3', [[0, 0], [10, 0]]);
+    const feature = makeLineFeature('line3', [
+      [0, 0],
+      [10, 0],
+    ]);
     const result = splitLine(feature, [20, 20], [30, 30]);
     expect(result).toEqual({ type: 'error', reason: 'invalid-intersection-count' });
   });
 
   it('should return error when split points are identical', () => {
-    const feature = makeLineFeature('line4', [[0, 0], [10, 0]]);
+    const feature = makeLineFeature('line4', [
+      [0, 0],
+      [10, 0],
+    ]);
     const result = splitLine(feature, [5, 5], [5, 5]);
     expect(result).toEqual({ type: 'error', reason: 'same-points' });
   });
 
   it('should copy properties and assign new IDs', () => {
-    const feature = makeLineFeature('origin', [[0, 0], [10, 0]], { name: 'road' });
+    const feature = makeLineFeature(
+      'origin',
+      [
+        [0, 0],
+        [10, 0],
+      ],
+      { name: 'road' }
+    );
     const result = splitLine(feature, [5, -5], [5, 5]);
 
     expect(result.type).toBe('success');
@@ -337,7 +387,11 @@ describe('splitLine', () => {
   });
 
   it('should handle split at a vertex of the line', () => {
-    const feature = makeLineFeature('line5', [[0, 0], [5, 0], [10, 0]]);
+    const feature = makeLineFeature('line5', [
+      [0, 0],
+      [5, 0],
+      [10, 0],
+    ]);
     // Split line passes through vertex (5,0)
     const result = splitLine(feature, [5, -5], [5, 5]);
 

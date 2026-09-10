@@ -29,11 +29,7 @@
         <p v-if="logs.length === 0" class="demo-log-empty">
           Use the buttons above to call API methods...
         </p>
-        <p
-          v-for="(log, index) in logs"
-          :key="index"
-          class="demo-log-entry"
-        >
+        <p v-for="(log, index) in logs" :key="index" class="demo-log-entry">
           <span class="log-type">[{{ log.type }}]</span> {{ log.message }}
         </p>
       </div>
@@ -93,14 +89,16 @@ function addSamplePoint() {
   if (!drawInstance) return;
   const offset = sampleCount * 0.005;
   sampleCount++;
-  drawInstance.addFeatures([{
-    type: 'Feature',
-    geometry: {
-      type: 'Point',
-      coordinates: [139.69 + offset, 35.688 + offset],
+  drawInstance.addFeatures([
+    {
+      type: 'Feature',
+      geometry: {
+        type: 'Point',
+        coordinates: [139.69 + offset, 35.688 + offset],
+      },
+      properties: { name: `Point ${sampleCount}` },
     },
-    properties: { name: `Point ${sampleCount}` },
-  }]);
+  ]);
   addLog('api', `addFeatures() — added sample point #${sampleCount}`);
 }
 
@@ -108,22 +106,26 @@ function addSamplePolygon() {
   if (!drawInstance) return;
   const offset = sampleCount * 0.005;
   sampleCount++;
-  const baseLng = 139.690 + offset;
+  const baseLng = 139.69 + offset;
   const baseLat = 35.688 + offset;
-  drawInstance.addFeatures([{
-    type: 'Feature',
-    geometry: {
-      type: 'Polygon',
-      coordinates: [[
-        [baseLng, baseLat],
-        [baseLng + 0.005, baseLat],
-        [baseLng + 0.005, baseLat + 0.004],
-        [baseLng, baseLat + 0.004],
-        [baseLng, baseLat],
-      ]],
+  drawInstance.addFeatures([
+    {
+      type: 'Feature',
+      geometry: {
+        type: 'Polygon',
+        coordinates: [
+          [
+            [baseLng, baseLat],
+            [baseLng + 0.005, baseLat],
+            [baseLng + 0.005, baseLat + 0.004],
+            [baseLng, baseLat + 0.004],
+            [baseLng, baseLat],
+          ],
+        ],
+      },
+      properties: { name: `Sample ${sampleCount}` },
     },
-    properties: { name: `Sample ${sampleCount}` },
-  }]);
+  ]);
   addLog('api', `addFeatures() — added sample polygon #${sampleCount}`);
 }
 
@@ -207,7 +209,10 @@ onMounted(async () => {
     });
 
     draw.on('selectionchange', (e: any) => {
-      addLog('event', `selectionchange: [${e.selectedIds.map((id: string) => id.slice(0, 8) + '...').join(', ')}]`);
+      addLog(
+        'event',
+        `selectionchange: [${e.selectedIds.map((id: string) => id.slice(0, 8) + '...').join(', ')}]`
+      );
     });
   } catch (e: any) {
     error.value = `Failed to initialize: ${e.message}`;

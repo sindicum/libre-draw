@@ -64,38 +64,38 @@ new LibreDraw(map: maplibregl.Map, options?: LibreDrawOptions)
 
 ### Methods
 
-| Method                    | Description                                           |
-| ------------------------- | ----------------------------------------------------- |
+| Method                    | Description                                                                                                                   |
+| ------------------------- | ----------------------------------------------------------------------------------------------------------------------------- |
 | `setMode(mode)`           | Set active mode: `'idle'`, `'draw-point'`, `'draw-line'`, `'draw'`, `'draw-rectangle'`, `'select'`, `'split'`, or `'setback'` |
-| `getMode()`               | Get the current mode                                  |
-| `getFeatures()`           | Get all features as an array                          |
-| `toGeoJSON()`             | Export all features as a GeoJSON FeatureCollection    |
-| `getFeatureById(id)`      | Get a single feature by ID                            |
-| `setFeatures(geojson)`    | Replace all features with a GeoJSON FeatureCollection |
-| `addFeatures(features)`   | Add an array of GeoJSON Feature objects (undoable as one step) |
-| `deleteFeature(id)`       | Delete a feature by ID (undoable)                     |
-| `selectFeature(id)`       | Programmatically select a feature                     |
-| `clearSelection()`        | Clear the current selection                           |
-| `getSelectedFeatureIds()` | Get IDs of selected features                          |
-| `undo()`                  | Undo the last action                                  |
-| `redo()`                  | Redo the last undone action                           |
-| `on(event, callback)`     | Register an event listener                            |
-| `off(event, callback)`    | Remove an event listener                              |
-| `destroy()`               | Clean up all resources                                |
+| `getMode()`               | Get the current mode                                                                                                          |
+| `getFeatures()`           | Get all features as an array                                                                                                  |
+| `toGeoJSON()`             | Export all features as a GeoJSON FeatureCollection                                                                            |
+| `getFeatureById(id)`      | Get a single feature by ID                                                                                                    |
+| `setFeatures(geojson)`    | Replace all features with a GeoJSON FeatureCollection                                                                         |
+| `addFeatures(features)`   | Add an array of GeoJSON Feature objects (undoable as one step)                                                                |
+| `deleteFeature(id)`       | Delete a feature by ID (undoable)                                                                                             |
+| `selectFeature(id)`       | Programmatically select a feature                                                                                             |
+| `clearSelection()`        | Clear the current selection                                                                                                   |
+| `getSelectedFeatureIds()` | Get IDs of selected features                                                                                                  |
+| `undo()`                  | Undo the last action                                                                                                          |
+| `redo()`                  | Redo the last undone action                                                                                                   |
+| `on(event, callback)`     | Register an event listener                                                                                                    |
+| `off(event, callback)`    | Remove an event listener                                                                                                      |
+| `destroy()`               | Clean up all resources                                                                                                        |
 
 ### Events
 
-| Event             | Payload                                            | Description                          |
-| ----------------- | -------------------------------------------------- | ------------------------------------ |
-| `create`          | `{ feature }`                                      | A feature was created (point, line, or polygon) |
-| `update`          | `{ feature, oldFeature }`                          | A feature was updated                |
-| `delete`          | `{ feature }`                                      | A feature was deleted                |
-| `split`           | `{ originalFeature, features: [featureA, featureB] }` | A polygon was split into two polygons |
-| `splitfailed`     | `{ reason, featureId }`                            | Split operation failed               |
-| `setback`         | `{ originalFeature, feature, edgeIndex, distance }` | Setback operation succeeded          |
-| `setbackfailed`   | `{ reason, featureId }`                            | Setback operation failed             |
-| `selectionchange` | `{ selectedIds }`                                  | Selection changed                    |
-| `modechange`      | `{ mode, previousMode }`                           | Active mode changed                  |
+| Event             | Payload                                               | Description                                     |
+| ----------------- | ----------------------------------------------------- | ----------------------------------------------- |
+| `create`          | `{ feature }`                                         | A feature was created (point, line, or polygon) |
+| `update`          | `{ feature, oldFeature }`                             | A feature was updated                           |
+| `delete`          | `{ feature }`                                         | A feature was deleted                           |
+| `split`           | `{ originalFeature, features: [featureA, featureB] }` | A polygon was split into two polygons           |
+| `splitfailed`     | `{ reason, featureId }`                               | Split operation failed                          |
+| `setback`         | `{ originalFeature, feature, edgeIndex, distance }`   | Setback operation succeeded                     |
+| `setbackfailed`   | `{ reason, featureId }`                               | Setback operation failed                        |
+| `selectionchange` | `{ selectedIds }`                                     | Selection changed                               |
+| `modechange`      | `{ mode, previousMode }`                              | Active mode changed                             |
 
 ### Options
 
@@ -154,6 +154,17 @@ npm run build
 
 # Documentation site
 npm run docs:dev
+
+# Format (Prettier)
+npm run format
+```
+
+`.git-blame-ignore-revs` lists commits that only reformat code. Run this once
+per clone so `git blame` skips them and shows who actually wrote each line
+(GitHub's blame view honours the file without any setup):
+
+```bash
+git config blame.ignoreRevsFile .git-blame-ignore-revs
 ```
 
 ## Requirements

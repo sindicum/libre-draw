@@ -213,29 +213,20 @@ export class DrawLineMode implements DraftCapableMode {
   /**
    * Find a snap target for the given position.
    */
-  private findSnap(
-    lngLat: { lng: number; lat: number },
-  ): ReturnType<typeof findSnapTarget> {
+  private findSnap(lngLat: { lng: number; lat: number }): ReturnType<typeof findSnapTarget> {
     const snapConfig = this.context.getSnapConfig();
     if (!snapConfig.enabled) return null;
 
-    return findSnapTarget(
-      lngLat,
-      this.context.store.getAll(),
-      this.context.getScreenPoint,
-      {
-        threshold: snapConfig.threshold ?? 10,
-        viewportBounds: this.context.getViewportBounds(),
-      },
-    );
+    return findSnapTarget(lngLat, this.context.store.getAll(), this.context.getScreenPoint, {
+      threshold: snapConfig.threshold ?? 10,
+      viewportBounds: this.context.getViewportBounds(),
+    });
   }
 
   /**
    * Apply snap to a position and return the (possibly snapped) geographic coordinates.
    */
-  private applySnap(
-    lngLat: { lng: number; lat: number },
-  ): { lng: number; lat: number } {
+  private applySnap(lngLat: { lng: number; lat: number }): { lng: number; lat: number } {
     const snapTarget = this.findSnap(lngLat);
     if (snapTarget) {
       this.context.render.renderSnapIndicator(snapTarget.position);

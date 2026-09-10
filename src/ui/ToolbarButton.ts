@@ -104,9 +104,7 @@ export class ToolbarButton {
     while (this.iconContainer.firstChild) {
       this.iconContainer.removeChild(this.iconContainer.firstChild);
     }
-    this.iconContainer.appendChild(
-      document.importNode(svg, true),
-    );
+    this.iconContainer.appendChild(document.importNode(svg, true));
   }
 
   /**

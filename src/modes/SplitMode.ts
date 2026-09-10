@@ -115,9 +115,10 @@ export class SplitMode implements Mode {
       return;
     }
 
-    const splitResult: SplitResult = feature.geometry.type === 'LineString'
-      ? splitLine(feature, this.lineStart, lineEnd)
-      : splitPolygon(feature, this.lineStart, lineEnd);
+    const splitResult: SplitResult =
+      feature.geometry.type === 'LineString'
+        ? splitLine(feature, this.lineStart, lineEnd)
+        : splitPolygon(feature, this.lineStart, lineEnd);
     if (splitResult.type === 'error') {
       this.context.events.emit('splitfailed', {
         reason: splitResult.reason,
@@ -173,10 +174,7 @@ export class SplitMode implements Mode {
   }
 
   /** Check if a screen point is within threshold of a LineString's segments. */
-  private isLineHit(
-    feature: LibreDrawFeature,
-    clickScreen: { x: number; y: number },
-  ): boolean {
+  private isLineHit(feature: LibreDrawFeature, clickScreen: { x: number; y: number }): boolean {
     if (feature.geometry.type !== 'LineString') return false;
     const coords = feature.geometry.coordinates;
     const threshold = 20;
@@ -188,7 +186,10 @@ export class SplitMode implements Mode {
       const dy = b.y - a.y;
       const lenSq = dx * dx + dy * dy;
       if (lenSq === 0) continue;
-      const t = Math.max(0, Math.min(1, ((clickScreen.x - a.x) * dx + (clickScreen.y - a.y) * dy) / lenSq));
+      const t = Math.max(
+        0,
+        Math.min(1, ((clickScreen.x - a.x) * dx + (clickScreen.y - a.y) * dy) / lenSq)
+      );
       const projX = a.x + t * dx;
       const projY = a.y + t * dy;
       const ddx = clickScreen.x - projX;

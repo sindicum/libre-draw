@@ -59,7 +59,7 @@ describe('MouseInput', () => {
         clientX: 10,
         clientY: 20,
         bubbles: true,
-      }),
+      })
     );
 
     window.dispatchEvent(
@@ -67,14 +67,14 @@ describe('MouseInput', () => {
         clientX: 250,
         clientY: 180,
         bubbles: true,
-      }),
+      })
     );
 
     expect(callbacks.onPointerUp).toHaveBeenCalledTimes(1);
     expect(callbacks.onPointerUp).toHaveBeenCalledWith(
       expect.objectContaining({
         point: { x: 250, y: 180 },
-      }),
+      })
     );
   });
 
@@ -84,7 +84,7 @@ describe('MouseInput', () => {
         clientX: 10,
         clientY: 10,
         bubbles: true,
-      }),
+      })
     );
 
     window.dispatchEvent(
@@ -92,7 +92,7 @@ describe('MouseInput', () => {
         clientX: 100,
         clientY: 120,
         bubbles: true,
-      }),
+      })
     );
     expect(callbacks.onPointerMove).toHaveBeenCalledTimes(1);
 
@@ -101,7 +101,7 @@ describe('MouseInput', () => {
         clientX: 100,
         clientY: 120,
         bubbles: true,
-      }),
+      })
     );
 
     window.dispatchEvent(
@@ -109,7 +109,7 @@ describe('MouseInput', () => {
         clientX: 200,
         clientY: 220,
         bubbles: true,
-      }),
+      })
     );
     expect(callbacks.onPointerMove).toHaveBeenCalledTimes(1);
   });
@@ -120,7 +120,7 @@ describe('MouseInput', () => {
         clientX: 40,
         clientY: 60,
         bubbles: true,
-      }),
+      })
     );
     expect(callbacks.onPointerMove).toHaveBeenCalledTimes(1);
 
@@ -129,7 +129,7 @@ describe('MouseInput', () => {
         clientX: 80,
         clientY: 90,
         bubbles: true,
-      }),
+      })
     );
     expect(callbacks.onPointerMove).toHaveBeenCalledTimes(1);
   });

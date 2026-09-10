@@ -1,11 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import { FeatureStore } from '../../src/core/FeatureStore';
 import { HistoryManager } from '../../src/core/HistoryManager';
-import {
-  CreateAction,
-  UpdateAction,
-  DeleteAction,
-} from '../../src/types/features';
+import { CreateAction, UpdateAction, DeleteAction } from '../../src/types/features';
 import type { LibreDrawFeature } from '../../src/types/features';
 
 function makeFeature(id: string): LibreDrawFeature {

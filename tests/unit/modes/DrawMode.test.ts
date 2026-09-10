@@ -43,7 +43,7 @@ function createPointerEvent(
   lng: number,
   lat: number,
   x?: number,
-  y?: number,
+  y?: number
 ): NormalizedInputEvent {
   return {
     lngLat: { lng, lat },
@@ -110,7 +110,7 @@ describe('DrawMode', () => {
       'create',
       expect.objectContaining({
         feature: expect.objectContaining({ type: 'Feature' }),
-      }),
+      })
     );
     expect(context.render.clearPreview).toHaveBeenCalled();
     expect(dblClickEvent.originalEvent.preventDefault).toHaveBeenCalled();
@@ -182,7 +182,15 @@ describe('DrawMode', () => {
       type: 'Feature',
       geometry: {
         type: 'Polygon',
-        coordinates: [[[5, 5], [15, 5], [15, 15], [5, 15], [5, 5]]],
+        coordinates: [
+          [
+            [5, 5],
+            [15, 5],
+            [15, 15],
+            [5, 15],
+            [5, 5],
+          ],
+        ],
       },
       properties: {},
     };

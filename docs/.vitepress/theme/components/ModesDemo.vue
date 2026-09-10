@@ -23,11 +23,7 @@
         <p v-if="logs.length === 0" class="demo-log-empty">
           Switch modes and interact with the map...
         </p>
-        <p
-          v-for="(log, index) in logs"
-          :key="index"
-          class="demo-log-entry"
-        >
+        <p v-for="(log, index) in logs" :key="index" class="demo-log-entry">
           <span class="log-type">[{{ log.type }}]</span> {{ log.message }}
         </p>
       </div>
@@ -47,7 +43,16 @@ const mapContainer = ref<HTMLDivElement | null>(null);
 const logContainer = ref<HTMLDivElement | null>(null);
 const logs = ref<LogEntry[]>([]);
 const currentMode = ref('idle');
-const modes = ['idle', 'draw-point', 'draw-line', 'draw', 'draw-rectangle', 'select', 'split', 'setback'] as const;
+const modes = [
+  'idle',
+  'draw-point',
+  'draw-line',
+  'draw',
+  'draw-rectangle',
+  'select',
+  'split',
+  'setback',
+] as const;
 const error = ref<string | null>(null);
 
 let drawInstance: any = null;
@@ -130,11 +135,17 @@ onMounted(async () => {
     });
 
     draw.on('split', (e: any) => {
-      addLog('split', `${e.originalFeature.id.slice(0, 8)}... split into ${e.features.length} features`);
+      addLog(
+        'split',
+        `${e.originalFeature.id.slice(0, 8)}... split into ${e.features.length} features`
+      );
     });
 
     draw.on('setback', (e: any) => {
-      addLog('setback', `${e.originalFeature.id.slice(0, 8)}... edge ${e.edgeIndex} setback ${e.distance}`);
+      addLog(
+        'setback',
+        `${e.originalFeature.id.slice(0, 8)}... edge ${e.edgeIndex} setback ${e.distance}`
+      );
     });
 
     draw.on('selectionchange', (e: any) => {

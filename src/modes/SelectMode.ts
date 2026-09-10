@@ -35,10 +35,7 @@ export class SelectMode implements Mode {
     startLngLat: { lng: number; lat: number };
   } | null = null;
 
-  constructor(
-    context: ModeContext,
-    onSelectionChange?: (selectedIds: string[]) => void,
-  ) {
+  constructor(context: ModeContext, onSelectionChange?: (selectedIds: string[]) => void) {
     this.context = context;
     this.selection = new SelectionManager(context, onSelectionChange);
     this.vertexEditor = new VertexEditor(context);
@@ -95,10 +92,7 @@ export class SelectMode implements Mode {
   /**
    * Test if a click is within hit threshold of a LineString feature's segments.
    */
-  private isLineHit(
-    feature: LibreDrawFeature,
-    event: NormalizedInputEvent,
-  ): boolean {
+  private isLineHit(feature: LibreDrawFeature, event: NormalizedInputEvent): boolean {
     if (feature.geometry.type !== 'LineString') return false;
     const coords = feature.geometry.coordinates;
     const clickScreen = this.context.getScreenPoint(event.lngLat);
@@ -124,7 +118,7 @@ export class SelectMode implements Mode {
   private distanceToSegment(
     p: { x: number; y: number },
     a: { x: number; y: number },
-    b: { x: number; y: number },
+    b: { x: number; y: number }
   ): number {
     const dx = b.x - a.x;
     const dy = b.y - a.y;
@@ -173,9 +167,7 @@ export class SelectMode implements Mode {
             return;
           }
         } else if (feature.geometry.type === 'LineString') {
-          if (
-            this.vertexEditor.tryStartVertexDragOrInsert(feature, selectedId, event)
-          ) {
+          if (this.vertexEditor.tryStartVertexDragOrInsert(feature, selectedId, event)) {
             return;
           }
           // Drag entire line if clicked near it
@@ -184,9 +176,7 @@ export class SelectMode implements Mode {
             return;
           }
         } else {
-          if (
-            this.vertexEditor.tryStartVertexDragOrInsert(feature, selectedId, event)
-          ) {
+          if (this.vertexEditor.tryStartVertexDragOrInsert(feature, selectedId, event)) {
             return;
           }
 
@@ -262,10 +252,7 @@ export class SelectMode implements Mode {
 
     // Handle point drag end
     if (this.pointDragState) {
-      this.commitDragUpdate(
-        this.pointDragState.featureId,
-        this.pointDragState.startFeature,
-      );
+      this.commitDragUpdate(this.pointDragState.featureId, this.pointDragState.startFeature);
       this.pointDragState = null;
       this.context.setDragPan(true);
       return;
@@ -289,10 +276,7 @@ export class SelectMode implements Mode {
     }
 
     if (polygonDragging) {
-      this.commitDragUpdate(
-        selectedId,
-        this.polygonDragger.getDragStartFeature(),
-      );
+      this.commitDragUpdate(selectedId, this.polygonDragger.getDragStartFeature());
       this.polygonDragger.endDrag();
     }
   }
@@ -356,10 +340,7 @@ export class SelectMode implements Mode {
   /**
    * Test if a click is within hit threshold of a Point feature.
    */
-  private isPointHit(
-    feature: LibreDrawFeature,
-    event: NormalizedInputEvent,
-  ): boolean {
+  private isPointHit(feature: LibreDrawFeature, event: NormalizedInputEvent): boolean {
     if (feature.geometry.type !== 'Point') return false;
     const coords = feature.geometry.coordinates;
     const featureScreen = this.context.getScreenPoint({
@@ -378,7 +359,7 @@ export class SelectMode implements Mode {
    */
   private findHitFeature(
     features: LibreDrawFeature[],
-    event: NormalizedInputEvent,
+    event: NormalizedInputEvent
   ): LibreDrawFeature | undefined {
     // Iterate from top (last) to bottom (first) for correct z-order
     for (let i = features.length - 1; i >= 0; i--) {
@@ -405,10 +386,7 @@ export class SelectMode implements Mode {
     }
   }
 
-  private commitDragUpdate(
-    selectedId: string,
-    startFeature: LibreDrawFeature | null,
-  ): void {
+  private commitDragUpdate(selectedId: string, startFeature: LibreDrawFeature | null): void {
     if (!startFeature) return;
 
     const currentFeature = this.context.store.getById(selectedId);
@@ -416,11 +394,7 @@ export class SelectMode implements Mode {
       return;
     }
 
-    const action = new UpdateAction(
-      selectedId,
-      startFeature,
-      cloneFeature(currentFeature),
-    );
+    const action = new UpdateAction(selectedId, startFeature, cloneFeature(currentFeature));
     this.context.history.push(action);
     this.context.events.emit('update', {
       feature: cloneFeature(currentFeature),
@@ -448,10 +422,7 @@ export class SelectMode implements Mode {
     this.context.render.renderFeatures();
   }
 
-  private hasGeometryChanged(
-    before: LibreDrawFeature,
-    after: LibreDrawFeature,
-  ): boolean {
+  private hasGeometryChanged(before: LibreDrawFeature, after: LibreDrawFeature): boolean {
     if (before.geometry.type !== after.geometry.type) return true;
 
     if (before.geometry.type === 'Point' && after.geometry.type === 'Point') {
@@ -466,10 +437,7 @@ export class SelectMode implements Mode {
       const afterCoords = after.geometry.coordinates;
       if (beforeCoords.length !== afterCoords.length) return true;
       for (let i = 0; i < beforeCoords.length; i++) {
-        if (
-          beforeCoords[i][0] !== afterCoords[i][0] ||
-          beforeCoords[i][1] !== afterCoords[i][1]
-        ) {
+        if (beforeCoords[i][0] !== afterCoords[i][0] || beforeCoords[i][1] !== afterCoords[i][1]) {
           return true;
         }
       }
@@ -487,11 +455,7 @@ export class SelectMode implements Mode {
         const afterRing = afterCoords[ringIndex];
         if (beforeRing.length !== afterRing.length) return true;
 
-        for (
-          let positionIndex = 0;
-          positionIndex < beforeRing.length;
-          positionIndex++
-        ) {
+        for (let positionIndex = 0; positionIndex < beforeRing.length; positionIndex++) {
           if (
             beforeRing[positionIndex][0] !== afterRing[positionIndex][0] ||
             beforeRing[positionIndex][1] !== afterRing[positionIndex][1]

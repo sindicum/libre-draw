@@ -13,11 +13,7 @@ export interface SnapConfig {
 /**
  * Position of the toolbar control on the map.
  */
-export type ToolbarPosition =
-  | 'top-left'
-  | 'top-right'
-  | 'bottom-left'
-  | 'bottom-right';
+export type ToolbarPosition = 'top-left' | 'top-right' | 'bottom-left' | 'bottom-right';
 
 /**
  * Configuration for which toolbar controls to display.

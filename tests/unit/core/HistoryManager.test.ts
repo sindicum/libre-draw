@@ -1,9 +1,6 @@
 import { describe, it, expect, vi } from 'vitest';
 import { HistoryManager } from '../../../src/core/HistoryManager';
-import type {
-  Action,
-  FeatureStoreInterface,
-} from '../../../src/types/features';
+import type { Action, FeatureStoreInterface } from '../../../src/types/features';
 
 function createMockStore(): FeatureStoreInterface {
   return {

@@ -11,7 +11,7 @@ function makeFeature(
       [10, 10],
       [0, 0],
     ],
-  ],
+  ]
 ): LibreDrawFeature {
   return {
     id,
@@ -200,9 +200,7 @@ describe('FeatureStore', () => {
     expect(clone).toEqual(original);
     expect(clone).not.toBe(original);
     expect(clone.geometry).not.toBe(original.geometry);
-    expect(clone.geometry.coordinates[0]).not.toBe(
-      original.geometry.coordinates[0],
-    );
+    expect(clone.geometry.coordinates[0]).not.toBe(original.geometry.coordinates[0]);
 
     // Mutating clone should not affect original
     clone.geometry.coordinates[0][0][0] = 999;

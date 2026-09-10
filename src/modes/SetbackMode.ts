@@ -144,12 +144,7 @@ export class SetbackMode implements Mode {
 
     const vertices = getVertices(feature);
     const threshold = this.getThreshold(event);
-    const hit = findNearestEdge(
-      vertices,
-      event.point,
-      threshold,
-      this.context.getScreenPoint,
-    );
+    const hit = findNearestEdge(vertices, event.point, threshold, this.context.getScreenPoint);
 
     if (!hit) return;
 
@@ -167,12 +162,7 @@ export class SetbackMode implements Mode {
 
     const vertices = getVertices(feature);
     const threshold = this.getThreshold(event);
-    const hit = findNearestEdge(
-      vertices,
-      event.point,
-      threshold,
-      this.context.getScreenPoint,
-    );
+    const hit = findNearestEdge(vertices, event.point, threshold, this.context.getScreenPoint);
 
     if (!hit) {
       this.context.render.clearEdgeHighlight();
@@ -195,12 +185,7 @@ export class SetbackMode implements Mode {
     const insidePolygon = booleanPointInPolygon(clickPoint, feature.geometry as PolygonGeometry);
     const threshold = this.getThreshold(event) + (insidePolygon ? 0 : OUTSIDE_EDGE_HIT_BONUS_PX);
 
-    const hit = findNearestEdge(
-      vertices,
-      event.point,
-      threshold,
-      this.context.getScreenPoint,
-    );
+    const hit = findNearestEdge(vertices, event.point, threshold, this.context.getScreenPoint);
     if (hit) {
       this.selectedEdgeIndex = hit.edgeIndex;
       this.renderSelectedEdgeHighlight(feature, this.selectedEdgeIndex);
@@ -231,7 +216,7 @@ export class SetbackMode implements Mode {
         edgeStart,
         edgeEnd,
         distance,
-        inwardNormal,
+        inwardNormal
       );
       this.context.render.renderPreview([offsetStart, offsetEnd]);
     } catch {
@@ -272,13 +257,9 @@ export class SetbackMode implements Mode {
         edgeStart,
         edgeEnd,
         distance,
-        inwardNormal,
+        inwardNormal
       );
-      [extendedStart, extendedEnd] = extendLine(
-        offsetStart,
-        offsetEnd,
-        EXTENDED_OFFSET_LINE_RATIO,
-      );
+      [extendedStart, extendedEnd] = extendLine(offsetStart, offsetEnd, EXTENDED_OFFSET_LINE_RATIO);
     } catch {
       this.emitSetbackFailed('invalid-split', feature.id);
       return;
@@ -297,9 +278,7 @@ export class SetbackMode implements Mode {
     const [featureA, featureB] = splitResult.features;
     const verticesA = (featureA.geometry as PolygonGeometry).coordinates[0];
     const isASetbackBand = verticesA.some(
-      (v) =>
-        Math.abs(v[0] - edgeStart[0]) < EPSILON &&
-        Math.abs(v[1] - edgeStart[1]) < EPSILON,
+      (v) => Math.abs(v[0] - edgeStart[0]) < EPSILON && Math.abs(v[1] - edgeStart[1]) < EPSILON
     );
 
     const resultFeature = isASetbackBand ? featureB : featureA;
@@ -359,10 +338,7 @@ export class SetbackMode implements Mode {
   }
 
   /** Resolve edge endpoints from a feature and edge index. */
-  private getEdgeCoordinates(
-    feature: LibreDrawFeature,
-    edgeIndex: number,
-  ): [Position, Position] {
+  private getEdgeCoordinates(feature: LibreDrawFeature, edgeIndex: number): [Position, Position] {
     const vertices = getVertices(feature);
     const next = (edgeIndex + 1) % vertices.length;
     return [vertices[edgeIndex], vertices[next]];
@@ -390,9 +366,7 @@ export class SetbackMode implements Mode {
 
   /** Return pointer hit threshold by input device type. */
   private getThreshold(event: NormalizedInputEvent): number {
-    return event.inputType === 'touch'
-      ? HIT_THRESHOLD_TOUCH_PX
-      : HIT_THRESHOLD_MOUSE_PX;
+    return event.inputType === 'touch' ? HIT_THRESHOLD_TOUCH_PX : HIT_THRESHOLD_MOUSE_PX;
   }
 
   /** Reset mode interaction state and optionally clear feature selection. */
