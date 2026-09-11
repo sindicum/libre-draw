@@ -5,20 +5,7 @@ import { CreateAction } from '../types/features';
 import { cloneFeature } from '../utils/featureSnapshot';
 import type { ModeContext } from '../core/ModeContext';
 import { findSnapTarget } from '../utils/snap';
-import { LONG_PRESS_MS } from '../input/gestures';
-
-/**
- * Maximum pointer travel, in pixels, between pointer down and pointer up
- * that still counts as a mouse click rather than a drag.
- */
-const MOUSE_CLICK_TOLERANCE_PX = 3;
-
-/**
- * Maximum finger travel, in pixels, between touch start and touch end that
- * still counts as a tap. Larger than the mouse tolerance because a finger
- * always wobbles a few pixels on a deliberate tap.
- */
-const TOUCH_TAP_TOLERANCE_PX = 12;
+import { LONG_PRESS_MS, clickTolerance, pointerTravel } from '../input/gestures';
 
 /**
  * Build a closed, counter-clockwise rectangle ring from two opposite corners.
@@ -135,7 +122,7 @@ export class DrawRectangleMode implements DraftCapableMode {
     if (this.pointerDown !== null) {
       // The pointer is held down: this is a drag (map pan), not a hover.
       // Leave the preview untouched so no stale rectangle is left behind.
-      if (this.travelFrom(this.pointerDown, event) > this.tolerance(event)) {
+      if (pointerTravel(this.pointerDown, event.point) > clickTolerance(event.inputType)) {
         this.isDragging = true;
       }
       return;
@@ -167,7 +154,7 @@ export class DrawRectangleMode implements DraftCapableMode {
 
     if (down === null) return;
     // The pointer moved: the map handled it as a pan.
-    if (wasDragging || this.travelFrom(down, event) > this.tolerance(event)) return;
+    if (wasDragging || pointerTravel(down, event.point) > clickTolerance(event.inputType)) return;
     // TouchInput emits a pointer up before it emits the long press. Treat a
     // held finger as a long press, not as a tap, so it cannot place a corner.
     if (event.inputType === 'touch' && Date.now() - down.time >= LONG_PRESS_MS) return;
@@ -251,18 +238,6 @@ export class DrawRectangleMode implements DraftCapableMode {
   private resetPointer(): void {
     this.pointerDown = null;
     this.isDragging = false;
-  }
-
-  /** Screen-space distance in pixels from the pointer down position. */
-  private travelFrom(down: { x: number; y: number }, event: NormalizedInputEvent): number {
-    const dx = event.point.x - down.x;
-    const dy = event.point.y - down.y;
-    return Math.sqrt(dx * dx + dy * dy);
-  }
-
-  /** Click/tap travel tolerance for the event's input type. */
-  private tolerance(event: NormalizedInputEvent): number {
-    return event.inputType === 'touch' ? TOUCH_TAP_TOLERANCE_PX : MOUSE_CLICK_TOLERANCE_PX;
   }
 
   /**

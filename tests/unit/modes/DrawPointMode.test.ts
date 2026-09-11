@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { DrawPointMode } from '../../../src/modes/DrawPointMode';
 import type { ModeContext } from '../../../src/core/ModeContext';
 import type { NormalizedInputEvent } from '../../../src/types/input';
@@ -47,13 +47,42 @@ function createMockContext(): ModeContext {
   };
 }
 
-function createPointerEvent(lng: number, lat: number): NormalizedInputEvent {
+/** Screen coordinates are 10px per degree, matching `getScreenPoint`. */
+function createPointerEvent(
+  lng: number,
+  lat: number,
+  inputType: 'mouse' | 'touch' = 'mouse'
+): NormalizedInputEvent {
   return {
     lngLat: { lng, lat },
     point: { x: lng * 10, y: lat * 10 },
     originalEvent: new MouseEvent('click'),
-    inputType: 'mouse',
+    inputType,
   };
+}
+
+/** A mouse click: pointer down and up at the same position. */
+function click(mode: DrawPointMode, lng: number, lat: number): void {
+  mode.onPointerDown(createPointerEvent(lng, lat));
+  mode.onPointerUp(createPointerEvent(lng, lat));
+}
+
+/** A touch tap: touch start and end at the same position. */
+function tap(mode: DrawPointMode, lng: number, lat: number): void {
+  mode.onPointerDown(createPointerEvent(lng, lat, 'touch'));
+  mode.onPointerUp(createPointerEvent(lng, lat, 'touch'));
+}
+
+/** A drag: down at the first position, move and release at the second. */
+function drag(
+  mode: DrawPointMode,
+  from: [number, number],
+  to: [number, number],
+  inputType: 'mouse' | 'touch' = 'mouse'
+): void {
+  mode.onPointerDown(createPointerEvent(from[0], from[1], inputType));
+  mode.onPointerMove(createPointerEvent(to[0], to[1], inputType));
+  mode.onPointerUp(createPointerEvent(to[0], to[1], inputType));
 }
 
 describe('DrawPointMode', () => {
@@ -66,13 +95,18 @@ describe('DrawPointMode', () => {
   });
 
   it('should not respond to events when inactive', () => {
-    mode.onPointerDown(createPointerEvent(10, 20));
+    click(mode, 10, 20);
     expect(context.store.add).not.toHaveBeenCalled();
   });
 
-  it('should create a Point feature on pointerDown when active', () => {
+  it('should keep dragPan enabled and disable doubleClickZoom', () => {
+    // Points are placed by clicks/taps, so dragging stays free for panning.
+    expect(mode.mapInteractions()).toEqual({ dragPan: true, doubleClickZoom: false });
+  });
+
+  it('should create a Point feature on click when active', () => {
     mode.activate();
-    mode.onPointerDown(createPointerEvent(139.7, 35.6));
+    click(mode, 139.7, 35.6);
 
     expect(context.store.add).toHaveBeenCalledWith(
       expect.objectContaining({
@@ -83,7 +117,6 @@ describe('DrawPointMode', () => {
         },
       })
     );
-    expect(context.history.push).toHaveBeenCalled();
     expect(context.events.emit).toHaveBeenCalledWith(
       'create',
       expect.objectContaining({
@@ -92,15 +125,136 @@ describe('DrawPointMode', () => {
         }),
       })
     );
-    expect(context.render.renderFeatures).toHaveBeenCalled();
+    // One click is one feature, one history step, one event, one render.
+    expect(context.store.add).toHaveBeenCalledTimes(1);
+    expect(context.history.push).toHaveBeenCalledTimes(1);
+    expect(context.events.emit).toHaveBeenCalledTimes(1);
+    expect(context.render.renderFeatures).toHaveBeenCalledTimes(1);
+  });
+
+  it('should not create a Point feature on pointer down alone', () => {
+    mode.activate();
+    mode.onPointerDown(createPointerEvent(139.7, 35.6));
+
+    expect(context.store.add).not.toHaveBeenCalled();
+  });
+
+  it('should create a Point feature on tap when active', () => {
+    mode.activate();
+    tap(mode, 1, 2);
+
+    expect(context.store.add).toHaveBeenCalledWith(
+      expect.objectContaining({
+        geometry: { type: 'Point', coordinates: [1, 2] },
+      })
+    );
   });
 
   it('should stay in mode after creating a point (continuous placement)', () => {
     mode.activate();
-    mode.onPointerDown(createPointerEvent(0, 0));
-    mode.onPointerDown(createPointerEvent(10, 10));
+    click(mode, 0, 0);
+    click(mode, 10, 10);
 
     expect(context.store.add).toHaveBeenCalledTimes(2);
+  });
+
+  describe('drag is left to the map', () => {
+    it('should not create a point when the mouse is dragged', () => {
+      mode.activate();
+      // 10px of travel, well beyond the 3px mouse click tolerance.
+      drag(mode, [0, 0], [1, 0]);
+
+      expect(context.store.add).not.toHaveBeenCalled();
+    });
+
+    it('should not create a point when a finger is dragged', () => {
+      mode.activate();
+      // 100px of travel, well beyond the 12px tap tolerance.
+      drag(mode, [0, 0], [10, 0], 'touch');
+
+      expect(context.store.add).not.toHaveBeenCalled();
+    });
+
+    it('should not create a point when the mouse travels a finger-sized distance', () => {
+      mode.activate();
+      // 12px is within the tap tolerance but well beyond the mouse one.
+      drag(mode, [0, 0], [1.2, 0]);
+
+      expect(context.store.add).not.toHaveBeenCalled();
+    });
+
+    it('should still create a point when a finger wobbles within the tap tolerance', () => {
+      mode.activate();
+      // 10px of travel: a drag for a mouse, still a tap for a finger.
+      drag(mode, [0, 0], [1, 0], 'touch');
+
+      expect(context.store.add).toHaveBeenCalledWith(
+        expect.objectContaining({
+          geometry: { type: 'Point', coordinates: [1, 0] },
+        })
+      );
+    });
+
+    it('should still create a point when the mouse wobbles within the click tolerance', () => {
+      mode.activate();
+      // 2px of travel, within the 3px mouse click tolerance.
+      drag(mode, [0, 0], [0.2, 0]);
+
+      expect(context.store.add).toHaveBeenCalledWith(
+        expect.objectContaining({
+          geometry: { type: 'Point', coordinates: [0.2, 0] },
+        })
+      );
+    });
+
+    it('should not create a point from a pointer up without a pointer down', () => {
+      mode.activate();
+      // The mode was entered while the pointer was already held down.
+      mode.onPointerUp(createPointerEvent(5, 5));
+
+      expect(context.store.add).not.toHaveBeenCalled();
+    });
+
+    it('should forget a pending pointer down when the mode is deactivated', () => {
+      mode.activate();
+      mode.onPointerDown(createPointerEvent(5, 5));
+      mode.deactivate();
+      mode.activate();
+      mode.onPointerUp(createPointerEvent(5, 5));
+
+      expect(context.store.add).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('long press', () => {
+    beforeEach(() => {
+      vi.useFakeTimers();
+    });
+
+    afterEach(() => {
+      vi.useRealTimers();
+    });
+
+    it('should not create a point from the pointer up that precedes a long press', () => {
+      mode.activate();
+
+      // TouchInput emits onPointerUp first, then onLongPress.
+      mode.onPointerDown(createPointerEvent(10, 10, 'touch'));
+      vi.advanceTimersByTime(600);
+      mode.onPointerUp(createPointerEvent(10, 10, 'touch'));
+
+      expect(context.store.add).not.toHaveBeenCalled();
+    });
+
+    it('should still create a point for a tap held briefly', () => {
+      mode.activate();
+
+      mode.onPointerDown(createPointerEvent(0, 0, 'touch'));
+      vi.advanceTimersByTime(120);
+      mode.onPointerUp(createPointerEvent(0, 0, 'touch'));
+
+      expect(context.store.add).toHaveBeenCalledTimes(1);
+    });
   });
 
   it('should clear snap indicator on deactivate', () => {
@@ -129,10 +283,7 @@ describe('DrawPointMode', () => {
     expect(event.originalEvent.stopPropagation).toHaveBeenCalled();
   });
 
-  it('should show snap indicator on pointer move when snap is enabled', () => {
-    const snapContext = createMockContext();
-    snapContext.getSnapConfig = () => ({ enabled: true, threshold: 10 });
-
+  describe('snap', () => {
     const existingFeature: LibreDrawFeature = {
       id: 'existing',
       type: 'Feature',
@@ -150,27 +301,66 @@ describe('DrawPointMode', () => {
       },
       properties: {},
     };
-    vi.mocked(snapContext.store.getAll).mockReturnValue([existingFeature]);
 
-    const snapMode = new DrawPointMode(snapContext);
-    snapMode.activate();
+    function createSnapContext(): ModeContext {
+      const snapContext = createMockContext();
+      snapContext.getSnapConfig = () => ({ enabled: true, threshold: 10 });
+      vi.mocked(snapContext.store.getAll).mockReturnValue([existingFeature]);
+      return snapContext;
+    }
 
-    // Move near (0,0) which is a vertex of the existing polygon
-    snapMode.onPointerMove(createPointerEvent(0.05, 0.05));
+    it('should show snap indicator on pointer move when snap is enabled', () => {
+      const snapContext = createSnapContext();
+      const snapMode = new DrawPointMode(snapContext);
+      snapMode.activate();
 
-    expect(snapContext.render.renderSnapIndicator).toHaveBeenCalled();
-  });
+      // Move near (0,0) which is a vertex of the existing polygon
+      snapMode.onPointerMove(createPointerEvent(0.05, 0.05));
 
-  it('should clear snap indicator on pointer move when no snap target', () => {
-    const snapContext = createMockContext();
-    snapContext.getSnapConfig = () => ({ enabled: true, threshold: 10 });
-    vi.mocked(snapContext.store.getAll).mockReturnValue([]);
+      expect(snapContext.render.renderSnapIndicator).toHaveBeenCalled();
+    });
 
-    const snapMode = new DrawPointMode(snapContext);
-    snapMode.activate();
+    it('should clear snap indicator on pointer move when no snap target', () => {
+      const snapContext = createMockContext();
+      snapContext.getSnapConfig = () => ({ enabled: true, threshold: 10 });
+      vi.mocked(snapContext.store.getAll).mockReturnValue([]);
 
-    snapMode.onPointerMove(createPointerEvent(50, 50));
+      const snapMode = new DrawPointMode(snapContext);
+      snapMode.activate();
 
-    expect(snapContext.render.clearSnapIndicator).toHaveBeenCalled();
+      snapMode.onPointerMove(createPointerEvent(50, 50));
+
+      expect(snapContext.render.clearSnapIndicator).toHaveBeenCalled();
+    });
+
+    it('should not update the snap indicator while the pointer is held down', () => {
+      const snapContext = createSnapContext();
+      const snapMode = new DrawPointMode(snapContext);
+      snapMode.activate();
+
+      snapMode.onPointerDown(createPointerEvent(50, 50));
+      vi.mocked(snapContext.render.renderSnapIndicator).mockClear();
+      vi.mocked(snapContext.render.clearSnapIndicator).mockClear();
+
+      // Dragging over a snap target must not light it up: the map is panning.
+      snapMode.onPointerMove(createPointerEvent(0.05, 0.05));
+
+      expect(snapContext.render.renderSnapIndicator).not.toHaveBeenCalled();
+      expect(snapContext.render.clearSnapIndicator).not.toHaveBeenCalled();
+    });
+
+    it('should snap the created point to a nearby vertex', () => {
+      const snapContext = createSnapContext();
+      const snapMode = new DrawPointMode(snapContext);
+      snapMode.activate();
+
+      click(snapMode, 0.05, 0.05);
+
+      expect(snapContext.store.add).toHaveBeenCalledWith(
+        expect.objectContaining({
+          geometry: { type: 'Point', coordinates: [0, 0] },
+        })
+      );
+    });
   });
 });
