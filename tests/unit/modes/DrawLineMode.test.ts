@@ -87,14 +87,14 @@ describe('DrawLineMode', () => {
   });
 
   it('should not respond to events when inactive', () => {
-    mode.onPointerDown(createPointerEvent(10, 20));
+    clickAt(mode, 10, 20);
     expect(context.store.add).not.toHaveBeenCalled();
     expect(context.render.renderPreview).not.toHaveBeenCalled();
   });
 
-  it('should add vertices on pointerDown and render preview', () => {
+  it('should add vertices on click and render preview', () => {
     mode.activate();
-    mode.onPointerDown(createPointerEvent(0, 0));
+    clickAt(mode, 0, 0);
 
     expect(context.render.renderPreview).toHaveBeenCalled();
     expect(context.store.add).not.toHaveBeenCalled(); // Not finalized yet
@@ -273,6 +273,78 @@ describe('DrawLineMode', () => {
     ]);
   });
 
+  describe('tap placement', () => {
+    it('should not place a vertex on pointer down alone', () => {
+      mode.activate();
+
+      mode.onPointerDown(createPointerEvent(0, 0));
+
+      expect(mode.getDraftVertexCount()).toBe(0);
+      expect(context.events.emit).not.toHaveBeenCalled();
+    });
+
+    it('should not place a vertex when the pointer drags before release', () => {
+      mode.activate();
+
+      mode.onPointerDown(createPointerEvent(0, 0));
+      mode.onPointerMove(createPointerEvent(2, 2));
+      mode.onPointerUp(createPointerEvent(0.1, 0));
+
+      expect(mode.getDraftVertexCount()).toBe(0);
+    });
+
+    it('should not place a vertex on a release that drifted past the tolerance', () => {
+      mode.activate();
+
+      mode.onPointerDown(createPointerEvent(0, 0));
+      mode.onPointerUp(createPointerEvent(0.5, 0)); // 5px > mouse tolerance
+
+      expect(mode.getDraftVertexCount()).toBe(0);
+    });
+
+    it('should place the vertex at the release position', () => {
+      mode.activate();
+
+      mode.onPointerDown(createPointerEvent(0, 0));
+      mode.onPointerUp(createPointerEvent(0.2, 0)); // 2px, within tolerance
+
+      expect(context.render.renderVertices).toHaveBeenLastCalledWith([[0.2, 0]], []);
+    });
+
+    describe('long press (touch) removes only the last vertex', () => {
+      function longPressAt(lng: number, lat: number): void {
+        mode.onPointerDown(createPointerEvent(lng, lat, 'touch'));
+        vi.advanceTimersByTime(500);
+        mode.onPointerUp(createPointerEvent(lng, lat, 'touch'));
+        mode.onLongPress(createPointerEvent(lng, lat, 'touch'));
+      }
+
+      it('in open space', () => {
+        vi.useFakeTimers();
+        mode.activate();
+        clickAt(mode, 0, 0, 'touch');
+        clickAt(mode, 10, 5, 'touch');
+        clickAt(mode, 20, 10, 'touch');
+
+        longPressAt(30, 30);
+
+        expect(mode.getDraftVertexCount()).toBe(2);
+      });
+
+      it('on the first vertex', () => {
+        vi.useFakeTimers();
+        mode.activate();
+        clickAt(mode, 0, 0, 'touch');
+        clickAt(mode, 10, 5, 'touch');
+        clickAt(mode, 20, 10, 'touch');
+
+        longPressAt(0, 0);
+
+        expect(mode.getDraftVertexCount()).toBe(2);
+      });
+    });
+  });
+
   it('should stay in mode after finalization for continuous drawing', () => {
     mode.activate();
     clickAt(mode, 0, 0);
@@ -291,8 +363,8 @@ describe('DrawLineMode', () => {
 
   it('should cancel drawing on Escape', () => {
     mode.activate();
-    mode.onPointerDown(createPointerEvent(0, 0));
-    mode.onPointerDown(createPointerEvent(10, 5));
+    clickAt(mode, 0, 0);
+    clickAt(mode, 10, 5);
 
     mode.onKeyDown('Escape', new KeyboardEvent('keydown', { key: 'Escape' }));
 
@@ -307,9 +379,9 @@ describe('DrawLineMode', () => {
 
   it('should remove last vertex on long press', () => {
     mode.activate();
-    mode.onPointerDown(createPointerEvent(0, 0));
-    mode.onPointerDown(createPointerEvent(10, 5));
-    mode.onPointerDown(createPointerEvent(20, 10));
+    clickAt(mode, 0, 0);
+    clickAt(mode, 10, 5);
+    clickAt(mode, 20, 10);
 
     mode.onLongPress(createPointerEvent(20, 10));
 
@@ -331,7 +403,7 @@ describe('DrawLineMode', () => {
 
   it('should clear preview and snap on deactivate', () => {
     mode.activate();
-    mode.onPointerDown(createPointerEvent(0, 0));
+    clickAt(mode, 0, 0);
     mode.deactivate();
 
     expect(context.render.clearPreview).toHaveBeenCalled();
@@ -340,8 +412,8 @@ describe('DrawLineMode', () => {
 
   it('should render preview as open line (not closed ring)', () => {
     mode.activate();
-    mode.onPointerDown(createPointerEvent(0, 0));
-    mode.onPointerDown(createPointerEvent(10, 5));
+    clickAt(mode, 0, 0);
+    clickAt(mode, 10, 5);
 
     // Check that renderPreview was called with coordinates (open line, no closing)
     const calls = vi.mocked(context.render.renderPreview).mock.calls;
@@ -374,11 +446,11 @@ describe('DrawLineMode', () => {
 
     const snapMode = new DrawLineMode(snapContext);
     snapMode.activate();
-    snapMode.onPointerDown(createPointerEvent(0, 0));
+    clickAt(snapMode, 0, 0);
 
     vi.mocked(snapContext.render.renderPreview).mockClear();
     // Click near snap target vertex (5,5)
-    snapMode.onPointerDown(createPointerEvent(4.5, 4.5));
+    clickAt(snapMode, 4.5, 4.5);
 
     const previewCall = vi.mocked(snapContext.render.renderPreview).mock.calls[0];
     const previewCoords = previewCall[0];
@@ -390,8 +462,8 @@ describe('DrawLineMode', () => {
 
   it('should prevent default on double click', () => {
     mode.activate();
-    mode.onPointerDown(createPointerEvent(0, 0));
-    mode.onPointerDown(createPointerEvent(10, 5));
+    clickAt(mode, 0, 0);
+    clickAt(mode, 10, 5);
 
     const event = createPointerEvent(10, 5);
     vi.spyOn(event.originalEvent, 'preventDefault');
@@ -406,11 +478,11 @@ describe('DrawLineMode', () => {
   describe('draft vertex markers', () => {
     it('should render a dot for each placed vertex', () => {
       mode.activate();
-      mode.onPointerDown(createPointerEvent(0, 0));
+      clickAt(mode, 0, 0);
 
       expect(context.render.renderVertices).toHaveBeenLastCalledWith([[0, 0]], []);
 
-      mode.onPointerDown(createPointerEvent(10, 0));
+      clickAt(mode, 10, 0);
 
       expect(context.render.renderVertices).toHaveBeenLastCalledWith(
         [
@@ -423,7 +495,7 @@ describe('DrawLineMode', () => {
 
     it('should not add a dot for the hovered cursor position', () => {
       mode.activate();
-      mode.onPointerDown(createPointerEvent(0, 0));
+      clickAt(mode, 0, 0);
       vi.mocked(context.render.renderVertices).mockClear();
 
       mode.onPointerMove(createPointerEvent(5, 5));
@@ -434,8 +506,8 @@ describe('DrawLineMode', () => {
 
     it('should drop the dot of the vertex removed by a long press', () => {
       mode.activate();
-      mode.onPointerDown(createPointerEvent(0, 0));
-      mode.onPointerDown(createPointerEvent(10, 0));
+      clickAt(mode, 0, 0);
+      clickAt(mode, 10, 0);
 
       mode.onLongPress(createPointerEvent(10, 0));
 
@@ -444,7 +516,7 @@ describe('DrawLineMode', () => {
 
     it('should clear the dots once the last vertex is removed', () => {
       mode.activate();
-      mode.onPointerDown(createPointerEvent(0, 0));
+      clickAt(mode, 0, 0);
 
       mode.onLongPress(createPointerEvent(0, 0));
 
@@ -453,7 +525,7 @@ describe('DrawLineMode', () => {
 
     it('should clear the dots on cancelDrawing()', () => {
       mode.activate();
-      mode.onPointerDown(createPointerEvent(0, 0));
+      clickAt(mode, 0, 0);
       vi.mocked(context.render.clearVertices).mockClear();
 
       mode.cancelDrawing();
@@ -463,7 +535,7 @@ describe('DrawLineMode', () => {
 
     it('should clear the dots on deactivate()', () => {
       mode.activate();
-      mode.onPointerDown(createPointerEvent(0, 0));
+      clickAt(mode, 0, 0);
       vi.mocked(context.render.clearVertices).mockClear();
 
       mode.deactivate();

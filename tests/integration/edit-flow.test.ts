@@ -83,10 +83,15 @@ describe('Edit Flow Integration', () => {
   function drawSquare(modeManager: ModeManager) {
     modeManager.setMode('draw-polygon');
     const mode = modeManager.getCurrentMode()!;
-    mode.onPointerDown(createPointerEvent(0, 0));
-    mode.onPointerDown(createPointerEvent(10, 0));
-    mode.onPointerDown(createPointerEvent(10, 10));
-    mode.onPointerDown(createPointerEvent(0, 10));
+    for (const [lng, lat] of [
+      [0, 0],
+      [10, 0],
+      [10, 10],
+      [0, 10],
+    ]) {
+      mode.onPointerDown(createPointerEvent(lng, lat));
+      mode.onPointerUp(createPointerEvent(lng, lat));
+    }
 
     // Click the last placed vertex to close the polygon
     mode.onPointerDown(createPointerEvent(0, 10));

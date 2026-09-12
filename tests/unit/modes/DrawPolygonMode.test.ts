@@ -87,20 +87,20 @@ describe('DrawPolygonMode', () => {
   }
 
   it('should not respond to events when inactive', () => {
-    drawPolygonMode.onPointerDown(createPointerEvent(0, 0));
+    clickAt(drawPolygonMode, 0, 0);
     expect(context.render.renderPreview).not.toHaveBeenCalled();
   });
 
-  it('should add vertices on pointerDown when active', () => {
+  it('should add vertices on click when active', () => {
     drawPolygonMode.activate();
-    drawPolygonMode.onPointerDown(createPointerEvent(0, 0));
+    clickAt(drawPolygonMode, 0, 0);
 
     expect(context.render.renderPreview).toHaveBeenCalled();
   });
 
   it('should update preview on pointer move after first vertex', () => {
     drawPolygonMode.activate();
-    drawPolygonMode.onPointerDown(createPointerEvent(0, 0));
+    clickAt(drawPolygonMode, 0, 0);
     drawPolygonMode.onPointerMove(createPointerEvent(5, 5));
 
     expect(context.render.renderPreview).toHaveBeenCalledTimes(2);
@@ -115,8 +115,8 @@ describe('DrawPolygonMode', () => {
 
   it('should cancel drawing on Escape key', () => {
     drawPolygonMode.activate();
-    drawPolygonMode.onPointerDown(createPointerEvent(0, 0));
-    drawPolygonMode.onPointerDown(createPointerEvent(10, 0));
+    clickAt(drawPolygonMode, 0, 0);
+    clickAt(drawPolygonMode, 10, 0);
 
     drawPolygonMode.onKeyDown('Escape', new KeyboardEvent('keydown', { key: 'Escape' }));
 
@@ -125,8 +125,8 @@ describe('DrawPolygonMode', () => {
 
   it('should remove last vertex on long press', () => {
     drawPolygonMode.activate();
-    drawPolygonMode.onPointerDown(createPointerEvent(0, 0));
-    drawPolygonMode.onPointerDown(createPointerEvent(10, 0));
+    clickAt(drawPolygonMode, 0, 0);
+    clickAt(drawPolygonMode, 10, 0);
 
     drawPolygonMode.onLongPress(createPointerEvent(0, 0));
 
@@ -136,7 +136,7 @@ describe('DrawPolygonMode', () => {
 
   it('should clear preview when long press removes last vertex', () => {
     drawPolygonMode.activate();
-    drawPolygonMode.onPointerDown(createPointerEvent(0, 0));
+    clickAt(drawPolygonMode, 0, 0);
 
     // Clear previous calls
     vi.mocked(context.render.clearPreview).mockClear();
@@ -148,7 +148,7 @@ describe('DrawPolygonMode', () => {
 
   it('should clear preview and reset on deactivate', () => {
     drawPolygonMode.activate();
-    drawPolygonMode.onPointerDown(createPointerEvent(0, 0));
+    clickAt(drawPolygonMode, 0, 0);
 
     vi.mocked(context.render.clearPreview).mockClear();
     drawPolygonMode.deactivate();
@@ -183,13 +183,13 @@ describe('DrawPolygonMode', () => {
     snapDrawPolygonMode.activate();
 
     // First vertex (no snap, far from target)
-    snapDrawPolygonMode.onPointerDown(createPointerEvent(0, 0));
+    clickAt(snapDrawPolygonMode, 0, 0);
 
     // Second vertex near snap target vertex (5,5) - the mock getScreenPoint
     // returns (lng*10, lat*10), so (5,5) -> screen (50,50)
     // Clicking at (4.5, 4.5) -> screen (45,45), distance to (50,50) = ~7px < 20px threshold
     vi.mocked(snapContext.render.renderPreview).mockClear();
-    snapDrawPolygonMode.onPointerDown(createPointerEvent(4.5, 4.5));
+    clickAt(snapDrawPolygonMode, 4.5, 4.5);
 
     // Preview should have been called with snapped vertex coordinates [5,5], not [4.5,4.5]
     const previewCall = vi.mocked(snapContext.render.renderPreview).mock.calls[0];
@@ -440,6 +440,122 @@ describe('DrawPolygonMode', () => {
     });
   });
 
+  describe('tap placement', () => {
+    it('should not place a vertex on pointer down alone', () => {
+      drawPolygonMode.activate();
+
+      drawPolygonMode.onPointerDown(createPointerEvent(0, 0));
+
+      expect(drawPolygonMode.getDraftVertexCount()).toBe(0);
+      expect(context.events.emit).not.toHaveBeenCalled();
+    });
+
+    it('should not place a vertex when the pointer drags before release', () => {
+      drawPolygonMode.activate();
+
+      drawPolygonMode.onPointerDown(createPointerEvent(0, 0));
+      drawPolygonMode.onPointerMove(createPointerEvent(2, 2)); // 28px > mouse tolerance
+      drawPolygonMode.onPointerUp(createPointerEvent(0.1, 0)); // back near the start
+
+      expect(drawPolygonMode.getDraftVertexCount()).toBe(0);
+    });
+
+    it('should not place a vertex on a release that drifted past the tolerance', () => {
+      drawPolygonMode.activate();
+
+      drawPolygonMode.onPointerDown(createPointerEvent(0, 0));
+      drawPolygonMode.onPointerUp(createPointerEvent(0.5, 0)); // 5px > mouse tolerance
+
+      expect(drawPolygonMode.getDraftVertexCount()).toBe(0);
+    });
+
+    it('should not update the preview while the pointer is held down', () => {
+      drawPolygonMode.activate();
+      placeTriangle();
+      vi.mocked(context.render.renderPreview).mockClear();
+
+      drawPolygonMode.onPointerDown(createPointerEvent(5, 15));
+      drawPolygonMode.onPointerMove(createPointerEvent(6, 16));
+
+      expect(context.render.renderPreview).not.toHaveBeenCalled();
+    });
+
+    it('should place the vertex at the release position', () => {
+      drawPolygonMode.activate();
+
+      drawPolygonMode.onPointerDown(createPointerEvent(0, 0));
+      drawPolygonMode.onPointerUp(createPointerEvent(0.2, 0)); // 2px, within tolerance
+
+      expect(context.render.renderVertices).toHaveBeenLastCalledWith([[0.2, 0]], []);
+    });
+
+    describe('long press (touch) removes only the last vertex', () => {
+      // TouchInput order: touchstart → pointer down; 500ms later → pointer up, then long press.
+      function longPressAt(lng: number, lat: number): void {
+        drawPolygonMode.onPointerDown(createPointerEvent(lng, lat, { inputType: 'touch' }));
+        vi.advanceTimersByTime(500);
+        drawPolygonMode.onPointerUp(createPointerEvent(lng, lat, { inputType: 'touch' }));
+        drawPolygonMode.onLongPress(createPointerEvent(lng, lat, { inputType: 'touch' }));
+      }
+
+      // (0,0) → (10,0) → (10,10) → (5,5): concave, so some spots would self-intersect.
+      function placeConcave(): void {
+        placeTriangle('touch');
+        clickAt(drawPolygonMode, 5, 5, { inputType: 'touch' });
+      }
+
+      it('in open space', () => {
+        vi.useFakeTimers();
+        drawPolygonMode.activate();
+        placeConcave();
+
+        longPressAt(0, 10);
+
+        expect(drawPolygonMode.getDraftVertexCount()).toBe(3);
+        expect(context.render.renderVertices).toHaveBeenLastCalledWith(
+          [
+            [0, 0],
+            [10, 0],
+            [10, 10],
+          ],
+          []
+        );
+      });
+
+      it('where a new vertex would have self-intersected', () => {
+        vi.useFakeTimers();
+        drawPolygonMode.activate();
+        placeConcave();
+
+        longPressAt(5, -5); // edge (5,5)→(5,-5) would cross (0,0)→(10,0)
+
+        expect(drawPolygonMode.getDraftVertexCount()).toBe(3);
+      });
+
+      it('on the first vertex', () => {
+        vi.useFakeTimers();
+        drawPolygonMode.activate();
+        placeConcave();
+
+        longPressAt(0, 0);
+
+        expect(drawPolygonMode.getDraftVertexCount()).toBe(3);
+        expect(context.store.add).not.toHaveBeenCalled();
+      });
+
+      it('on the last vertex', () => {
+        vi.useFakeTimers();
+        drawPolygonMode.activate();
+        placeConcave();
+
+        longPressAt(5, 5);
+
+        expect(drawPolygonMode.getDraftVertexCount()).toBe(3);
+        expect(context.store.add).not.toHaveBeenCalled();
+      });
+    });
+  });
+
   describe('finish indicator on pointer move', () => {
     it('should show the snap indicator on the first vertex and snap the preview to it', () => {
       drawPolygonMode.activate();
@@ -509,15 +625,15 @@ describe('DrawPolygonMode', () => {
       drawPolygonMode.activate();
 
       // Draw an L-shape: (0,0) → (10,0) → (10,5) → (5,5)
-      drawPolygonMode.onPointerDown(createPointerEvent(0, 0));
-      drawPolygonMode.onPointerDown(createPointerEvent(10, 0));
-      drawPolygonMode.onPointerDown(createPointerEvent(10, 5));
-      drawPolygonMode.onPointerDown(createPointerEvent(5, 5));
+      clickAt(drawPolygonMode, 0, 0);
+      clickAt(drawPolygonMode, 10, 0);
+      clickAt(drawPolygonMode, 10, 5);
+      clickAt(drawPolygonMode, 5, 5);
 
       const previewCallCount = vi.mocked(context.render.renderPreview).mock.calls.length;
 
       // Adding (5,-5) would create edge (5,5)→(5,-5) which crosses (0,0)→(10,0)
-      drawPolygonMode.onPointerDown(createPointerEvent(5, -5));
+      clickAt(drawPolygonMode, 5, -5);
 
       // Preview should NOT have been updated (vertex rejected)
       expect(vi.mocked(context.render.renderPreview).mock.calls.length).toBe(previewCallCount);
@@ -526,14 +642,14 @@ describe('DrawPolygonMode', () => {
     it('should allow vertex that does not create intersection', () => {
       drawPolygonMode.activate();
 
-      drawPolygonMode.onPointerDown(createPointerEvent(0, 0));
-      drawPolygonMode.onPointerDown(createPointerEvent(10, 0));
-      drawPolygonMode.onPointerDown(createPointerEvent(10, 10));
+      clickAt(drawPolygonMode, 0, 0);
+      clickAt(drawPolygonMode, 10, 0);
+      clickAt(drawPolygonMode, 10, 10);
 
       const previewCallCount = vi.mocked(context.render.renderPreview).mock.calls.length;
 
       // Adding (0,10) is fine — no intersection
-      drawPolygonMode.onPointerDown(createPointerEvent(0, 10));
+      clickAt(drawPolygonMode, 0, 10);
 
       expect(vi.mocked(context.render.renderPreview).mock.calls.length).toBe(previewCallCount + 1);
     });
@@ -556,11 +672,11 @@ describe('DrawPolygonMode', () => {
   describe('draft vertex markers', () => {
     it('should render a dot for each placed vertex', () => {
       drawPolygonMode.activate();
-      drawPolygonMode.onPointerDown(createPointerEvent(0, 0));
+      clickAt(drawPolygonMode, 0, 0);
 
       expect(context.render.renderVertices).toHaveBeenLastCalledWith([[0, 0]], []);
 
-      drawPolygonMode.onPointerDown(createPointerEvent(10, 0));
+      clickAt(drawPolygonMode, 10, 0);
 
       expect(context.render.renderVertices).toHaveBeenLastCalledWith(
         [
@@ -573,7 +689,7 @@ describe('DrawPolygonMode', () => {
 
     it('should not add a dot for the hovered cursor position', () => {
       drawPolygonMode.activate();
-      drawPolygonMode.onPointerDown(createPointerEvent(0, 0));
+      clickAt(drawPolygonMode, 0, 0);
       vi.mocked(context.render.renderVertices).mockClear();
 
       drawPolygonMode.onPointerMove(createPointerEvent(5, 5));
@@ -584,8 +700,8 @@ describe('DrawPolygonMode', () => {
 
     it('should drop the dot of the vertex removed by a long press', () => {
       drawPolygonMode.activate();
-      drawPolygonMode.onPointerDown(createPointerEvent(0, 0));
-      drawPolygonMode.onPointerDown(createPointerEvent(10, 0));
+      clickAt(drawPolygonMode, 0, 0);
+      clickAt(drawPolygonMode, 10, 0);
 
       drawPolygonMode.onLongPress(createPointerEvent(10, 0));
 
@@ -594,7 +710,7 @@ describe('DrawPolygonMode', () => {
 
     it('should clear the dots once the last vertex is removed', () => {
       drawPolygonMode.activate();
-      drawPolygonMode.onPointerDown(createPointerEvent(0, 0));
+      clickAt(drawPolygonMode, 0, 0);
 
       drawPolygonMode.onLongPress(createPointerEvent(0, 0));
 
@@ -603,7 +719,7 @@ describe('DrawPolygonMode', () => {
 
     it('should clear the dots on cancelDrawing()', () => {
       drawPolygonMode.activate();
-      drawPolygonMode.onPointerDown(createPointerEvent(0, 0));
+      clickAt(drawPolygonMode, 0, 0);
       vi.mocked(context.render.clearVertices).mockClear();
 
       drawPolygonMode.cancelDrawing();
@@ -613,7 +729,7 @@ describe('DrawPolygonMode', () => {
 
     it('should clear the dots on deactivate()', () => {
       drawPolygonMode.activate();
-      drawPolygonMode.onPointerDown(createPointerEvent(0, 0));
+      clickAt(drawPolygonMode, 0, 0);
       vi.mocked(context.render.clearVertices).mockClear();
 
       drawPolygonMode.deactivate();

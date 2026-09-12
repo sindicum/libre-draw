@@ -32,8 +32,8 @@ function createPointerEvent(
 }
 
 /**
- * A click or tap: pointer down and up at the same position. Modes that place
- * points on pointer up (draw-rectangle) need the full pair.
+ * A click or tap: pointer down and up at the same position. Drawing modes
+ * place vertices, corners and points on pointer up, so they need the full pair.
  */
 function clickAt(
   mode: {
@@ -150,9 +150,9 @@ describe('Draw Flow Integration', () => {
     const drawPolygonMode = modeManager.getCurrentMode()!;
 
     // Draw a triangle
-    drawPolygonMode.onPointerDown(createPointerEvent(0, 0));
-    drawPolygonMode.onPointerDown(createPointerEvent(10, 0));
-    drawPolygonMode.onPointerDown(createPointerEvent(10, 10));
+    clickAt(drawPolygonMode, 0, 0);
+    clickAt(drawPolygonMode, 10, 0);
+    clickAt(drawPolygonMode, 10, 10);
 
     // Click the last placed vertex to close the polygon
     clickAt(drawPolygonMode, 10, 10);
@@ -198,9 +198,9 @@ describe('Draw Flow Integration', () => {
     // Draw
     modeManager.setMode('draw-polygon');
     const drawPolygonMode = modeManager.getCurrentMode()!;
-    drawPolygonMode.onPointerDown(createPointerEvent(0, 0));
-    drawPolygonMode.onPointerDown(createPointerEvent(10, 0));
-    drawPolygonMode.onPointerDown(createPointerEvent(10, 10));
+    clickAt(drawPolygonMode, 0, 0);
+    clickAt(drawPolygonMode, 10, 0);
+    clickAt(drawPolygonMode, 10, 10);
     // Click the last placed vertex to close the polygon
     clickAt(drawPolygonMode, 10, 10);
 
@@ -245,9 +245,9 @@ describe('Draw Flow Integration', () => {
     const drawPolygonMode = modeManager.getCurrentMode()!;
 
     // Draw a triangle
-    drawPolygonMode.onPointerDown(createPointerEvent(0, 0));
-    drawPolygonMode.onPointerDown(createPointerEvent(10, 0));
-    drawPolygonMode.onPointerDown(createPointerEvent(10, 10));
+    clickAt(drawPolygonMode, 0, 0);
+    clickAt(drawPolygonMode, 10, 0);
+    clickAt(drawPolygonMode, 10, 10);
     // Click the last placed vertex to close the polygon
     clickAt(drawPolygonMode, 10, 10);
 
@@ -268,8 +268,8 @@ describe('Draw Flow Integration', () => {
     modeManager.setMode('draw-polygon');
     const drawPolygonMode = modeManager.getCurrentMode()!;
 
-    drawPolygonMode.onPointerDown(createPointerEvent(0, 0));
-    drawPolygonMode.onPointerDown(createPointerEvent(10, 0));
+    clickAt(drawPolygonMode, 0, 0);
+    clickAt(drawPolygonMode, 10, 0);
 
     drawPolygonMode.onKeyDown('Escape', new KeyboardEvent('keydown', { key: 'Escape' }));
 
@@ -305,9 +305,9 @@ describe('Draw Flow Integration', () => {
       eventBus.on('draftchange', draftListener);
 
       modeManager.setMode('draw-polygon');
-      drawPolygonMode.onPointerDown(createPointerEvent(0, 0));
-      drawPolygonMode.onPointerDown(createPointerEvent(10, 0));
-      drawPolygonMode.onPointerDown(createPointerEvent(10, 10));
+      clickAt(drawPolygonMode, 0, 0);
+      clickAt(drawPolygonMode, 10, 0);
+      clickAt(drawPolygonMode, 10, 10);
 
       expect(drawPolygonMode.getDraftVertexCount()).toBe(3);
 
@@ -328,8 +328,8 @@ describe('Draw Flow Integration', () => {
       eventBus.on('create', createListener);
 
       modeManager.setMode('draw-polygon');
-      drawPolygonMode.onPointerDown(createPointerEvent(0, 0));
-      drawPolygonMode.onPointerDown(createPointerEvent(10, 0));
+      clickAt(drawPolygonMode, 0, 0);
+      clickAt(drawPolygonMode, 10, 0);
 
       expect(drawPolygonMode.finishDrawing()).toBe(false);
       expect(store.getAll()).toHaveLength(0);
@@ -345,10 +345,10 @@ describe('Draw Flow Integration', () => {
 
       modeManager.setMode('draw-polygon');
       // Bowtie / figure-8 pattern: closing the ring crosses an existing edge
-      drawPolygonMode.onPointerDown(createPointerEvent(0, 0));
-      drawPolygonMode.onPointerDown(createPointerEvent(10, 0));
-      drawPolygonMode.onPointerDown(createPointerEvent(0, 10));
-      drawPolygonMode.onPointerDown(createPointerEvent(10, 10));
+      clickAt(drawPolygonMode, 0, 0);
+      clickAt(drawPolygonMode, 10, 0);
+      clickAt(drawPolygonMode, 0, 10);
+      clickAt(drawPolygonMode, 10, 10);
 
       expect(drawPolygonMode.finishDrawing()).toBe(false);
       expect(store.getAll()).toHaveLength(0);
@@ -362,8 +362,8 @@ describe('Draw Flow Integration', () => {
       eventBus.on('draftchange', draftListener);
 
       modeManager.setMode('draw-polygon');
-      drawPolygonMode.onPointerDown(createPointerEvent(0, 0));
-      drawPolygonMode.onPointerDown(createPointerEvent(10, 0));
+      clickAt(drawPolygonMode, 0, 0);
+      clickAt(drawPolygonMode, 10, 0);
 
       draftListener.mockClear();
       drawPolygonMode.cancelDrawing();
@@ -380,8 +380,8 @@ describe('Draw Flow Integration', () => {
       eventBus.on('draftchange', draftListener);
 
       modeManager.setMode('draw-polygon');
-      drawPolygonMode.onPointerDown(createPointerEvent(0, 0));
-      drawPolygonMode.onPointerDown(createPointerEvent(10, 0));
+      clickAt(drawPolygonMode, 0, 0);
+      clickAt(drawPolygonMode, 10, 0);
 
       draftListener.mockClear();
       drawPolygonMode.onLongPress(createPointerEvent(10, 0));
@@ -396,8 +396,8 @@ describe('Draw Flow Integration', () => {
       eventBus.on('draftchange', draftListener);
 
       modeManager.setMode('draw-polygon');
-      drawPolygonMode.onPointerDown(createPointerEvent(0, 0));
-      drawPolygonMode.onPointerDown(createPointerEvent(10, 0));
+      clickAt(drawPolygonMode, 0, 0);
+      clickAt(drawPolygonMode, 10, 0);
       draftListener.mockClear();
 
       modeManager.setMode('select');
@@ -441,8 +441,8 @@ describe('Draw Flow Integration', () => {
       eventBus.on('draftchange', draftListener);
 
       modeManager.setMode('draw-line');
-      drawLineMode.onPointerDown(createPointerEvent(0, 0));
-      drawLineMode.onPointerDown(createPointerEvent(10, 10));
+      clickAt(drawLineMode, 0, 0);
+      clickAt(drawLineMode, 10, 10);
 
       expect(drawLineMode.getDraftVertexCount()).toBe(2);
 
@@ -459,7 +459,7 @@ describe('Draw Flow Integration', () => {
       const { store, modeManager, drawLineMode } = createDrawingSystem();
 
       modeManager.setMode('draw-line');
-      drawLineMode.onPointerDown(createPointerEvent(0, 0));
+      clickAt(drawLineMode, 0, 0);
 
       expect(drawLineMode.finishDrawing()).toBe(false);
       expect(store.getAll()).toHaveLength(0);
@@ -472,8 +472,8 @@ describe('Draw Flow Integration', () => {
       eventBus.on('draftchange', draftListener);
 
       modeManager.setMode('draw-line');
-      drawLineMode.onPointerDown(createPointerEvent(0, 0));
-      drawLineMode.onPointerDown(createPointerEvent(10, 10));
+      clickAt(drawLineMode, 0, 0);
+      clickAt(drawLineMode, 10, 10);
 
       draftListener.mockClear();
       drawLineMode.cancelDrawing();

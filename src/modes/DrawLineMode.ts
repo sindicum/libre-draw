@@ -7,7 +7,7 @@ import type { ModeContext } from '../core/ModeContext';
 import { findSnapTarget } from '../utils/snap';
 import { createFeatureId } from '../utils/id';
 import { LONG_PRESS_MS, clickTolerance, pointerTravel } from '../input/gestures';
-import { findDraftVertexTarget, finishRadius } from './draftVertexTarget';
+import { findDraftVertexTarget, finishRadius, type DraftVertexTarget } from './draftVertexTarget';
 
 /**
  * Minimum number of vertices required to form a valid LineString.
@@ -17,7 +17,9 @@ const MIN_VERTICES = 2;
 /**
  * Drawing mode for creating new LineString features.
  *
- * Users click to add vertices. The line is finalized when:
+ * Each **click or tap** — a pointer down followed by a pointer up that has
+ * not travelled beyond the per-input-type tolerance — places a vertex. The
+ * line is finalized when:
  * - The user clicks or taps on the last placed vertex (with at least
  *   2 vertices), or
  * - `finishDrawing()` is called programmatically.
@@ -26,8 +28,10 @@ const MIN_VERTICES = 2;
  * new location places one vertex and then lands on it, so it finishes too,
  * while two slow taps on the same spot finish instead of stacking vertices.
  *
- * Long press removes the last vertex (undo last point).
- * Escape or `cancelDrawing()` cancels the entire drawing.
+ * Nothing is placed on pointer down, so a long press — which TouchInput
+ * reports as a pointer down, a late pointer up and then the long press —
+ * only ever removes the last vertex (undo last point), wherever the finger
+ * lands. Escape or `cancelDrawing()` cancels the entire drawing.
  */
 export class DrawLineMode implements DraftCapableMode {
   private vertices: Position[] = [];
@@ -35,11 +39,18 @@ export class DrawLineMode implements DraftCapableMode {
   private context: ModeContext;
 
   /**
-   * A pointer down that landed on the last draft vertex. The finish happens
-   * on the matching pointer up so that a long press on that vertex still
-   * reads as "undo last point" rather than "finish".
+   * Where and when the current pointer interaction started, and whether it
+   * started on the last draft vertex (the finish gesture), or `null` when
+   * no pointer is down. Used to tell a click/tap from a drag or a long press.
    */
-  private pendingFinish: { point: { x: number; y: number }; time: number } | null = null;
+  private pointerDown: {
+    point: { x: number; y: number };
+    time: number;
+    draftTarget: DraftVertexTarget | null;
+  } | null = null;
+
+  /** Set once the pointer has travelled beyond the click/tap tolerance. */
+  private isDragging = false;
 
   constructor(context: ModeContext) {
     this.context = context;
@@ -55,13 +66,13 @@ export class DrawLineMode implements DraftCapableMode {
   activate(): void {
     this.isActive = true;
     this.vertices = [];
-    this.pendingFinish = null;
+    this.resetPointer();
   }
 
   deactivate(): void {
     this.isActive = false;
     this.vertices = [];
-    this.pendingFinish = null;
+    this.resetPointer();
     this.context.render.clearPreview();
     this.context.render.clearVertices();
     this.context.render.clearSnapIndicator();
@@ -72,27 +83,30 @@ export class DrawLineMode implements DraftCapableMode {
   onPointerDown(event: NormalizedInputEvent): void {
     if (!this.isActive) return;
 
-    // Landing on the last draft vertex is the finish gesture. Never place a
-    // vertex there, even when the draft is too short to finish: a duplicate
-    // vertex is never wanted.
-    if (this.findDraftTarget(event)) {
-      this.pendingFinish = { point: event.point, time: Date.now() };
-      return;
-    }
-    this.pendingFinish = null;
-
-    const snappedPos = this.applySnap(event.lngLat);
-    const newVertex: Position = [snappedPos.lng, snappedPos.lat];
-
-    this.vertices.push(newVertex);
-    const previewCoords = this.buildPreviewCoordinates(newVertex);
-    this.context.render.renderPreview(previewCoords);
-    this.renderDraftVertices();
-    this.emitDraftChange();
+    // Vertices are placed on pointer up. Whether this press started on the
+    // last draft vertex is decided here, at the press position, so a wobble
+    // before release cannot turn a finish into a new vertex.
+    this.pointerDown = {
+      point: event.point,
+      time: Date.now(),
+      draftTarget: this.findDraftTarget(event),
+    };
+    this.isDragging = false;
   }
 
   onPointerMove(event: NormalizedInputEvent): void {
-    if (!this.isActive || this.vertices.length === 0) return;
+    if (!this.isActive) return;
+
+    if (this.pointerDown !== null) {
+      // The pointer is held down: this is a drag, not a hover. Leave the
+      // preview and the snap indicator where they are.
+      if (pointerTravel(this.pointerDown.point, event.point) > clickTolerance(event.inputType)) {
+        this.isDragging = true;
+      }
+      return;
+    }
+
+    if (this.vertices.length === 0) return;
 
     // The last draft vertex under the pointer takes priority over store
     // snapping: it shows where a click would finish the line.
@@ -117,17 +131,28 @@ export class DrawLineMode implements DraftCapableMode {
   onPointerUp(event: NormalizedInputEvent): void {
     if (!this.isActive) return;
 
-    const pending = this.pendingFinish;
-    this.pendingFinish = null;
-    if (!pending) return;
+    const down = this.pointerDown;
+    const wasDragging = this.isDragging;
+    this.resetPointer();
 
-    // A drag off the vertex is not a click on it.
-    if (pointerTravel(pending.point, event.point) > clickTolerance(event.inputType)) return;
+    if (down === null) return;
+    // The pointer moved: a drag is neither a vertex nor a finish.
+    if (wasDragging || pointerTravel(down.point, event.point) > clickTolerance(event.inputType)) {
+      return;
+    }
     // TouchInput fires pointer up right before a long press; that release
     // belongs to the long press (undo last point), not to a tap.
-    if (event.inputType === 'touch' && Date.now() - pending.time >= LONG_PRESS_MS) return;
+    if (event.inputType === 'touch' && Date.now() - down.time >= LONG_PRESS_MS) return;
 
-    this.tryFinalize();
+    if (down.draftTarget) {
+      // Landing on the last draft vertex is the finish gesture. Never place
+      // a vertex there, even when the draft is too short to finish: a
+      // duplicate vertex is never wanted.
+      this.tryFinalize();
+      return;
+    }
+
+    this.placeVertex(event);
   }
 
   onDoubleClick(event: NormalizedInputEvent): void {
@@ -142,7 +167,7 @@ export class DrawLineMode implements DraftCapableMode {
 
   onLongPress(_event: NormalizedInputEvent): void {
     if (!this.isActive) return;
-    this.pendingFinish = null;
+    this.resetPointer();
 
     // Remove the last vertex (undo last point)
     if (this.vertices.length > 0) {
@@ -182,7 +207,7 @@ export class DrawLineMode implements DraftCapableMode {
   cancelDrawing(): void {
     if (!this.isActive) return;
     this.vertices = [];
-    this.pendingFinish = null;
+    this.resetPointer();
     this.context.render.clearPreview();
     this.context.render.clearVertices();
     this.context.render.clearSnapIndicator();
@@ -194,6 +219,28 @@ export class DrawLineMode implements DraftCapableMode {
    */
   getDraftVertexCount(): number {
     return this.isActive ? this.vertices.length : 0;
+  }
+
+  /**
+   * Place a vertex at the (possibly snapped) position of a click or tap.
+   */
+  private placeVertex(event: NormalizedInputEvent): void {
+    const snappedPos = this.applySnap(event.lngLat);
+    const newVertex: Position = [snappedPos.lng, snappedPos.lat];
+
+    this.vertices.push(newVertex);
+    const previewCoords = this.buildPreviewCoordinates(newVertex);
+    this.context.render.renderPreview(previewCoords);
+    this.renderDraftVertices();
+    this.emitDraftChange();
+  }
+
+  /**
+   * Forget the current pointer interaction.
+   */
+  private resetPointer(): void {
+    this.pointerDown = null;
+    this.isDragging = false;
   }
 
   /**
@@ -242,7 +289,7 @@ export class DrawLineMode implements DraftCapableMode {
 
     // Reset state for next drawing and notify listeners.
     this.vertices = [];
-    this.pendingFinish = null;
+    this.resetPointer();
     this.context.render.clearPreview();
     this.context.render.clearVertices();
     this.context.render.clearSnapIndicator();
@@ -278,7 +325,7 @@ export class DrawLineMode implements DraftCapableMode {
    * threshold feeds the radius. The first vertex is not a candidate: a line
    * has no closing gesture.
    */
-  private findDraftTarget(event: NormalizedInputEvent): ReturnType<typeof findDraftVertexTarget> {
+  private findDraftTarget(event: NormalizedInputEvent): DraftVertexTarget | null {
     const radius = finishRadius(event.inputType, this.context.getSnapConfig().threshold);
     return findDraftVertexTarget(event.point, this.vertices, this.context.getScreenPoint, radius, {
       includeFirst: false,
