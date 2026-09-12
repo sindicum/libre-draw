@@ -106,6 +106,7 @@ onMounted(async () => {
           select: true,
           split: true,
           setback: true,
+          rotate: true,
           delete: true,
           undo: true,
           redo: true,
@@ -147,6 +148,10 @@ onMounted(async () => {
 
     draw.on('setbackfailed', (e) => {
       addLog('setbackfailed', `${e.reason} (${e.featureId.slice(0, 8)}...)`);
+    });
+
+    draw.on('rotate', (e) => {
+      addLog('rotate', `${describeFeature(e.feature)} rotated by ${e.angle.toFixed(1)}°`);
     });
 
     draw.on('selectionchange', (e) => {

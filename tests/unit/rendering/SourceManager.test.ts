@@ -40,7 +40,7 @@ describe('SourceManager', () => {
     ({ map, manager } = createManager());
   });
 
-  it('should add all five sources on initialize', () => {
+  it('should add all six sources on initialize', () => {
     manager.initialize();
 
     expect(map.added.map((s) => s.id).sort()).toEqual(
@@ -50,6 +50,7 @@ describe('SourceManager', () => {
         SOURCE_IDS.EDGE_HIGHLIGHT,
         SOURCE_IDS.EDIT_VERTICES,
         SOURCE_IDS.SNAP_INDICATOR,
+        SOURCE_IDS.ROTATION_CENTER,
       ].sort()
     );
     expect(manager.hasAllSources()).toBe(true);
@@ -71,6 +72,7 @@ describe('SourceManager', () => {
       SOURCE_IDS.EDGE_HIGHLIGHT,
       SOURCE_IDS.EDIT_VERTICES,
       SOURCE_IDS.SNAP_INDICATOR,
+      SOURCE_IDS.ROTATION_CENTER,
     ]) {
       expect(map.optionsFor(id)?.promoteId).toBeUndefined();
     }
@@ -89,7 +91,7 @@ describe('SourceManager', () => {
     manager.initialize();
     manager.initialize();
 
-    expect(map.added).toHaveLength(5);
+    expect(map.added).toHaveLength(6);
   });
 
   it('should re-add missing sources after a style swap removed them', () => {

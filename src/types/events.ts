@@ -60,6 +60,19 @@ export interface SetbackFailedEvent {
 }
 
 /**
+ * Event payload for a committed rotation.
+ *
+ * `angle` is the rotation applied by this step in degrees, positive clockwise
+ * on screen. Undo and redo of a rotation report plain `update` events,
+ * because the history stores it as a 1 -> 1 feature replacement.
+ */
+export interface RotateEvent {
+  originalFeature: LibreDrawFeature;
+  feature: LibreDrawFeature;
+  angle: number;
+}
+
+/**
  * Event payload for selection changes.
  */
 export interface SelectionChangeEvent {
@@ -96,6 +109,7 @@ export interface LibreDrawEventMap {
   splitfailed: SplitFailedEvent;
   setback: SetbackEvent;
   setbackfailed: SetbackFailedEvent;
+  rotate: RotateEvent;
   selectionchange: SelectionChangeEvent;
   modechange: ModeChangeEvent;
   draftchange: DraftChangeEvent;

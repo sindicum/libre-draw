@@ -98,6 +98,8 @@ describe('Draw Flow Integration', () => {
         setSelectedIds: vi.fn(),
         renderSnapIndicator: vi.fn(),
         clearSnapIndicator: vi.fn(),
+        renderRotationCenter: vi.fn(),
+        clearRotationCenter: vi.fn(),
       },
       getScreenPoint: (lngLat) => ({
         x: lngLat.lng * 10,

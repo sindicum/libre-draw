@@ -126,6 +126,8 @@ function createModeContext(callbacks: SelectModeMocks): ModeContext {
       setSelectedIds: vi.fn(),
       renderSnapIndicator: vi.fn(),
       clearSnapIndicator: vi.fn(),
+      renderRotationCenter: vi.fn(),
+      clearRotationCenter: vi.fn(),
     },
     getScreenPoint: callbacks.getScreenPoint,
     setDragPan: callbacks.setDragPan,

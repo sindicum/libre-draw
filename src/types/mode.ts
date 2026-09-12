@@ -9,4 +9,5 @@ export type ModeName =
   | 'draw-rectangle'
   | 'select'
   | 'split'
-  | 'setback';
+  | 'setback'
+  | 'rotate';

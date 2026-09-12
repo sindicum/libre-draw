@@ -32,6 +32,7 @@ export type {
   SetbackEvent,
   SetbackFailedEvent,
   SetbackFailReason,
+  RotateEvent,
   SelectionChangeEvent,
   ModeChangeEvent,
   DraftChangeEvent,

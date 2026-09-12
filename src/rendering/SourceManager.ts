@@ -9,6 +9,7 @@ export const SOURCE_IDS = {
   EDGE_HIGHLIGHT: 'libre-draw-edge-highlight',
   EDIT_VERTICES: 'libre-draw-edit-vertices',
   SNAP_INDICATOR: 'libre-draw-snap-indicator',
+  ROTATION_CENTER: 'libre-draw-rotation-center',
 } as const;
 
 /**
@@ -42,7 +43,8 @@ export class SourceManager {
       this.map.getSource(SOURCE_IDS.PREVIEW) &&
       this.map.getSource(SOURCE_IDS.EDGE_HIGHLIGHT) &&
       this.map.getSource(SOURCE_IDS.EDIT_VERTICES) &&
-      this.map.getSource(SOURCE_IDS.SNAP_INDICATOR)
+      this.map.getSource(SOURCE_IDS.SNAP_INDICATOR) &&
+      this.map.getSource(SOURCE_IDS.ROTATION_CENTER)
     );
   }
 
@@ -88,6 +90,13 @@ export class SourceManager {
 
     if (!this.map.getSource(SOURCE_IDS.SNAP_INDICATOR)) {
       this.map.addSource(SOURCE_IDS.SNAP_INDICATOR, {
+        type: 'geojson',
+        data: EMPTY_FC,
+      });
+    }
+
+    if (!this.map.getSource(SOURCE_IDS.ROTATION_CENTER)) {
+      this.map.addSource(SOURCE_IDS.ROTATION_CENTER, {
         type: 'geojson',
         data: EMPTY_FC,
       });
@@ -180,6 +189,24 @@ export class SourceManager {
   }
 
   /**
+   * Update the rotation center source with new GeoJSON data.
+   * @param data - A GeoJSON FeatureCollection holding at most one Point.
+   */
+  updateRotationCenter(data: GeoJSON.FeatureCollection): void {
+    const source = this.map.getSource<GeoJSONSource>(SOURCE_IDS.ROTATION_CENTER);
+    if (source) {
+      source.setData(data);
+    }
+  }
+
+  /**
+   * Clear the rotation center source.
+   */
+  clearRotationCenter(): void {
+    this.updateRotationCenter(EMPTY_FC);
+  }
+
+  /**
    * Remove all sources from the map.
    */
   destroy(): void {
@@ -197,6 +224,9 @@ export class SourceManager {
     }
     if (this.map.getSource(SOURCE_IDS.SNAP_INDICATOR)) {
       this.map.removeSource(SOURCE_IDS.SNAP_INDICATOR);
+    }
+    if (this.map.getSource(SOURCE_IDS.ROTATION_CENTER)) {
+      this.map.removeSource(SOURCE_IDS.ROTATION_CENTER);
     }
     this.initialized = false;
   }

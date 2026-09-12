@@ -50,6 +50,7 @@ const draw = new LibreDraw(map, {
       select: true,
       split: true,
       setback: true,
+      rotate: true,
       settings: true,
       delete: true,
       undo: true,
@@ -79,9 +80,9 @@ Switching modes deactivates the current mode (clearing any in-progress state) an
 
 **Parameters:**
 
-| Name   | Type                              | Description                                                                                                          |
-| ------ | --------------------------------- | -------------------------------------------------------------------------------------------------------------------- |
-| `mode` | [`ModeName`](/api/types#modename) | `'idle'`, `'draw-point'`, `'draw-line'`, `'draw-polygon'`, `'draw-rectangle'`, `'select'`, `'split'`, or `'setback'` |
+| Name   | Type                              | Description                                                                                                                      |
+| ------ | --------------------------------- | -------------------------------------------------------------------------------------------------------------------------------- |
+| `mode` | [`ModeName`](/api/types#modename) | `'idle'`, `'draw-point'`, `'draw-line'`, `'draw-polygon'`, `'draw-rectangle'`, `'select'`, `'split'`, `'setback'`, or `'rotate'` |
 
 **Returns:** `void`
 
@@ -103,7 +104,7 @@ draw.on('modechange', (e) => {
 
 Get the current drawing mode.
 
-**Returns:** [`ModeName`](/api/types#modename) — `'idle'`, `'draw-point'`, `'draw-line'`, `'draw-polygon'`, `'draw-rectangle'`, `'select'`, `'split'`, or `'setback'`.
+**Returns:** [`ModeName`](/api/types#modename) — `'idle'`, `'draw-point'`, `'draw-line'`, `'draw-polygon'`, `'draw-rectangle'`, `'select'`, `'split'`, `'setback'`, or `'rotate'`.
 
 **Throws:** [`LibreDrawError`](/api/types#libredrawerror) if this instance has been destroyed.
 
@@ -347,7 +348,7 @@ console.log(draw.getMode()); // 'select'
 
 Get the IDs of currently selected features.
 
-Returns selected IDs in select mode. In other modes, returns an empty array since selection is cleared on mode transition.
+Returns selected IDs in select mode, and the rotation target in rotate mode. In other modes, returns an empty array since selection is cleared on mode transition.
 
 **Returns:** `string[]`
 
@@ -368,7 +369,7 @@ draw.on('selectionchange', (e) => {
 
 Clear the current feature selection.
 
-Deselects all features, removes vertex handles, and emits a `selectionchange` event. No-op if nothing is selected.
+Deselects all features, removes vertex handles, and emits a `selectionchange` event. In rotate mode this also discards any uncommitted rotation preview. No-op if nothing is selected.
 
 **Returns:** `void`
 
@@ -572,6 +573,7 @@ draw.on('split', (e) => console.log('Split:', e.originalFeature.id, e.features))
 draw.on('splitfailed', (e) => console.log('Split failed:', e.reason, e.featureId));
 draw.on('setback', (e) => console.log('Setback:', e.originalFeature.id, e.feature.id));
 draw.on('setbackfailed', (e) => console.log('Setback failed:', e.reason, e.featureId));
+draw.on('rotate', (e) => console.log('Rotated:', e.feature.id, e.angle));
 draw.on('selectionchange', (e) => console.log('Selected:', e.selectedIds));
 draw.on('modechange', (e) => console.log(`${e.previousMode} → ${e.mode}`));
 draw.on('draftchange', (e) => console.log('Draft vertices:', e.vertexCount));

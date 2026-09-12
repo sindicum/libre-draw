@@ -228,11 +228,12 @@ Configuration for which toolbar controls to display.
 interface ToolbarControls {
   drawPoint?: boolean;
   drawLine?: boolean;
-  draw?: boolean;
+  drawPolygon?: boolean;
   drawRectangle?: boolean;
   select?: boolean;
   split?: boolean;
   setback?: boolean;
+  rotate?: boolean;
   settings?: boolean;
   delete?: boolean;
   undo?: boolean;
@@ -249,6 +250,7 @@ interface ToolbarControls {
 | `select`        | `boolean` | `true`  | Show select mode toggle button                     |
 | `split`         | `boolean` | `true`  | Show split mode toggle button                      |
 | `setback`       | `boolean` | `true`  | Show setback mode toggle button and distance input |
+| `rotate`        | `boolean` | `true`  | Show rotate mode toggle button and angle input     |
 | `settings`      | `boolean` | `true`  | Show style settings button and panel               |
 | `delete`        | `boolean` | `true`  | Show delete button                                 |
 | `undo`          | `boolean` | `true`  | Show undo button                                   |
@@ -271,7 +273,8 @@ type ModeName =
   | 'draw-rectangle'
   | 'select'
   | 'split'
-  | 'setback';
+  | 'setback'
+  | 'rotate';
 ```
 
 | Value              | Description                                                                |
@@ -284,6 +287,7 @@ type ModeName =
 | `'select'`         | Select and edit existing features (points, lines, and polygons).           |
 | `'split'`          | Split a polygon into two polygons with a two-point line.                   |
 | `'setback'`        | Apply inward edge setback with distance input and preview.                 |
+| `'rotate'`         | Rotate a polygon or line around its center by dragging or angle input.     |
 
 ---
 

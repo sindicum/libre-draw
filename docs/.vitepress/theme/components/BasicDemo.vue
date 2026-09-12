@@ -59,6 +59,7 @@ onMounted(async () => {
           select: true,
           split: true,
           setback: true,
+          rotate: true,
           delete: true,
           undo: true,
           redo: true,

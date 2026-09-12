@@ -52,6 +52,7 @@ const modes = [
   'select',
   'split',
   'setback',
+  'rotate',
 ] as const;
 const error = ref<string | null>(null);
 
@@ -146,6 +147,10 @@ onMounted(async () => {
         'setback',
         `${e.originalFeature.id.slice(0, 8)}... edge ${e.edgeIndex} setback ${e.distance}`
       );
+    });
+
+    draw.on('rotate', (e: any) => {
+      addLog('rotate', `${describeFeature(e.feature)} rotated by ${e.angle.toFixed(1)}°`);
     });
 
     draw.on('selectionchange', (e: any) => {

@@ -9,11 +9,13 @@ import { drawRectangleIcon } from './icons/draw-rectangle';
 import { selectIcon } from './icons/select';
 import { splitIcon } from './icons/split';
 import { setbackIcon } from './icons/setback';
+import { rotateIcon } from './icons/rotate';
 import { settingsIcon } from './icons/settings';
 import { deleteIcon } from './icons/delete';
 import { undoIcon } from './icons/undo';
 import { redoIcon } from './icons/redo';
 import { SetbackInput } from './SetbackInput';
+import { RotateInput } from './RotateInput';
 import { StylePanel } from './StylePanel';
 
 /**
@@ -27,6 +29,7 @@ const DEFAULT_CONTROLS: Required<ToolbarControls> = {
   select: true,
   split: true,
   setback: true,
+  rotate: true,
   settings: true,
   delete: true,
   undo: true,
@@ -46,6 +49,9 @@ export interface ToolbarCallbacks {
   onSetbackClick(): void;
   onSetbackExecute(distance: number): void;
   onSetbackDistanceChange(distance: number): void;
+  onRotateClick(): void;
+  onRotateExecute(angle: number): void;
+  onRotateAngleChange(angle: number): void;
   onStyleChange(style: PartialStyleConfig): void;
   onDeleteClick(): void;
   onUndoClick(): void;
@@ -65,6 +71,9 @@ export class Toolbar {
   private container: HTMLDivElement;
   private buttons: Map<string, ToolbarButton> = new Map();
   private setbackInput: SetbackInput | null = null;
+  private rotateInput: RotateInput | null = null;
+  private activeMode = 'idle';
+  private rotateHasSelection = false;
   private stylePanel: StylePanel | null = null;
   private stylePanelVisible = false;
   private handleOutsideClick: ((e: PointerEvent) => void) | null = null;
@@ -87,9 +96,10 @@ export class Toolbar {
   /**
    * Update the active mode displayed in the toolbar.
    * @param mode - The active mode name ('idle', 'draw-point', 'draw-line', 'draw-polygon',
-   *   'draw-rectangle', 'select', 'split', 'setback').
+   *   'draw-rectangle', 'select', 'split', 'setback', 'rotate').
    */
   setActiveMode(mode: string): void {
+    this.activeMode = mode;
     const drawPointBtn = this.buttons.get('draw-point');
     const drawLineBtn = this.buttons.get('draw-line');
     const drawPolygonBtn = this.buttons.get('draw-polygon');
@@ -97,6 +107,7 @@ export class Toolbar {
     const selectBtn = this.buttons.get('select');
     const splitBtn = this.buttons.get('split');
     const setbackBtn = this.buttons.get('setback');
+    const rotateBtn = this.buttons.get('rotate');
 
     if (drawPointBtn) {
       drawPointBtn.setActive(mode === 'draw-point');
@@ -119,9 +130,25 @@ export class Toolbar {
     if (setbackBtn) {
       setbackBtn.setActive(mode === 'setback');
     }
+    if (rotateBtn) {
+      rotateBtn.setActive(mode === 'rotate');
+    }
     if (this.setbackInput) {
       this.setbackInput.setVisible(mode === 'setback');
     }
+    this.updateRotateInputVisibility();
+  }
+
+  /**
+   * Tell the toolbar whether rotate mode currently has a target selected.
+   * The angle input is only shown while rotate mode is active and a feature
+   * is selected, so both `setActiveMode` and this method funnel into the same
+   * visibility check.
+   * @param hasSelection - Whether a feature is selected in rotate mode.
+   */
+  setRotateSelection(hasSelection: boolean): void {
+    this.rotateHasSelection = hasSelection;
+    this.updateRotateInputVisibility();
   }
 
   /**
@@ -148,6 +175,10 @@ export class Toolbar {
     if (this.setbackInput) {
       this.setbackInput.destroy();
       this.setbackInput = null;
+    }
+    if (this.rotateInput) {
+      this.rotateInput.destroy();
+      this.rotateInput = null;
     }
     if (this.handleOutsideClick) {
       document.removeEventListener('pointerdown', this.handleOutsideClick);
@@ -256,6 +287,10 @@ export class Toolbar {
       this.addSetbackControl();
     }
 
+    if (controls.rotate) {
+      this.addRotateControl();
+    }
+
     if (controls.delete) {
       this.addButton('delete', deleteIcon, 'Delete selected', () => {
         this.callbacks.onDeleteClick();
@@ -326,6 +361,43 @@ export class Toolbar {
     row.appendChild(this.setbackInput.getElement());
 
     this.container.appendChild(row);
+  }
+
+  /**
+   * Create rotate toggle button + popup angle input.
+   */
+  private addRotateControl(): void {
+    const row = this.createControlRow();
+    row.style.position = 'relative';
+
+    const button = new ToolbarButton({
+      id: 'rotate',
+      icon: rotateIcon,
+      title: 'Rotate feature',
+      onClick: () => this.callbacks.onRotateClick(),
+      isToggle: true,
+    });
+    this.buttons.set('rotate', button);
+    row.appendChild(button.getElement());
+
+    this.rotateInput = new RotateInput({
+      onSubmit: (angle) => this.callbacks.onRotateExecute(angle),
+      onAngleChange: (angle) => this.callbacks.onRotateAngleChange(angle),
+    });
+
+    const position = this.options.position || 'top-right';
+    const isRight = position === 'top-right' || position === 'bottom-right';
+    this.rotateInput.setPosition(isRight ? 'left' : 'right');
+
+    row.appendChild(this.rotateInput.getElement());
+
+    this.container.appendChild(row);
+  }
+
+  /** Show the angle input only while rotate mode is active with a selection. */
+  private updateRotateInputVisibility(): void {
+    if (!this.rotateInput) return;
+    this.rotateInput.setVisible(this.activeMode === 'rotate' && this.rotateHasSelection);
   }
 
   /**

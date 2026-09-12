@@ -57,6 +57,7 @@ const modes = [
   'select',
   'split',
   'setback',
+  'rotate',
 ] as const;
 
 const error = ref<string | null>(null);
