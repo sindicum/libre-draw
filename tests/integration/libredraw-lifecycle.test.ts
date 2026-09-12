@@ -22,6 +22,7 @@ class FakeMap {
   private canvas: HTMLDivElement;
   private sources: Map<string, FakeGeoJSONSource> = new Map();
   private layers: Map<string, unknown> = new Map();
+  private images: Map<string, unknown> = new Map();
   private listeners: Map<string, Set<(...args: unknown[]) => void>> = new Map();
 
   public dragPan = {
@@ -87,6 +88,7 @@ class FakeMap {
     this.styleLoaded = false;
     this.sources.clear();
     this.layers.clear();
+    this.images.clear();
     this.emit('styledata');
     this.styleLoaded = true;
     this.emit('styledata');
@@ -130,6 +132,18 @@ class FakeMap {
 
   removeLayer(id: string): void {
     this.layers.delete(id);
+  }
+
+  hasImage(id: string): boolean {
+    return this.images.has(id);
+  }
+
+  addImage(id: string, image: unknown): void {
+    this.images.set(id, image);
+  }
+
+  removeImage(id: string): void {
+    this.images.delete(id);
   }
 
   hasSource(id: string): boolean {
@@ -692,6 +706,235 @@ describe('LibreDraw lifecycle integration', () => {
       expect(container.querySelector('button[title="Draw rectangle"]')).toBeNull();
       // Other buttons are unaffected.
       expect(container.querySelector('button[title="Draw polygon"]')).not.toBeNull();
+
+      draw.destroy();
+    });
+  });
+
+  describe('rotate mode', () => {
+    function makeSquare(id: string) {
+      return {
+        id,
+        type: 'Feature' as const,
+        geometry: {
+          type: 'Polygon' as const,
+          coordinates: [
+            [
+              [10, 10],
+              [50, 10],
+              [50, 50],
+              [10, 50],
+              [10, 10],
+            ],
+          ],
+        },
+        properties: {},
+      };
+    }
+
+    /** Click on the canvas; FakeMap projects screen pixels 1:1 to lng/lat. */
+    function clickAt(map: FakeMap, x: number, y: number): void {
+      const canvas = map.getCanvasContainer();
+      canvas.dispatchEvent(new MouseEvent('mousedown', { clientX: x, clientY: y, button: 0 }));
+      window.dispatchEvent(new MouseEvent('mouseup', { clientX: x, clientY: y, button: 0 }));
+    }
+
+    it('exposes the rotation target through getSelectedFeatureIds() and clearSelection()', () => {
+      const map = new FakeMap();
+      const draw = new LibreDraw(map.asMap(), { toolbar: false });
+      draw.addFeatures([makeSquare('sq')]);
+      draw.setMode('rotate');
+
+      clickAt(map, 30, 30);
+      expect(draw.getSelectedFeatureIds()).toEqual(['sq']);
+
+      const selectionListener = vi.fn();
+      draw.on('selectionchange', selectionListener);
+      draw.clearSelection();
+
+      expect(draw.getSelectedFeatureIds()).toEqual([]);
+      expect(selectionListener).toHaveBeenCalledWith({ selectedIds: [] });
+
+      draw.destroy();
+    });
+
+    it('rotates relative to the current shape after undo()', () => {
+      const map = new FakeMap();
+      const draw = new LibreDraw(map.asMap(), { toolbar: false });
+      draw.addFeatures([makeSquare('sq')]);
+      draw.setMode('rotate');
+      clickAt(map, 30, 30);
+
+      const rotateListener = vi.fn();
+      draw.on('rotate', rotateListener);
+
+      // Drive the numeric input path through the toolbar callback surface:
+      // the facade wires onRotateExecute -> rotateMode.executeFromUi, and the
+      // mode is reachable only via the toolbar, so call the mode as the toolbar would.
+      const rotateMode = (draw as unknown as { rotateMode: { executeFromUi(a: number): void } })
+        .rotateMode;
+      rotateMode.executeFromUi(45);
+      expect(rotateListener).toHaveBeenCalledTimes(1);
+      const afterFirst = draw.getFeatureById('sq')!.geometry.coordinates;
+
+      expect(draw.undo()).toBe(true);
+      expect(draw.getFeatureById('sq')!.geometry.coordinates).toEqual(
+        makeSquare('sq').geometry.coordinates
+      );
+
+      // The next relative rotation starts from the undone (original) shape.
+      rotateMode.executeFromUi(45);
+      const afterSecond = draw.getFeatureById('sq')!.geometry.coordinates as number[][][];
+      (afterFirst as number[][][])[0].forEach((pos, i) => {
+        expect(afterSecond[0][i][0]).toBeCloseTo(pos[0], 6);
+        expect(afterSecond[0][i][1]).toBeCloseTo(pos[1], 6);
+      });
+      expect(rotateListener.mock.calls[1][0].originalFeature.geometry.coordinates).toEqual(
+        makeSquare('sq').geometry.coordinates
+      );
+
+      draw.destroy();
+    });
+
+    it('keeps the undone shape when undo() lands during a pending preview', () => {
+      const map = new FakeMap();
+      const draw = new LibreDraw(map.asMap(), { toolbar: false });
+      draw.addFeatures([makeSquare('sq')]);
+      draw.setMode('rotate');
+      clickAt(map, 30, 30);
+
+      const rotateMode = (
+        draw as unknown as {
+          rotateMode: { executeFromUi(a: number): void; onAngleChange(a: number): void };
+        }
+      ).rotateMode;
+      rotateMode.executeFromUi(90);
+      rotateMode.onAngleChange(30); // pending, uncommitted preview
+
+      expect(draw.undo()).toBe(true);
+
+      // The store shows the original square and the next rotation starts from it.
+      expect(draw.getFeatureById('sq')!.geometry.coordinates).toEqual(
+        makeSquare('sq').geometry.coordinates
+      );
+      const rotateListener = vi.fn();
+      draw.on('rotate', rotateListener);
+      rotateMode.executeFromUi(45);
+      expect(rotateListener.mock.calls[0][0].originalFeature.geometry.coordinates).toEqual(
+        makeSquare('sq').geometry.coordinates
+      );
+
+      draw.destroy();
+    });
+
+    it('does not clobber setFeatures() data with a stale rotation preview', () => {
+      const map = new FakeMap();
+      const draw = new LibreDraw(map.asMap(), { toolbar: false });
+      draw.addFeatures([makeSquare('sq')]);
+      draw.setMode('rotate');
+      clickAt(map, 30, 30);
+
+      const rotateMode = (draw as unknown as { rotateMode: { onAngleChange(a: number): void } })
+        .rotateMode;
+      rotateMode.onAngleChange(30); // pending preview
+
+      const replacement = {
+        ...makeSquare('sq'),
+        geometry: {
+          type: 'Polygon' as const,
+          coordinates: [
+            [
+              [60, 60],
+              [70, 60],
+              [70, 70],
+              [60, 70],
+              [60, 60],
+            ],
+          ],
+        },
+      };
+      draw.setFeatures({ type: 'FeatureCollection', features: [replacement] });
+
+      expect(draw.getFeatureById('sq')!.geometry.coordinates).toEqual(
+        replacement.geometry.coordinates
+      );
+      expect(draw.getSelectedFeatureIds()).toEqual([]);
+
+      draw.destroy();
+    });
+
+    it('shows the rotate button and the angle input only while a target is selected', () => {
+      const map = new FakeMap();
+      const draw = new LibreDraw(map.asMap(), { toolbar: true });
+      const container = map.getContainer();
+      draw.addFeatures([makeSquare('sq')]);
+
+      const button = container.querySelector<HTMLButtonElement>('button[title="Rotate feature"]');
+      const input = container.querySelector<HTMLDivElement>('.libre-draw-rotate-input');
+      expect(button).not.toBeNull();
+      expect(input).not.toBeNull();
+      expect(input!.style.display).toBe('none');
+
+      button!.click();
+      expect(draw.getMode()).toBe('rotate');
+      expect(button!.getAttribute('aria-pressed')).toBe('true');
+      expect(input!.style.display).toBe('none');
+
+      clickAt(map, 30, 30);
+      expect(input!.style.display).toBe('inline-flex');
+
+      draw.clearSelection();
+      expect(input!.style.display).toBe('none');
+
+      clickAt(map, 30, 30);
+      expect(input!.style.display).toBe('inline-flex');
+      draw.setMode('select');
+      expect(input!.style.display).toBe('none');
+      expect(button!.getAttribute('aria-pressed')).toBe('false');
+
+      draw.destroy();
+    });
+
+    it('hides the rotate control with controls.rotate: false', () => {
+      const map = new FakeMap();
+      const draw = new LibreDraw(map.asMap(), { toolbar: { controls: { rotate: false } } });
+      const container = map.getContainer();
+
+      expect(container.querySelector('button[title="Rotate feature"]')).toBeNull();
+      expect(container.querySelector('.libre-draw-rotate-input')).toBeNull();
+
+      draw.destroy();
+    });
+
+    it('redraws the pivot marker after a style swap', () => {
+      const map = new FakeMap();
+      const draw = new LibreDraw(map.asMap(), { toolbar: false });
+      draw.addFeatures([makeSquare('sq')]);
+      draw.setMode('rotate');
+      clickAt(map, 30, 30);
+      expect(map.getSourceData(SOURCE_IDS.ROTATION_CENTER)!.features).toHaveLength(1);
+
+      // A style swap rebuilds every source empty; the marker must come back.
+      map.setStyle('new-style');
+
+      expect(draw.getSelectedFeatureIds()).toEqual(['sq']);
+      expect(map.getSourceData(SOURCE_IDS.ROTATION_CENTER)!.features).toHaveLength(1);
+
+      draw.destroy();
+    });
+
+    it('drops the rotation selection when undo() removes the feature', () => {
+      const map = new FakeMap();
+      const draw = new LibreDraw(map.asMap(), { toolbar: false });
+      draw.addFeatures([makeSquare('sq')]);
+      draw.setMode('rotate');
+      clickAt(map, 30, 30);
+      expect(draw.getSelectedFeatureIds()).toEqual(['sq']);
+
+      draw.undo(); // undoes addFeatures: the feature is gone
+
+      expect(draw.getFeatureById('sq')).toBeUndefined();
+      expect(draw.getSelectedFeatureIds()).toEqual([]);
 
       draw.destroy();
     });

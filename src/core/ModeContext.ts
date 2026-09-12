@@ -36,6 +36,8 @@ export interface ModeContext {
     setSelectedIds(ids: string[]): void;
     renderSnapIndicator(position: Position): void;
     clearSnapIndicator(): void;
+    renderRotationCenter(position: Position): void;
+    clearRotationCenter(): void;
   };
   getScreenPoint(lngLat: { lng: number; lat: number }): { x: number; y: number };
   setDragPan(enabled: boolean): void;

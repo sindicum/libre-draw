@@ -14,10 +14,11 @@ LibreDraw uses a mode-based architecture. Only one mode is active at a time, and
 | `select`         | Click to select, drag to edit vertices or move point/line/polygon. | Toolbar select button / `setMode('select')`             |
 | `split`          | Split a polygon with a two-point line.                             | Toolbar split button / `setMode('split')`               |
 | `setback`        | Apply inward edge setback with distance input.                     | Toolbar setback button / `setMode('setback')`           |
+| `rotate`         | Rotate a polygon or line by dragging or by entering an angle.      | Toolbar rotate button / `setMode('rotate')`             |
 
 ### Try it
 
-Use the buttons below to switch between modes. Place points in **draw-point** mode, draw lines in **draw-line** mode, draw polygons in **draw-polygon** mode, drop rectangles in **draw-rectangle** mode, then switch to **select** mode to edit them.
+Use the buttons below to switch between modes. Place points in **draw-point** mode, draw lines in **draw-line** mode, draw polygons in **draw-polygon** mode, drop rectangles in **draw-rectangle** mode, then switch to **select** mode to edit them or **rotate** mode to turn them.
 
 <ModesDemo />
 
@@ -298,6 +299,37 @@ draw.on('setback', (e) => console.log(e.edgeIndex, e.distance));
 draw.on('setbackfailed', (e) => console.warn(e.reason));
 ```
 
+## Rotate Mode
+
+In rotate mode, you rotate a polygon or line around its centroid (the area centroid of a polygon, the length-weighted centroid of a line). Points cannot be rotated.
+
+| Action                          | Effect                                                        |
+| ------------------------------- | ------------------------------------------------------------- |
+| Click / tap a polygon or line   | Select the rotation target and show its pivot marker          |
+| Drag on the selected feature    | Rotate it to follow the pointer; release to commit            |
+| Shift + drag                    | Snap the rotation to 15° steps                                |
+| Change the angle input          | Preview a relative rotation by the entered angle              |
+| Enter / execute button          | Commit the entered angle (repeat to rotate again by the same) |
+| Escape during a drag            | Restore the shape and keep the selection                      |
+| Escape otherwise                | Discard the preview and clear the selection                   |
+| Click empty space / drag off it | Clear the selection; dragging off the feature pans the map    |
+
+The angle input next to the rotate button is shown only while a feature is selected. Its value is a relative angle in degrees: positive turns clockwise, negative counter-clockwise, in the range -360 to 360. Angles that leave the shape unchanged (0, ±360) are ignored and never reach the history.
+
+Every committed rotation is one undo step and emits a [`rotate`](/api/events#rotate) event. Undoing or redoing it emits a plain `update` event.
+
+```ts
+draw.setMode('rotate');
+draw.on('rotate', (e) => console.log(`${e.originalFeature.id} rotated by ${e.angle}°`));
+```
+
+**Notes:**
+
+- The rotation is performed in screen (Web Mercator) space, so the shape keeps its on-screen proportions at any latitude
+- While a target is selected, a crosshair marks the pivot (the centroid). The pivot does not move when the shape turns, so repeated rotations spin around the same point; the marker is hidden when the selection is cleared
+- Vertex snapping is not applied while rotating
+- Map panning stays enabled; only a drag that starts on the selected feature is captured
+
 ## Mode Transitions
 
 ```
@@ -356,6 +388,14 @@ draw.on('setbackfailed', (e) => console.warn(e.reason));
            │                         ▼
            │                   ┌──────────┐
            │                   │ setback  │
+           │                   └──────────┘
+           │                         │
+           ├─────────────────────────┘
+           │    setMode('rotate')
+           ├─────────────────────────┐
+           │                         ▼
+           │                   ┌──────────┐
+           │                   │  rotate  │
            │                   └──────────┘
            │                         │
            └─────────────────────────┘

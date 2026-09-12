@@ -3,6 +3,7 @@ import type { LibreDrawFeature, Position } from '../types/features';
 import type { PartialStyleConfig, StyleConfig } from '../types/style';
 import { mergeStyleConfig } from '../types/style';
 import { SourceManager, SOURCE_IDS } from './SourceManager';
+import { createCrosshairImage, CROSSHAIR_PIXEL_RATIO } from './crosshairImage';
 
 /**
  * Layer IDs used by LibreDraw for rendering.
@@ -18,7 +19,11 @@ export const LAYER_IDS = {
   EDIT_VERTICES: 'libre-draw-edit-vertices',
   EDIT_MIDPOINTS: 'libre-draw-edit-midpoints',
   SNAP_INDICATOR: 'libre-draw-snap-indicator',
+  ROTATION_CENTER: 'libre-draw-rotation-center',
 } as const;
+
+/** Map image id of the crosshair used by the rotation center layer. */
+export const ROTATION_CENTER_IMAGE_ID = 'libre-draw-rotation-center-crosshair';
 
 /**
  * Manages the rendering layers for LibreDraw.
@@ -268,6 +273,30 @@ export class RenderManager {
       });
     }
 
+    // Rotation center layer: a crosshair at the pivot of rotate mode. Not a
+    // circle, because circles already mean "vertex" or "point" here. The
+    // image is registered on the map so the marker does not depend on the
+    // style providing glyphs; a style swap drops images, so this runs on
+    // every initialize.
+    if (!this.map.hasImage(ROTATION_CENTER_IMAGE_ID)) {
+      this.map.addImage(ROTATION_CENTER_IMAGE_ID, createCrosshairImage(), {
+        pixelRatio: CROSSHAIR_PIXEL_RATIO,
+      });
+    }
+    if (!this.map.getLayer(LAYER_IDS.ROTATION_CENTER)) {
+      this.map.addLayer({
+        id: LAYER_IDS.ROTATION_CENTER,
+        type: 'symbol',
+        source: SOURCE_IDS.ROTATION_CENTER,
+        layout: {
+          'icon-image': ROTATION_CENTER_IMAGE_ID,
+          // The pivot must always show, even over dense features or map labels.
+          'icon-allow-overlap': true,
+          'icon-ignore-placement': true,
+        },
+      });
+    }
+
     // Edit vertices layer (white circles with blue stroke at polygon vertices)
     // Uses data-driven styling to highlight the nearest vertex
     if (!this.map.getLayer(LAYER_IDS.EDIT_VERTICES)) {
@@ -461,6 +490,33 @@ export class RenderManager {
   }
 
   /**
+   * Render the rotation center marker (the pivot of rotate mode).
+   * @param position - The pivot position.
+   */
+  renderRotationCenter(position: Position): void {
+    this.sourceManager.updateRotationCenter({
+      type: 'FeatureCollection',
+      features: [
+        {
+          type: 'Feature',
+          properties: {},
+          geometry: {
+            type: 'Point',
+            coordinates: [position[0], position[1]],
+          },
+        },
+      ],
+    });
+  }
+
+  /**
+   * Clear the rotation center marker.
+   */
+  clearRotationCenter(): void {
+    this.sourceManager.clearRotationCenter();
+  }
+
+  /**
    * Clear the vertex/midpoint markers.
    */
   clearVertices(): void {
@@ -620,6 +676,7 @@ export class RenderManager {
       LAYER_IDS.EDIT_VERTICES,
       LAYER_IDS.EDIT_MIDPOINTS,
       LAYER_IDS.SNAP_INDICATOR,
+      LAYER_IDS.ROTATION_CENTER,
       LAYER_IDS.EDGE_HIGHLIGHT,
       LAYER_IDS.PREVIEW,
       LAYER_IDS.POINT,
@@ -635,6 +692,9 @@ export class RenderManager {
       }
     }
 
+    if (this.map.hasImage(ROTATION_CENTER_IMAGE_ID)) {
+      this.map.removeImage(ROTATION_CENTER_IMAGE_ID);
+    }
     this.sourceManager.destroy();
     this.initialized = false;
   }
@@ -717,7 +777,8 @@ export class RenderManager {
       this.map.getLayer(LAYER_IDS.EDGE_HIGHLIGHT) &&
       this.map.getLayer(LAYER_IDS.EDIT_MIDPOINTS) &&
       this.map.getLayer(LAYER_IDS.EDIT_VERTICES) &&
-      this.map.getLayer(LAYER_IDS.SNAP_INDICATOR)
+      this.map.getLayer(LAYER_IDS.SNAP_INDICATOR) &&
+      this.map.getLayer(LAYER_IDS.ROTATION_CENTER)
     );
   }
 }

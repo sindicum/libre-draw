@@ -138,6 +138,8 @@ function createHarness(feature: LibreDrawFeature = makeSquare('f1')): Harness {
       setSelectedIds,
       renderSnapIndicator: vi.fn(),
       clearSnapIndicator: vi.fn(),
+      renderRotationCenter: vi.fn(),
+      clearRotationCenter: vi.fn(),
     },
     getScreenPoint: ({ lng, lat }) => ({ x: lng * 10, y: lat * 10 }),
     setDragPan,

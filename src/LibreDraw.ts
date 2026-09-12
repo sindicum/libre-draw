@@ -35,6 +35,7 @@ import { DrawLineMode } from './modes/DrawLineMode';
 import { SelectMode } from './modes/SelectMode';
 import { SplitMode } from './modes/SplitMode';
 import { SetbackMode } from './modes/SetbackMode';
+import { RotateMode } from './modes/RotateMode';
 import type { MapInteractionConfig } from './modes/Mode';
 import { isDraftCapableMode } from './modes/Mode';
 import { InputHandler } from './input/InputHandler';
@@ -69,6 +70,7 @@ export class LibreDraw {
   private toolbar: Toolbar | null = null;
   private selectMode: SelectMode;
   private setbackMode: SetbackMode;
+  private rotateMode: RotateMode;
   private snapConfig: SnapConfig;
   private destroyed = false;
   private inputEnabled = false;
@@ -84,6 +86,10 @@ export class LibreDraw {
       this.selectMode.refreshVertexHandles();
     } else {
       this.renderManager.clearVertices();
+    }
+    if (this.modeManager.getMode() === 'rotate') {
+      // The style swap rebuilt the sources empty: redraw the pivot marker.
+      this.rotateMode.refreshFromStore();
     }
   };
 
@@ -161,6 +167,8 @@ export class LibreDraw {
         setSelectedIds: (ids) => this.renderManager.setSelectedIds(ids),
         renderSnapIndicator: (pos) => this.renderManager.renderSnapIndicator(pos),
         clearSnapIndicator: () => this.renderManager.clearSnapIndicator(),
+        renderRotationCenter: (pos) => this.renderManager.renderRotationCenter(pos),
+        clearRotationCenter: () => this.renderManager.clearRotationCenter(),
       },
       getScreenPoint: (lngLat) => {
         const pt = map.project([lngLat.lng, lngLat.lat]);
@@ -193,6 +201,9 @@ export class LibreDraw {
     this.selectMode = new SelectMode(modeContext);
     const splitMode = new SplitMode(modeContext);
     this.setbackMode = new SetbackMode(modeContext);
+    this.rotateMode = new RotateMode(modeContext, (hasSelection) => {
+      this.toolbar?.setRotateSelection(hasSelection);
+    });
 
     // Register modes
     this.modeManager.registerMode('idle', new IdleMode());
@@ -203,6 +214,7 @@ export class LibreDraw {
     this.modeManager.registerMode('select', this.selectMode);
     this.modeManager.registerMode('split', splitMode);
     this.modeManager.registerMode('setback', this.setbackMode);
+    this.modeManager.registerMode('rotate', this.rotateMode);
 
     // Mode change event
     this.modeManager.setOnModeChange((mode, previousMode) => {
@@ -252,7 +264,7 @@ export class LibreDraw {
    *
    * @param mode - `'idle'` (no interaction), `'draw-point'` / `'draw-line'` /
    *   `'draw-polygon'` / `'draw-rectangle'` (create features), `'select'` (select/edit
-   *   existing features), `'split'`, or `'setback'`.
+   *   existing features), `'split'`, `'setback'`, or `'rotate'`.
    *
    * @throws {LibreDrawError} If this instance has been destroyed.
    *
@@ -430,8 +442,9 @@ export class LibreDraw {
   /**
    * Get the IDs of currently selected features.
    *
-   * Returns selected IDs in select mode. In other modes, returns
-   * an empty array since selection is cleared on mode transition.
+   * Returns selected IDs in select mode, and the rotation target in
+   * rotate mode. In other modes, returns an empty array since selection
+   * is cleared on mode transition.
    *
    * @returns An array of selected feature IDs.
    *
@@ -447,6 +460,10 @@ export class LibreDraw {
    */
   getSelectedFeatureIds(): string[] {
     this.assertNotDestroyed();
+    if (this.modeManager.getMode() === 'rotate') {
+      const id = this.rotateMode.getSelectedId();
+      return id ? [id] : [];
+    }
     return this.selectMode.getSelectedIds();
   }
 
@@ -502,6 +519,9 @@ export class LibreDraw {
     if (selectedIds.includes(id)) {
       this.selectMode.clearSelection();
     }
+    if (this.rotateMode.getSelectedId() === id) {
+      this.rotateMode.clearSelection();
+    }
 
     this.featureStore.remove(id);
     const action = new DeleteAction(feature);
@@ -550,7 +570,8 @@ export class LibreDraw {
    * Clear the current feature selection.
    *
    * Deselects all features, removes vertex handles, and emits
-   * a `'selectionchange'` event. No-op if nothing is selected.
+   * a `'selectionchange'` event. In rotate mode this also discards any
+   * uncommitted rotation preview. No-op if nothing is selected.
    *
    * @throws {LibreDrawError} If this instance has been destroyed.
    *
@@ -564,6 +585,7 @@ export class LibreDraw {
   clearSelection(): void {
     this.assertNotDestroyed();
     this.selectMode.clearSelection();
+    this.rotateMode.clearSelection();
   }
 
   /**
@@ -702,6 +724,7 @@ export class LibreDraw {
     if (action) {
       this.renderAllFeatures();
       this.selectMode.refreshVertexHandles();
+      this.rotateMode.refreshFromStore();
       this.updateToolbarHistoryState();
       this.emitUndoEvent(action);
     }
@@ -730,6 +753,7 @@ export class LibreDraw {
     if (action) {
       this.renderAllFeatures();
       this.selectMode.refreshVertexHandles();
+      this.rotateMode.refreshFromStore();
       this.updateToolbarHistoryState();
       this.emitRedoEvent(action);
     }
@@ -740,7 +764,7 @@ export class LibreDraw {
    * Register an event listener.
    *
    * Supported events: `'create'`, `'update'`, `'delete'`, `'split'`,
-   * `'splitfailed'`, `'setback'`, `'setbackfailed'`, `'selectionchange'`,
+   * `'splitfailed'`, `'setback'`, `'setbackfailed'`, `'rotate'`, `'selectionchange'`,
    * `'modechange'`, `'draftchange'`.
    *
    * @param type - The event type to listen for.
@@ -888,6 +912,16 @@ export class LibreDraw {
         onSetbackDistanceChange: (distance) => {
           this.setbackMode.onDistanceChange(distance);
         },
+        onRotateClick: () => {
+          const current = this.modeManager.getMode();
+          this.modeManager.setMode(current === 'rotate' ? 'idle' : 'rotate');
+        },
+        onRotateExecute: (angle) => {
+          this.rotateMode.executeFromUi(angle);
+        },
+        onRotateAngleChange: (angle) => {
+          this.rotateMode.onAngleChange(angle);
+        },
         onStyleChange: (style) => {
           this.setStyle(style);
         },
@@ -945,6 +979,9 @@ export class LibreDraw {
    */
   private resetSelectionState(): void {
     this.selectMode.clearSelection();
+    // The store was just replaced: forget the rotation target without
+    // writing its old shape back over the new data.
+    this.rotateMode.dropSelection();
     this.renderManager.setSelectedIds([]);
     this.renderManager.clearVertices();
     this.renderManager.clearEdgeHighlight();

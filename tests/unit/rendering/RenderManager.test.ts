@@ -1,6 +1,10 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import type { Map as MaplibreMap } from 'maplibre-gl';
-import { RenderManager, LAYER_IDS } from '../../../src/rendering/RenderManager';
+import {
+  RenderManager,
+  LAYER_IDS,
+  ROTATION_CENTER_IMAGE_ID,
+} from '../../../src/rendering/RenderManager';
 import { SourceManager, SOURCE_IDS } from '../../../src/rendering/SourceManager';
 import type { LibreDrawFeature } from '../../../src/types/features';
 
@@ -33,6 +37,7 @@ class FakeMap {
     }
   );
 
+  readonly images = new Map<string, unknown>();
   private sources = new Map<string, FakeSource>();
   private layers = new Map<string, unknown>();
   private layerHandlers = new Map<string, LayerHandler>();
@@ -63,6 +68,18 @@ class FakeMap {
   }
 
   setPaintProperty(): void {}
+
+  hasImage(id: string): boolean {
+    return this.images.has(id);
+  }
+
+  addImage(id: string, image: unknown): void {
+    this.images.set(id, image);
+  }
+
+  removeImage(id: string): void {
+    this.images.delete(id);
+  }
 
   getCanvas(): { style: { cursor: string } } {
     return this.canvas;
@@ -205,6 +222,34 @@ describe('RenderManager', () => {
       map.fire('mouseleave', LAYER_IDS.POINT, {});
 
       expect(map.setFeatureState).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('rotation center', () => {
+    it('adds a crosshair symbol layer on its own source', () => {
+      const layer = map.getLayer(LAYER_IDS.ROTATION_CENTER) as { type: string; layout: unknown };
+      expect(layer.type).toBe('symbol');
+      expect(layer.layout).toMatchObject({ 'icon-image': ROTATION_CENTER_IMAGE_ID });
+      expect(map.getSource(SOURCE_IDS.ROTATION_CENTER)).toBeDefined();
+      expect(map.hasImage(ROTATION_CENTER_IMAGE_ID)).toBe(true);
+    });
+
+    it('registers the crosshair image only once and removes it on destroy', () => {
+      manager.initialize();
+      expect(map.images.size).toBe(1);
+
+      manager.destroy();
+      expect(map.hasImage(ROTATION_CENTER_IMAGE_ID)).toBe(false);
+    });
+
+    it('writes the pivot as a single point and clears it', () => {
+      manager.renderRotationCenter([12, 34]);
+      const source = map.getSource(SOURCE_IDS.ROTATION_CENTER) as FakeSource;
+      expect(source.data.features).toHaveLength(1);
+      expect(source.data.features[0].geometry).toEqual({ type: 'Point', coordinates: [12, 34] });
+
+      manager.clearRotationCenter();
+      expect(source.data.features).toHaveLength(0);
     });
   });
 });

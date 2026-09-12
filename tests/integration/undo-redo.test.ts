@@ -2,6 +2,7 @@ import { describe, it, expect } from 'vitest';
 import { FeatureStore } from '../../src/core/FeatureStore';
 import { HistoryManager } from '../../src/core/HistoryManager';
 import { CreateAction, UpdateAction, DeleteAction } from '../../src/types/features';
+import { rotateFeature } from '../../src/utils/rotate';
 import type { LibreDrawFeature } from '../../src/types/features';
 
 function makeFeature(id: string): LibreDrawFeature {
@@ -190,5 +191,52 @@ describe('Undo/Redo Integration', () => {
 
     history.undo(store);
     expect(store.getById('f1')!.properties.name).toBeUndefined();
+  });
+
+  describe('rotation as UpdateAction', () => {
+    it('undoes and redoes a rotation as one step', () => {
+      const store = new FeatureStore();
+      const history = new HistoryManager();
+      const original = makeFeature('f1');
+      store.add(original);
+
+      const rotated = rotateFeature(original, 90);
+      store.update('f1', rotated);
+      history.push(new UpdateAction('f1', original, rotated));
+
+      const rotatedRing = store.getById('f1')!.geometry.coordinates[0] as [number, number][];
+      expect(rotatedRing[1][0]).not.toBeCloseTo(10, 3);
+
+      history.undo(store);
+      expect(store.getById('f1')!.geometry.coordinates).toEqual(original.geometry.coordinates);
+
+      history.redo(store);
+      const redone = store.getById('f1')!.geometry.coordinates[0] as [number, number][];
+      redone.forEach((pos, i) => {
+        expect(pos[0]).toBeCloseTo(rotatedRing[i][0], 9);
+        expect(pos[1]).toBeCloseTo(rotatedRing[i][1], 9);
+      });
+    });
+
+    it('unwinds three stacked rotations with three undos', () => {
+      const store = new FeatureStore();
+      const history = new HistoryManager();
+      const original = makeFeature('f1');
+      store.add(original);
+
+      for (let i = 0; i < 3; i++) {
+        const before = store.getById('f1')!;
+        const after = rotateFeature(before, 30);
+        store.update('f1', after);
+        history.push(new UpdateAction('f1', before, after));
+      }
+
+      history.undo(store);
+      history.undo(store);
+      history.undo(store);
+
+      expect(store.getById('f1')!.geometry.coordinates).toEqual(original.geometry.coordinates);
+      expect(history.canUndo()).toBe(false);
+    });
   });
 });

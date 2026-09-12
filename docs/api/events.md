@@ -13,6 +13,7 @@ interface LibreDrawEventMap {
   splitfailed: SplitFailedEvent;
   setback: SetbackEvent;
   setbackfailed: SetbackFailedEvent;
+  rotate: RotateEvent;
   selectionchange: SelectionChangeEvent;
   modechange: ModeChangeEvent;
   draftchange: DraftChangeEvent;
@@ -239,6 +240,38 @@ draw.on('setbackfailed', (e) => {
 
 ---
 
+## `rotate`
+
+Emitted when a rotation is committed in `rotate` mode, either by releasing a drag or by executing the angle input. Each commit is one history step.
+
+Undo and redo of a rotation emit [`update`](#update) events rather than `rotate`, because the history stores a rotation as a plain feature replacement.
+
+### Payload: `RotateEvent`
+
+```ts
+interface RotateEvent {
+  originalFeature: LibreDrawFeature;
+  feature: LibreDrawFeature;
+  angle: number;
+}
+```
+
+| Property          | Type                                              | Description                                                   |
+| ----------------- | ------------------------------------------------- | ------------------------------------------------------------- |
+| `originalFeature` | [`LibreDrawFeature`](/api/types#libredrawfeature) | The feature before this rotation                              |
+| `feature`         | [`LibreDrawFeature`](/api/types#libredrawfeature) | The feature after this rotation                               |
+| `angle`           | `number`                                          | Angle applied by this step in degrees, positive for clockwise |
+
+### Example
+
+```ts
+draw.on('rotate', (e) => {
+  console.log(`${e.originalFeature.id} rotated by ${e.angle}°`);
+});
+```
+
+---
+
 ## `selectionchange`
 
 Emitted when the set of selected features changes.
@@ -285,10 +318,10 @@ interface ModeChangeEvent {
 }
 ```
 
-| Property       | Type                              | Description                                                                                                                                |
-| -------------- | --------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------ |
-| `mode`         | [`ModeName`](/api/types#modename) | The new active mode (`'idle'`, `'draw-point'`, `'draw-line'`, `'draw-polygon'`, `'draw-rectangle'`, `'select'`, `'split'`, or `'setback'`) |
-| `previousMode` | [`ModeName`](/api/types#modename) | The previous mode                                                                                                                          |
+| Property       | Type                              | Description                                                                                                                                            |
+| -------------- | --------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `mode`         | [`ModeName`](/api/types#modename) | The new active mode (`'idle'`, `'draw-point'`, `'draw-line'`, `'draw-polygon'`, `'draw-rectangle'`, `'select'`, `'split'`, `'setback'`, or `'rotate'`) |
+| `previousMode` | [`ModeName`](/api/types#modename) | The previous mode                                                                                                                                      |
 
 ### Example
 
