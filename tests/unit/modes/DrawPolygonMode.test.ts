@@ -1,7 +1,7 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { DrawPolygonMode } from '../../../src/modes/DrawPolygonMode';
 import type { ModeContext } from '../../../src/core/ModeContext';
-import type { NormalizedInputEvent } from '../../../src/types/input';
+import type { NormalizedInputEvent, InputType } from '../../../src/types/input';
 import type { LibreDrawFeature } from '../../../src/types/features';
 
 function createMockContext(): ModeContext {
@@ -33,6 +33,7 @@ function createMockContext(): ModeContext {
       renderRotationCenter: vi.fn(),
       clearRotationCenter: vi.fn(),
     },
+    // Screen space is lng*10 / lat*10: one unit of lng is 10px.
     getScreenPoint: vi.fn((lngLat) => ({ x: lngLat.lng * 10, y: lngLat.lat * 10 })),
     setDragPan: vi.fn(),
     getSetbackDistance: () => 10,
@@ -44,15 +45,25 @@ function createMockContext(): ModeContext {
 function createPointerEvent(
   lng: number,
   lat: number,
-  x?: number,
-  y?: number
+  options: { x?: number; y?: number; inputType?: InputType } = {}
 ): NormalizedInputEvent {
   return {
     lngLat: { lng, lat },
-    point: { x: x ?? lng * 10, y: y ?? lat * 10 },
+    point: { x: options.x ?? lng * 10, y: options.y ?? lat * 10 },
     originalEvent: new MouseEvent('click'),
-    inputType: 'mouse',
+    inputType: options.inputType ?? 'mouse',
   };
+}
+
+/** A click or tap: pointer down and up at the same position. */
+function clickAt(
+  mode: DrawPolygonMode,
+  lng: number,
+  lat: number,
+  options: { x?: number; y?: number; inputType?: InputType } = {}
+): void {
+  mode.onPointerDown(createPointerEvent(lng, lat, options));
+  mode.onPointerUp(createPointerEvent(lng, lat, options));
 }
 
 describe('DrawPolygonMode', () => {
@@ -63,6 +74,17 @@ describe('DrawPolygonMode', () => {
     context = createMockContext();
     drawPolygonMode = new DrawPolygonMode(context);
   });
+
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
+  /** Place a triangle (0,0) → (10,0) → (10,10) with plain clicks. */
+  function placeTriangle(inputType: InputType = 'mouse'): void {
+    clickAt(drawPolygonMode, 0, 0, { inputType });
+    clickAt(drawPolygonMode, 10, 0, { inputType });
+    clickAt(drawPolygonMode, 10, 10, { inputType });
+  }
 
   it('should not respond to events when inactive', () => {
     drawPolygonMode.onPointerDown(createPointerEvent(0, 0));
@@ -89,33 +111,6 @@ describe('DrawPolygonMode', () => {
     drawPolygonMode.onPointerMove(createPointerEvent(5, 5));
 
     expect(context.render.renderPreview).not.toHaveBeenCalled();
-  });
-
-  it('should finalize polygon on double click with 3+ vertices', () => {
-    drawPolygonMode.activate();
-
-    // Add 4 vertices (the 4th is from the double-click's first click)
-    drawPolygonMode.onPointerDown(createPointerEvent(0, 0));
-    drawPolygonMode.onPointerDown(createPointerEvent(10, 0));
-    drawPolygonMode.onPointerDown(createPointerEvent(10, 10));
-    drawPolygonMode.onPointerDown(createPointerEvent(5, 5)); // extra from dblclick
-
-    const dblClickEvent = createPointerEvent(5, 5);
-    vi.spyOn(dblClickEvent.originalEvent, 'preventDefault');
-    vi.spyOn(dblClickEvent.originalEvent, 'stopPropagation');
-
-    drawPolygonMode.onDoubleClick(dblClickEvent);
-
-    expect(context.store.add).toHaveBeenCalled();
-    expect(context.history.push).toHaveBeenCalled();
-    expect(context.events.emit).toHaveBeenCalledWith(
-      'create',
-      expect.objectContaining({
-        feature: expect.objectContaining({ type: 'Feature' }),
-      })
-    );
-    expect(context.render.clearPreview).toHaveBeenCalled();
-    expect(dblClickEvent.originalEvent.preventDefault).toHaveBeenCalled();
   });
 
   it('should cancel drawing on Escape key', () => {
@@ -161,21 +156,6 @@ describe('DrawPolygonMode', () => {
     expect(context.render.clearPreview).toHaveBeenCalled();
   });
 
-  it('should close polygon when clicking near first vertex', () => {
-    drawPolygonMode.activate();
-
-    // getScreenPoint: lng*10, lat*10
-    drawPolygonMode.onPointerDown(createPointerEvent(0, 0)); // first vertex at screen (0, 0)
-    drawPolygonMode.onPointerDown(createPointerEvent(10, 0));
-    drawPolygonMode.onPointerDown(createPointerEvent(10, 10));
-
-    // Click near first vertex (within 10px threshold)
-    // First vertex screen point: (0, 0), clicking at screen (1, 1) → distance ~1.4px
-    drawPolygonMode.onPointerDown(createPointerEvent(0.1, 0.1, 1, 1));
-
-    expect(context.store.add).toHaveBeenCalled();
-  });
-
   it('should use snapped position for preview after vertex addition', () => {
     // Create a new context with snap enabled
     const snapContext = createMockContext();
@@ -219,6 +199,309 @@ describe('DrawPolygonMode', () => {
     expect(addedVertex[1]).toBe(5);
   });
 
+  // --- Position-based finishing ---
+
+  describe('finishing on a draft vertex', () => {
+    it('should close the polygon by clicking the first vertex with 3+ vertices', () => {
+      drawPolygonMode.activate();
+      placeTriangle();
+
+      // First vertex is at screen (0,0); clicking at (1,1) is ~1.4px away.
+      clickAt(drawPolygonMode, 0.1, 0.1, { x: 1, y: 1 });
+
+      expect(context.store.add).toHaveBeenCalledWith(
+        expect.objectContaining({
+          geometry: {
+            type: 'Polygon',
+            coordinates: [
+              [
+                [0, 0],
+                [10, 0],
+                [10, 10],
+                [0, 0],
+              ],
+            ],
+          },
+        })
+      );
+      expect(context.history.push).toHaveBeenCalled();
+      expect(context.events.emit).toHaveBeenCalledWith(
+        'create',
+        expect.objectContaining({ feature: expect.objectContaining({ type: 'Feature' }) })
+      );
+      expect(context.render.clearPreview).toHaveBeenCalled();
+    });
+
+    it('should close the polygon by clicking the last placed vertex with 3+ vertices', () => {
+      drawPolygonMode.activate();
+      placeTriangle();
+
+      clickAt(drawPolygonMode, 10, 10);
+
+      expect(context.store.add).toHaveBeenCalledTimes(1);
+      expect(context.events.emit).toHaveBeenLastCalledWith('draftchange', { vertexCount: 0 });
+    });
+
+    it('should finish a mouse double click at a new spot without leaving an extra vertex', () => {
+      drawPolygonMode.activate();
+      placeTriangle();
+
+      // Browser order for a double click: down/up, down/up, dblclick.
+      clickAt(drawPolygonMode, 5, 15); // places the 4th vertex
+      clickAt(drawPolygonMode, 5, 15); // lands on it → finish
+
+      const dblClickEvent = createPointerEvent(5, 15);
+      vi.spyOn(dblClickEvent.originalEvent, 'preventDefault');
+      vi.spyOn(dblClickEvent.originalEvent, 'stopPropagation');
+      drawPolygonMode.onDoubleClick(dblClickEvent);
+
+      expect(context.store.add).toHaveBeenCalledTimes(1);
+      const ring = vi.mocked(context.store.add).mock.calls[0][0].geometry.coordinates[0];
+      expect(ring).toEqual([
+        [0, 0],
+        [10, 0],
+        [10, 10],
+        [5, 15],
+        [0, 0],
+      ]);
+      expect(dblClickEvent.originalEvent.preventDefault).toHaveBeenCalled();
+      expect(dblClickEvent.originalEvent.stopPropagation).toHaveBeenCalled();
+    });
+
+    it('should not pop a vertex or finish on double click alone', () => {
+      drawPolygonMode.activate();
+      placeTriangle();
+      vi.mocked(context.events.emit).mockClear();
+
+      drawPolygonMode.onDoubleClick(createPointerEvent(5, 5));
+
+      expect(context.store.add).not.toHaveBeenCalled();
+      expect(context.events.emit).not.toHaveBeenCalledWith('draftchange', expect.anything());
+      expect(drawPolygonMode.getDraftVertexCount()).toBe(3);
+    });
+
+    it('should not add a vertex when clicking the last vertex with fewer than 3 vertices', () => {
+      drawPolygonMode.activate();
+      clickAt(drawPolygonMode, 0, 0);
+      clickAt(drawPolygonMode, 10, 0);
+      vi.mocked(context.events.emit).mockClear();
+
+      clickAt(drawPolygonMode, 10, 0);
+
+      expect(drawPolygonMode.getDraftVertexCount()).toBe(2);
+      expect(context.store.add).not.toHaveBeenCalled();
+      expect(context.events.emit).not.toHaveBeenCalled();
+    });
+
+    it('should not add a vertex when clicking the first vertex with fewer than 3 vertices', () => {
+      drawPolygonMode.activate();
+      clickAt(drawPolygonMode, 0, 0);
+      clickAt(drawPolygonMode, 10, 0);
+
+      clickAt(drawPolygonMode, 0, 0);
+
+      expect(drawPolygonMode.getDraftVertexCount()).toBe(2);
+      expect(context.store.add).not.toHaveBeenCalled();
+    });
+
+    it('should not finish when the pointer drags off the vertex before release', () => {
+      drawPolygonMode.activate();
+      placeTriangle();
+
+      drawPolygonMode.onPointerDown(createPointerEvent(10, 10));
+      drawPolygonMode.onPointerUp(createPointerEvent(10.5, 10)); // 5px > mouse tolerance
+
+      expect(context.store.add).not.toHaveBeenCalled();
+      expect(drawPolygonMode.getDraftVertexCount()).toBe(3);
+    });
+
+    it('should ignore a pointer up with no pending finish', () => {
+      drawPolygonMode.activate();
+      placeTriangle();
+
+      drawPolygonMode.onPointerUp(createPointerEvent(10, 10));
+
+      expect(context.store.add).not.toHaveBeenCalled();
+    });
+
+    it('should use the snap threshold as the mouse radius', () => {
+      drawPolygonMode.activate();
+      placeTriangle();
+
+      // 10px from the last vertex is on the boundary → finish.
+      clickAt(drawPolygonMode, 11, 10);
+      expect(context.store.add).toHaveBeenCalledTimes(1);
+    });
+
+    it('should place a new vertex just outside the mouse radius', () => {
+      drawPolygonMode.activate();
+      placeTriangle();
+
+      // 11px from the last vertex → a new vertex, not a finish.
+      clickAt(drawPolygonMode, 11.1, 10);
+
+      expect(context.store.add).not.toHaveBeenCalled();
+      expect(drawPolygonMode.getDraftVertexCount()).toBe(4);
+    });
+
+    it('should widen the radius by the tap tolerance for touch', () => {
+      drawPolygonMode.activate();
+      placeTriangle('touch');
+
+      // 20px from the last vertex: outside the 10px mouse radius, inside
+      // the 22px touch radius.
+      clickAt(drawPolygonMode, 12, 10, { inputType: 'touch' });
+
+      expect(context.store.add).toHaveBeenCalledTimes(1);
+    });
+
+    it('should still finish when snapping is disabled', () => {
+      context.getSnapConfig = () => ({ enabled: false, threshold: 15 });
+      drawPolygonMode.activate();
+      placeTriangle();
+
+      clickAt(drawPolygonMode, 11.5, 10); // 15px away
+
+      expect(context.store.add).toHaveBeenCalledTimes(1);
+    });
+
+    it('should reject a finish on the first vertex that would cause a closing intersection', () => {
+      drawPolygonMode.activate();
+
+      // (0,0) → (10,0) → (5,10) → (15,5)
+      // Closing (15,5)→(0,0) would cross (10,0)→(5,10)
+      clickAt(drawPolygonMode, 0, 0);
+      clickAt(drawPolygonMode, 10, 0);
+      clickAt(drawPolygonMode, 5, 10);
+      clickAt(drawPolygonMode, 15, 5);
+
+      clickAt(drawPolygonMode, 0, 0);
+
+      expect(context.store.add).not.toHaveBeenCalled();
+      expect(drawPolygonMode.getDraftVertexCount()).toBe(4);
+    });
+
+    it('should reject a finish on the last vertex that would cause a closing intersection', () => {
+      drawPolygonMode.activate();
+
+      clickAt(drawPolygonMode, 0, 0);
+      clickAt(drawPolygonMode, 10, 0);
+      clickAt(drawPolygonMode, 5, 10);
+      clickAt(drawPolygonMode, 15, 5);
+
+      clickAt(drawPolygonMode, 15, 5);
+
+      expect(context.store.add).not.toHaveBeenCalled();
+      expect(drawPolygonMode.getDraftVertexCount()).toBe(4);
+    });
+  });
+
+  describe('touch taps', () => {
+    it('should finish on two slow taps at the same spot (no double-tap window)', () => {
+      vi.useFakeTimers();
+      drawPolygonMode.activate();
+      clickAt(drawPolygonMode, 0, 0, { inputType: 'touch' });
+      clickAt(drawPolygonMode, 10, 0, { inputType: 'touch' });
+      clickAt(drawPolygonMode, 10, 10, { inputType: 'touch' });
+
+      vi.advanceTimersByTime(1000); // well past any double-tap window
+      clickAt(drawPolygonMode, 10, 10, { inputType: 'touch' });
+
+      expect(context.store.add).toHaveBeenCalledTimes(1);
+    });
+
+    it('should place two vertices on two quick taps at different spots', () => {
+      drawPolygonMode.activate();
+      clickAt(drawPolygonMode, 0, 0, { inputType: 'touch' });
+      clickAt(drawPolygonMode, 10, 0, { inputType: 'touch' });
+
+      // Same instant, 10 units (100px) apart: two vertices, no finish.
+      clickAt(drawPolygonMode, 10, 10, { inputType: 'touch' });
+      clickAt(drawPolygonMode, 0, 10, { inputType: 'touch' });
+
+      expect(context.store.add).not.toHaveBeenCalled();
+      expect(drawPolygonMode.getDraftVertexCount()).toBe(4);
+    });
+
+    it('should treat a release after the long-press delay as the long press, not a finish', () => {
+      vi.useFakeTimers();
+      drawPolygonMode.activate();
+      placeTriangle('touch');
+
+      // Hold on the last vertex. TouchInput fires pointer up right before
+      // the long press.
+      drawPolygonMode.onPointerDown(createPointerEvent(10, 10, { inputType: 'touch' }));
+      vi.advanceTimersByTime(500);
+      drawPolygonMode.onPointerUp(createPointerEvent(10, 10, { inputType: 'touch' }));
+      drawPolygonMode.onLongPress(createPointerEvent(10, 10, { inputType: 'touch' }));
+
+      expect(context.store.add).not.toHaveBeenCalled();
+      expect(drawPolygonMode.getDraftVertexCount()).toBe(2);
+    });
+  });
+
+  describe('finish indicator on pointer move', () => {
+    it('should show the snap indicator on the first vertex and snap the preview to it', () => {
+      drawPolygonMode.activate();
+      placeTriangle();
+      vi.mocked(context.render.renderSnapIndicator).mockClear();
+      vi.mocked(context.render.renderPreview).mockClear();
+
+      drawPolygonMode.onPointerMove(createPointerEvent(0.3, 0.4)); // 5px from (0,0)
+
+      expect(context.render.renderSnapIndicator).toHaveBeenCalledWith([0, 0]);
+      const preview = vi.mocked(context.render.renderPreview).mock.calls[0][0];
+      expect(preview).toEqual([
+        [0, 0],
+        [10, 0],
+        [10, 10],
+        [0, 0],
+        [0, 0],
+      ]);
+    });
+
+    it('should show the snap indicator on the last vertex', () => {
+      drawPolygonMode.activate();
+      placeTriangle();
+      vi.mocked(context.render.renderSnapIndicator).mockClear();
+
+      drawPolygonMode.onPointerMove(createPointerEvent(10.5, 10));
+
+      expect(context.render.renderSnapIndicator).toHaveBeenCalledWith([10, 10]);
+    });
+
+    it('should clear the indicator once the pointer leaves the draft vertex', () => {
+      drawPolygonMode.activate();
+      placeTriangle();
+
+      drawPolygonMode.onPointerMove(createPointerEvent(10.5, 10));
+      vi.mocked(context.render.clearSnapIndicator).mockClear();
+      drawPolygonMode.onPointerMove(createPointerEvent(5, 5));
+
+      expect(context.render.clearSnapIndicator).toHaveBeenCalled();
+    });
+
+    it('should prefer the draft vertex over a store snap target at the same spot', () => {
+      const storeFeature: LibreDrawFeature = {
+        id: 'existing',
+        type: 'Feature',
+        geometry: { type: 'Point', coordinates: [10.2, 10] },
+        properties: {},
+      };
+      context.getSnapConfig = () => ({ enabled: true, threshold: 10 });
+      drawPolygonMode.activate();
+      placeTriangle();
+      // The store target appears only after the draft is placed, so the
+      // triangle itself did not snap to it.
+      vi.mocked(context.store.getAll).mockReturnValue([storeFeature]);
+      vi.mocked(context.render.renderSnapIndicator).mockClear();
+
+      drawPolygonMode.onPointerMove(createPointerEvent(10.1, 10));
+
+      expect(context.render.renderSnapIndicator).toHaveBeenLastCalledWith([10, 10]);
+    });
+  });
+
   // --- Self-intersection prevention ---
 
   describe('self-intersection prevention', () => {
@@ -255,60 +538,16 @@ describe('DrawPolygonMode', () => {
       expect(vi.mocked(context.render.renderPreview).mock.calls.length).toBe(previewCallCount + 1);
     });
 
-    it('should reject double-click finalization that would cause closing intersection', () => {
-      drawPolygonMode.activate();
-
-      // Create vertices where closing would cause intersection:
-      // (0,0) → (10,0) → (5,10) → (15,5)
-      drawPolygonMode.onPointerDown(createPointerEvent(0, 0));
-      drawPolygonMode.onPointerDown(createPointerEvent(10, 0));
-      drawPolygonMode.onPointerDown(createPointerEvent(5, 10));
-      drawPolygonMode.onPointerDown(createPointerEvent(15, 5));
-
-      // Extra click from double-click
-      drawPolygonMode.onPointerDown(createPointerEvent(12, 4));
-
-      const dblClickEvent = createPointerEvent(12, 4);
-      vi.spyOn(dblClickEvent.originalEvent, 'preventDefault').mockImplementation(() => {});
-      vi.spyOn(dblClickEvent.originalEvent, 'stopPropagation').mockImplementation(() => {});
-
-      drawPolygonMode.onDoubleClick(dblClickEvent);
-
-      // Polygon should NOT have been created
-      expect(context.store.add).not.toHaveBeenCalled();
-    });
-
-    it('should reject click-to-close that would cause closing intersection', () => {
-      drawPolygonMode.activate();
-
-      // (0,0) → (10,0) → (5,10) → (15,5)
-      // Closing (15,5)→(0,0) would cross (10,0)→(5,10)
-      drawPolygonMode.onPointerDown(createPointerEvent(0, 0));
-      drawPolygonMode.onPointerDown(createPointerEvent(10, 0));
-      drawPolygonMode.onPointerDown(createPointerEvent(5, 10));
-      drawPolygonMode.onPointerDown(createPointerEvent(15, 5));
-
-      // Click near first vertex to close
-      drawPolygonMode.onPointerDown(createPointerEvent(0, 0, 0, 0));
-
-      // Polygon should NOT have been created (closing would self-intersect)
-      expect(context.store.add).not.toHaveBeenCalled();
-    });
-
-    it('should allow valid polygon creation via double-click', () => {
+    it('should allow valid polygon creation via a click on the last vertex', () => {
       drawPolygonMode.activate();
 
       // Simple square
-      drawPolygonMode.onPointerDown(createPointerEvent(0, 0));
-      drawPolygonMode.onPointerDown(createPointerEvent(10, 0));
-      drawPolygonMode.onPointerDown(createPointerEvent(10, 10));
-      drawPolygonMode.onPointerDown(createPointerEvent(5, 5)); // extra from dblclick
+      clickAt(drawPolygonMode, 0, 0);
+      clickAt(drawPolygonMode, 10, 0);
+      clickAt(drawPolygonMode, 10, 10);
+      clickAt(drawPolygonMode, 0, 10);
 
-      const dblClickEvent = createPointerEvent(5, 5);
-      vi.spyOn(dblClickEvent.originalEvent, 'preventDefault').mockImplementation(() => {});
-      vi.spyOn(dblClickEvent.originalEvent, 'stopPropagation').mockImplementation(() => {});
-
-      drawPolygonMode.onDoubleClick(dblClickEvent);
+      clickAt(drawPolygonMode, 0, 10);
 
       expect(context.store.add).toHaveBeenCalled();
     });

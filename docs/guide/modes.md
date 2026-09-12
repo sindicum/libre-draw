@@ -8,8 +8,8 @@ LibreDraw uses a mode-based architecture. Only one mode is active at a time, and
 | ---------------- | ------------------------------------------------------------------ | ------------------------------------------------------- |
 | `idle`           | No drawing interaction. Map behaves normally.                      | Default / toolbar                                       |
 | `draw-point`     | Click to place a point feature.                                    | Toolbar draw-point button / `setMode('draw-point')`     |
-| `draw-line`      | Click to add vertices, double-click to finalize line.              | Toolbar draw-line button / `setMode('draw-line')`       |
-| `draw-polygon`   | Click to add vertices, double-click to close polygon.              | Toolbar draw-polygon button / `setMode('draw-polygon')` |
+| `draw-line`      | Click to add vertices, click the last vertex to finalize line.     | Toolbar draw-line button / `setMode('draw-line')`       |
+| `draw-polygon`   | Click to add vertices, click the first or last vertex to close.    | Toolbar draw-polygon button / `setMode('draw-polygon')` |
 | `draw-rectangle` | Click two opposite corners to create a rectangle.                  | Toolbar rectangle button / `setMode('draw-rectangle')`  |
 | `select`         | Click to select, drag to edit vertices or move point/line/polygon. | Toolbar select button / `setMode('select')`             |
 | `split`          | Split a polygon with a two-point line.                             | Toolbar split button / `setMode('split')`               |
@@ -75,24 +75,28 @@ In draw-line mode, you create new LineString features by clicking on the map.
 
 ### Mouse Interaction
 
-| Action       | Effect                                 |
-| ------------ | -------------------------------------- |
-| Click        | Add a vertex                           |
-| Double-click | Finalize the line (minimum 2 vertices) |
-| Escape key   | Cancel the current drawing             |
+| Action                | Effect                                 |
+| --------------------- | -------------------------------------- |
+| Click                 | Add a vertex                           |
+| Click the last vertex | Finalize the line (minimum 2 vertices) |
+| Escape key            | Cancel the current drawing             |
 
 ### Touch Interaction
 
-| Action     | Effect            |
-| ---------- | ----------------- |
-| Tap        | Add a vertex      |
-| Double-tap | Finalize the line |
-| Long-press | Undo last vertex  |
+| Action              | Effect            |
+| ------------------- | ----------------- |
+| Tap                 | Add a vertex      |
+| Tap the last vertex | Finalize the line |
+| Long-press          | Undo last vertex  |
 
 ### Behavior
 
 - Each placed vertex is marked with a dot, so every click or tap has feedback of its own
 - A preview line follows the cursor while drawing (mouse only — touch has no hover)
+- Finishing is position-based, not timing-based: clicking or tapping on the last placed vertex finalizes the line. A double-click at a new spot places one vertex and lands on it, so it finalizes too. There is no double-tap timing window to miss
+- The finish radius follows the snap threshold (default 10px) and is widened by 12px for touch. Hovering near the last vertex shows the snap indicator on it
+- Clicking or tapping the last vertex with only one vertex placed does nothing (no duplicate vertex)
+- On mobile you can also finish from your own UI with [`finishDrawing()`](/api/libre-draw#finishdrawing)
 - Unlike polygon drawing, the line is **not closed** — it remains an open path
 - Minimum 2 vertices are required to finalize
 - The mode stays active after finalization for continuous drawing
@@ -115,25 +119,29 @@ In draw-polygon mode, you create new polygons by clicking on the map.
 
 ### Mouse Interaction
 
-| Action       | Effect                                 |
-| ------------ | -------------------------------------- |
-| Click        | Add a vertex                           |
-| Double-click | Close the polygon (minimum 3 vertices) |
-| Escape key   | Cancel the current drawing             |
+| Action                         | Effect                                 |
+| ------------------------------ | -------------------------------------- |
+| Click                          | Add a vertex                           |
+| Click the first or last vertex | Close the polygon (minimum 3 vertices) |
+| Escape key                     | Cancel the current drawing             |
 
 ### Touch Interaction
 
-| Action     | Effect            |
-| ---------- | ----------------- |
-| Tap        | Add a vertex      |
-| Double-tap | Close the polygon |
-| Long-press | Undo last vertex  |
+| Action                       | Effect            |
+| ---------------------------- | ----------------- |
+| Tap                          | Add a vertex      |
+| Tap the first or last vertex | Close the polygon |
+| Long-press                   | Undo last vertex  |
 
 ### Behavior
 
 - Each placed vertex is marked with a dot, so every click or tap has feedback of its own
 - A preview line follows the cursor while drawing (mouse only — touch has no hover)
 - A semi-transparent polygon preview shows the current shape
+- Closing is position-based, not timing-based: clicking or tapping on the first vertex or on the last placed vertex closes the polygon. A double-click at a new spot places one vertex and lands on it, so it closes too. There is no double-tap timing window to miss
+- The finish radius follows the snap threshold (default 10px) and is widened by 12px for touch. Hovering near the first or last vertex shows the snap indicator on it
+- Clicking or tapping the first or last vertex with fewer than 3 vertices placed does nothing (no duplicate vertex)
+- On mobile you can also finish from your own UI with [`finishDrawing()`](/api/libre-draw#finishdrawing)
 - Map panning is disabled during draw-polygon mode
 - Double-click zoom is disabled during draw-polygon mode
 - Self-intersecting polygons are automatically rejected

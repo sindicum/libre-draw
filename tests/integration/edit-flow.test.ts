@@ -88,13 +88,9 @@ describe('Edit Flow Integration', () => {
     mode.onPointerDown(createPointerEvent(10, 10));
     mode.onPointerDown(createPointerEvent(0, 10));
 
-    // Extra click from double-click first event
-    mode.onPointerDown(createPointerEvent(5, 5));
-
-    const dblEvt = createPointerEvent(5, 5);
-    vi.spyOn(dblEvt.originalEvent, 'preventDefault').mockImplementation(() => {});
-    vi.spyOn(dblEvt.originalEvent, 'stopPropagation').mockImplementation(() => {});
-    mode.onDoubleClick(dblEvt);
+    // Click the last placed vertex to close the polygon
+    mode.onPointerDown(createPointerEvent(0, 10));
+    mode.onPointerUp(createPointerEvent(0, 10));
   }
 
   it('should draw, select, drag vertex, undo, and redo', () => {

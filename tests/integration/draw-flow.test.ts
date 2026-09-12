@@ -154,14 +154,8 @@ describe('Draw Flow Integration', () => {
     drawPolygonMode.onPointerDown(createPointerEvent(10, 0));
     drawPolygonMode.onPointerDown(createPointerEvent(10, 10));
 
-    // Add an extra vertex from the first click of the double-click
-    drawPolygonMode.onPointerDown(createPointerEvent(5, 5));
-
-    // Finalize with double click
-    const dblEvt = createPointerEvent(5, 5);
-    vi.spyOn(dblEvt.originalEvent, 'preventDefault').mockImplementation(() => {});
-    vi.spyOn(dblEvt.originalEvent, 'stopPropagation').mockImplementation(() => {});
-    drawPolygonMode.onDoubleClick(dblEvt);
+    // Click the last placed vertex to close the polygon
+    clickAt(drawPolygonMode, 10, 10);
 
     // Verify feature was created
     expect(store.getAll()).toHaveLength(1);
@@ -207,12 +201,8 @@ describe('Draw Flow Integration', () => {
     drawPolygonMode.onPointerDown(createPointerEvent(0, 0));
     drawPolygonMode.onPointerDown(createPointerEvent(10, 0));
     drawPolygonMode.onPointerDown(createPointerEvent(10, 10));
-    drawPolygonMode.onPointerDown(createPointerEvent(5, 5));
-
-    const dblEvt = createPointerEvent(5, 5);
-    vi.spyOn(dblEvt.originalEvent, 'preventDefault').mockImplementation(() => {});
-    vi.spyOn(dblEvt.originalEvent, 'stopPropagation').mockImplementation(() => {});
-    drawPolygonMode.onDoubleClick(dblEvt);
+    // Click the last placed vertex to close the polygon
+    clickAt(drawPolygonMode, 10, 10);
 
     const featureId = store.getAll()[0].id;
     expect(createPayload).toBeDefined();
@@ -258,12 +248,8 @@ describe('Draw Flow Integration', () => {
     drawPolygonMode.onPointerDown(createPointerEvent(0, 0));
     drawPolygonMode.onPointerDown(createPointerEvent(10, 0));
     drawPolygonMode.onPointerDown(createPointerEvent(10, 10));
-    drawPolygonMode.onPointerDown(createPointerEvent(5, 5));
-
-    const dblEvt = createPointerEvent(5, 5);
-    vi.spyOn(dblEvt.originalEvent, 'preventDefault').mockImplementation(() => {});
-    vi.spyOn(dblEvt.originalEvent, 'stopPropagation').mockImplementation(() => {});
-    drawPolygonMode.onDoubleClick(dblEvt);
+    // Click the last placed vertex to close the polygon
+    clickAt(drawPolygonMode, 10, 10);
 
     expect(store.getAll()).toHaveLength(1);
 
