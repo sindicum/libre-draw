@@ -249,4 +249,73 @@ describe('DrawLineMode', () => {
     expect(event.originalEvent.preventDefault).toHaveBeenCalled();
     expect(event.originalEvent.stopPropagation).toHaveBeenCalled();
   });
+
+  describe('draft vertex markers', () => {
+    it('should render a dot for each placed vertex', () => {
+      mode.activate();
+      mode.onPointerDown(createPointerEvent(0, 0));
+
+      expect(context.render.renderVertices).toHaveBeenLastCalledWith([[0, 0]], []);
+
+      mode.onPointerDown(createPointerEvent(10, 0));
+
+      expect(context.render.renderVertices).toHaveBeenLastCalledWith(
+        [
+          [0, 0],
+          [10, 0],
+        ],
+        []
+      );
+    });
+
+    it('should not add a dot for the hovered cursor position', () => {
+      mode.activate();
+      mode.onPointerDown(createPointerEvent(0, 0));
+      vi.mocked(context.render.renderVertices).mockClear();
+
+      mode.onPointerMove(createPointerEvent(5, 5));
+
+      // Only placed vertices get a dot; the cursor is shown by the preview.
+      expect(context.render.renderVertices).not.toHaveBeenCalled();
+    });
+
+    it('should drop the dot of the vertex removed by a long press', () => {
+      mode.activate();
+      mode.onPointerDown(createPointerEvent(0, 0));
+      mode.onPointerDown(createPointerEvent(10, 0));
+
+      mode.onLongPress(createPointerEvent(10, 0));
+
+      expect(context.render.renderVertices).toHaveBeenLastCalledWith([[0, 0]], []);
+    });
+
+    it('should clear the dots once the last vertex is removed', () => {
+      mode.activate();
+      mode.onPointerDown(createPointerEvent(0, 0));
+
+      mode.onLongPress(createPointerEvent(0, 0));
+
+      expect(context.render.clearVertices).toHaveBeenCalled();
+    });
+
+    it('should clear the dots on cancelDrawing()', () => {
+      mode.activate();
+      mode.onPointerDown(createPointerEvent(0, 0));
+      vi.mocked(context.render.clearVertices).mockClear();
+
+      mode.cancelDrawing();
+
+      expect(context.render.clearVertices).toHaveBeenCalled();
+    });
+
+    it('should clear the dots on deactivate()', () => {
+      mode.activate();
+      mode.onPointerDown(createPointerEvent(0, 0));
+      vi.mocked(context.render.clearVertices).mockClear();
+
+      mode.deactivate();
+
+      expect(context.render.clearVertices).toHaveBeenCalled();
+    });
+  });
 });
