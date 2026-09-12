@@ -56,6 +56,11 @@ export class SourceManager {
     if (!this.map.getSource(SOURCE_IDS.FEATURES)) {
       this.map.addSource(SOURCE_IDS.FEATURES, {
         type: 'geojson',
+        // Feature ids are string UUIDs. A GeoJSON source drops a top-level
+        // id that is not a number, so `setFeatureState` would receive
+        // `undefined` and throw. Promoting the `_id` property (written by
+        // RenderManager) keeps the UUID usable as the feature state key.
+        promoteId: '_id',
         data: EMPTY_FC,
       });
     }

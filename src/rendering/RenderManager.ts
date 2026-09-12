@@ -648,9 +648,10 @@ export class RenderManager {
 
     const geojsonFeatures: GeoJSON.Feature[] = this.pendingFeatures.map((feature) => ({
       type: 'Feature' as const,
-      id: feature.id as unknown as number,
+      id: feature.id,
       properties: {
         ...feature.properties,
+        // The source promotes this to the feature id (see SourceManager).
         _id: feature.id,
         _selected: this.selectedIds.has(feature.id),
         _isPoint: feature.geometry.type === 'Point',
@@ -671,7 +672,8 @@ export class RenderManager {
    * Register mouse handlers for Point feature hover color.
    */
   private setupPointHover(): void {
-    let hoveredId: number | null = null;
+    // Ids are the string UUIDs promoted from `_id` by the source.
+    let hoveredId: string | number | null = null;
 
     this.map.on('mouseenter', LAYER_IDS.POINT, () => {
       this.map.getCanvas().style.cursor = 'pointer';
@@ -679,13 +681,16 @@ export class RenderManager {
 
     this.map.on('mousemove', LAYER_IDS.POINT, (e) => {
       if (!e.features || e.features.length === 0) return;
-      const f = e.features[0];
-      const numericId = f.id as number;
+      const id = e.features[0].id;
+      // A source created without `promoteId` (e.g. rebuilt by a style swap)
+      // yields undefined ids. Skipping keeps hover colour off rather than
+      // throwing from setFeatureState.
+      if (id === undefined || id === null) return;
 
-      if (hoveredId !== null && hoveredId !== numericId) {
+      if (hoveredId !== null && hoveredId !== id) {
         this.map.setFeatureState({ source: SOURCE_IDS.FEATURES, id: hoveredId }, { hover: false });
       }
-      hoveredId = numericId;
+      hoveredId = id;
       this.map.setFeatureState({ source: SOURCE_IDS.FEATURES, id: hoveredId }, { hover: true });
     });
 
