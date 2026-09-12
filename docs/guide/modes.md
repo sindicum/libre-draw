@@ -17,7 +17,7 @@ LibreDraw uses a mode-based architecture. Only one mode is active at a time, and
 
 ### Try it
 
-Use the buttons below to switch between modes. Place points in **draw-point** mode, draw lines in **draw-line** mode, draw polygons in **draw** mode, drop rectangles in **draw-rectangle** mode, then switch to **select** mode to edit them.
+Use the buttons below to switch between modes. Place points in **draw-point** mode, draw lines in **draw-line** mode, draw polygons in **draw-polygon** mode, drop rectangles in **draw-rectangle** mode, then switch to **select** mode to edit them.
 
 <ModesDemo />
 
