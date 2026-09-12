@@ -18,7 +18,7 @@ hero:
 
 features:
   - title: Zero Config
-    details: Just pass a MapLibre Map instance. Built-in toolbar appears automatically with draw-point, draw-line, draw-polygon, draw-rectangle, select, split, setback, rotate, delete, undo, and redo buttons.
+    details: Just pass a MapLibre Map instance. Built-in toolbar appears automatically with draw-point, draw-line, draw-polygon, draw-rectangle, select, split, union, setback, rotate, delete, undo, and redo buttons.
   - title: Touch First
     details: Full touch support with tap, double-tap, long-press, and drag gestures. Works great on mobile devices.
   - title: GeoJSON In/Out

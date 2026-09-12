@@ -761,6 +761,141 @@ describe('LibreDraw lifecycle integration', () => {
     });
   });
 
+  describe('union mode', () => {
+    function makeSquare(id: string, x: number, y: number, size: number) {
+      return {
+        id,
+        type: 'Feature' as const,
+        geometry: {
+          type: 'Polygon' as const,
+          coordinates: [
+            [
+              [x, y],
+              [x + size, y],
+              [x + size, y + size],
+              [x, y + size],
+              [x, y],
+            ],
+          ],
+        },
+        properties: { name: id },
+      };
+    }
+
+    /** Click on the canvas; FakeMap projects screen pixels 1:1 to lng/lat. */
+    function clickAt(map: FakeMap, x: number, y: number): void {
+      const canvas = map.getCanvasContainer();
+      canvas.dispatchEvent(new MouseEvent('mousedown', { clientX: x, clientY: y, button: 0 }));
+      window.dispatchEvent(new MouseEvent('mouseup', { clientX: x, clientY: y, button: 0 }));
+    }
+
+    it('enters union mode from setMode() and the toolbar button', () => {
+      const map = new FakeMap();
+      const draw = new LibreDraw(map.asMap());
+      const container = map.getContainer();
+
+      draw.setMode('union');
+      expect(draw.getMode()).toBe('union');
+      expect(map.dragPan.enable).toHaveBeenCalled();
+
+      draw.setMode('idle');
+      const button = container.querySelector('button[title="Union polygons"]') as HTMLButtonElement;
+      expect(button).not.toBeNull();
+      button.click();
+      expect(draw.getMode()).toBe('union');
+      button.click();
+      expect(draw.getMode()).toBe('idle');
+
+      draw.destroy();
+    });
+
+    it('hides the union button when controls.union is false', () => {
+      const map = new FakeMap();
+      const draw = new LibreDraw(map.asMap(), { toolbar: { controls: { union: false } } });
+
+      expect(map.getContainer().querySelector('button[title="Union polygons"]')).toBeNull();
+
+      draw.destroy();
+    });
+
+    it('merges two polygons as one history step and re-emits union on redo()', () => {
+      const map = new FakeMap();
+      const draw = new LibreDraw(map.asMap(), { toolbar: false });
+      draw.addFeatures([makeSquare('a', 10, 10, 40), makeSquare('b', 30, 30, 40)]);
+
+      const unionListener = vi.fn();
+      const createListener = vi.fn();
+      const deleteListener = vi.fn();
+      draw.on('union', unionListener);
+      draw.on('create', createListener);
+      draw.on('delete', deleteListener);
+
+      draw.setMode('union');
+      clickAt(map, 15, 15); // select 'a'
+      clickAt(map, 65, 65); // click 'b' (outside 'a')
+
+      expect(unionListener).toHaveBeenCalledTimes(1);
+      const merged = unionListener.mock.calls[0][0].feature;
+      expect(draw.getFeatures().map((f) => f.id)).toEqual([merged.id]);
+      expect(merged.properties).toEqual({ name: 'a' });
+
+      expect(draw.undo()).toBe(true);
+      expect(
+        draw
+          .getFeatures()
+          .map((f) => f.id)
+          .sort()
+      ).toEqual(['a', 'b']);
+      expect(deleteListener).toHaveBeenCalledWith({
+        feature: expect.objectContaining({ id: merged.id }),
+      });
+      expect(createListener).toHaveBeenCalledWith({
+        feature: expect.objectContaining({ id: 'a' }),
+      });
+      expect(createListener).toHaveBeenCalledWith({
+        feature: expect.objectContaining({ id: 'b' }),
+      });
+
+      expect(draw.redo()).toBe(true);
+      expect(draw.getFeatures().map((f) => f.id)).toEqual([merged.id]);
+      expect(unionListener).toHaveBeenCalledTimes(2);
+      expect(unionListener.mock.calls[1][0]).toMatchObject({
+        originalFeatures: [{ id: 'a' }, { id: 'b' }],
+        feature: { id: merged.id },
+      });
+      expect(draw.undo()).toBe(true);
+      expect(
+        draw
+          .getFeatures()
+          .map((f) => f.id)
+          .sort()
+      ).toEqual(['a', 'b']);
+
+      draw.destroy();
+    });
+
+    it('emits unionfailed for polygons that do not touch and leaves the store intact', () => {
+      const map = new FakeMap();
+      const draw = new LibreDraw(map.asMap(), { toolbar: false });
+      draw.addFeatures([makeSquare('a', 10, 10, 20), makeSquare('b', 60, 60, 20)]);
+
+      const failedListener = vi.fn();
+      draw.on('unionfailed', failedListener);
+
+      draw.setMode('union');
+      clickAt(map, 15, 15);
+      clickAt(map, 70, 70);
+
+      expect(failedListener).toHaveBeenCalledWith({ reason: 'disjoint', featureIds: ['a', 'b'] });
+      expect(draw.getFeatures()).toHaveLength(2);
+      // Nothing was pushed: the only undoable step is the addFeatures() call.
+      expect(draw.undo()).toBe(true);
+      expect(draw.getFeatures()).toHaveLength(0);
+
+      draw.destroy();
+    });
+  });
+
   describe('rotate mode', () => {
     function makeSquare(id: string) {
       return {

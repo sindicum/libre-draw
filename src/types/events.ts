@@ -60,6 +60,35 @@ export interface SetbackFailedEvent {
 }
 
 /**
+ * Reasons a union operation can fail.
+ *
+ * - `not-polygon`: one of the targets is not a Polygon
+ * - `has-holes`: a target has an inner ring, or the merged shape would enclose a hole
+ * - `disjoint`: the targets do not touch, so the result would be a MultiPolygon
+ * - `invalid-result`: the geometry engine produced no usable polygon
+ */
+export type UnionFailReason = 'not-polygon' | 'has-holes' | 'disjoint' | 'invalid-result';
+
+/**
+ * Event payload for a successful union operation.
+ *
+ * `originalFeatures` are the two source polygons in selection order; the
+ * result inherits the properties of the first one.
+ */
+export interface UnionEvent {
+  originalFeatures: [LibreDrawFeature, LibreDrawFeature];
+  feature: LibreDrawFeature;
+}
+
+/**
+ * Event payload for a failed union operation.
+ */
+export interface UnionFailedEvent {
+  reason: UnionFailReason;
+  featureIds: [string, string];
+}
+
+/**
  * Event payload for a committed rotation.
  *
  * `angle` is the rotation applied by this step in degrees, positive clockwise
@@ -109,6 +138,8 @@ export interface LibreDrawEventMap {
   splitfailed: SplitFailedEvent;
   setback: SetbackEvent;
   setbackfailed: SetbackFailedEvent;
+  union: UnionEvent;
+  unionfailed: UnionFailedEvent;
   rotate: RotateEvent;
   selectionchange: SelectionChangeEvent;
   modechange: ModeChangeEvent;

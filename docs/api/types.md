@@ -232,6 +232,7 @@ interface ToolbarControls {
   drawRectangle?: boolean;
   select?: boolean;
   split?: boolean;
+  union?: boolean;
   setback?: boolean;
   rotate?: boolean;
   settings?: boolean;
@@ -249,6 +250,7 @@ interface ToolbarControls {
 | `drawRectangle` | `boolean` | `true`  | Show draw-rectangle mode toggle button             |
 | `select`        | `boolean` | `true`  | Show select mode toggle button                     |
 | `split`         | `boolean` | `true`  | Show split mode toggle button                      |
+| `union`         | `boolean` | `true`  | Show union mode toggle button                      |
 | `setback`       | `boolean` | `true`  | Show setback mode toggle button and distance input |
 | `rotate`        | `boolean` | `true`  | Show rotate mode toggle button and angle input     |
 | `settings`      | `boolean` | `true`  | Show style settings button and panel               |
@@ -273,21 +275,23 @@ type ModeName =
   | 'draw-rectangle'
   | 'select'
   | 'split'
+  | 'union'
   | 'setback'
   | 'rotate';
 ```
 
-| Value              | Description                                                                |
-| ------------------ | -------------------------------------------------------------------------- |
-| `'idle'`           | No drawing interaction. Map behaves normally.                              |
-| `'draw-point'`     | Place point features by clicking/tapping.                                  |
-| `'draw-line'`      | Create lines by clicking/tapping vertices, click the last one to finalize. |
-| `'draw-polygon'`   | Create polygons by clicking/tapping vertices, click the first or last one. |
-| `'draw-rectangle'` | Create an axis-aligned rectangle by clicking/tapping two opposite corners. |
-| `'select'`         | Select and edit existing features (points, lines, and polygons).           |
-| `'split'`          | Split a polygon into two polygons with a two-point line.                   |
-| `'setback'`        | Apply inward edge setback with distance input and preview.                 |
-| `'rotate'`         | Rotate a polygon or line around its center by dragging or angle input.     |
+| Value              | Description                                                                   |
+| ------------------ | ----------------------------------------------------------------------------- |
+| `'idle'`           | No drawing interaction. Map behaves normally.                                 |
+| `'draw-point'`     | Place point features by clicking/tapping.                                     |
+| `'draw-line'`      | Create lines by clicking/tapping vertices, click the last one to finalize.    |
+| `'draw-polygon'`   | Create polygons by clicking/tapping vertices, click the first or last one.    |
+| `'draw-rectangle'` | Create an axis-aligned rectangle by clicking/tapping two opposite corners.    |
+| `'select'`         | Select and edit existing features (points, lines, and polygons).              |
+| `'split'`          | Split a polygon into two polygons with a two-point line.                      |
+| `'union'`          | Merge two touching or overlapping polygons into one by clicking them in turn. |
+| `'setback'`        | Apply inward edge setback with distance input and preview.                    |
+| `'rotate'`         | Rotate a polygon or line around its center by dragging or angle input.        |
 
 ---
 
@@ -298,7 +302,7 @@ type ModeName =
 The type of history action.
 
 ```ts
-type ActionType = 'create' | 'update' | 'delete' | 'split' | 'setback' | 'batch';
+type ActionType = 'create' | 'update' | 'delete' | 'split' | 'setback' | 'union' | 'batch';
 ```
 
 `'batch'` is used by [`BatchAction`](#batchaction), which groups several actions into one history step (for example, one [`addFeatures()`](/api/libre-draw#addfeatures-features) call).

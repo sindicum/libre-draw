@@ -8,6 +8,7 @@ import { drawPolygonIcon } from './icons/draw-polygon';
 import { drawRectangleIcon } from './icons/draw-rectangle';
 import { selectIcon } from './icons/select';
 import { splitIcon } from './icons/split';
+import { unionIcon } from './icons/union';
 import { setbackIcon } from './icons/setback';
 import { rotateIcon } from './icons/rotate';
 import { settingsIcon } from './icons/settings';
@@ -28,6 +29,7 @@ const DEFAULT_CONTROLS: Required<ToolbarControls> = {
   drawRectangle: true,
   select: true,
   split: true,
+  union: true,
   setback: true,
   rotate: true,
   settings: true,
@@ -46,6 +48,7 @@ export interface ToolbarCallbacks {
   onDrawRectangleClick(): void;
   onSelectClick(): void;
   onSplitClick(): void;
+  onUnionClick(): void;
   onSetbackClick(): void;
   onSetbackExecute(distance: number): void;
   onSetbackDistanceChange(distance: number): void;
@@ -96,7 +99,7 @@ export class Toolbar {
   /**
    * Update the active mode displayed in the toolbar.
    * @param mode - The active mode name ('idle', 'draw-point', 'draw-line', 'draw-polygon',
-   *   'draw-rectangle', 'select', 'split', 'setback', 'rotate').
+   *   'draw-rectangle', 'select', 'split', 'union', 'setback', 'rotate').
    */
   setActiveMode(mode: string): void {
     this.activeMode = mode;
@@ -106,6 +109,7 @@ export class Toolbar {
     const drawRectangleBtn = this.buttons.get('draw-rectangle');
     const selectBtn = this.buttons.get('select');
     const splitBtn = this.buttons.get('split');
+    const unionBtn = this.buttons.get('union');
     const setbackBtn = this.buttons.get('setback');
     const rotateBtn = this.buttons.get('rotate');
 
@@ -126,6 +130,9 @@ export class Toolbar {
     }
     if (splitBtn) {
       splitBtn.setActive(mode === 'split');
+    }
+    if (unionBtn) {
+      unionBtn.setActive(mode === 'union');
     }
     if (setbackBtn) {
       setbackBtn.setActive(mode === 'setback');
@@ -278,6 +285,18 @@ export class Toolbar {
         'Split feature',
         () => {
           this.callbacks.onSplitClick();
+        },
+        true
+      );
+    }
+
+    if (controls.union) {
+      this.addButton(
+        'union',
+        unionIcon,
+        'Union polygons',
+        () => {
+          this.callbacks.onUnionClick();
         },
         true
       );

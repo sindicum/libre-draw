@@ -49,6 +49,7 @@ const draw = new LibreDraw(map, {
       drawPolygon: true,
       select: true,
       split: true,
+      union: true,
       setback: true,
       rotate: true,
       settings: true,
@@ -80,9 +81,9 @@ Switching modes deactivates the current mode (clearing any in-progress state) an
 
 **Parameters:**
 
-| Name   | Type                              | Description                                                                                                                      |
-| ------ | --------------------------------- | -------------------------------------------------------------------------------------------------------------------------------- |
-| `mode` | [`ModeName`](/api/types#modename) | `'idle'`, `'draw-point'`, `'draw-line'`, `'draw-polygon'`, `'draw-rectangle'`, `'select'`, `'split'`, `'setback'`, or `'rotate'` |
+| Name   | Type                              | Description                                                                                                                                 |
+| ------ | --------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------- |
+| `mode` | [`ModeName`](/api/types#modename) | `'idle'`, `'draw-point'`, `'draw-line'`, `'draw-polygon'`, `'draw-rectangle'`, `'select'`, `'split'`, `'union'`, `'setback'`, or `'rotate'` |
 
 **Returns:** `void`
 
@@ -104,7 +105,7 @@ draw.on('modechange', (e) => {
 
 Get the current drawing mode.
 
-**Returns:** [`ModeName`](/api/types#modename) — `'idle'`, `'draw-point'`, `'draw-line'`, `'draw-polygon'`, `'draw-rectangle'`, `'select'`, `'split'`, `'setback'`, or `'rotate'`.
+**Returns:** [`ModeName`](/api/types#modename) — `'idle'`, `'draw-point'`, `'draw-line'`, `'draw-polygon'`, `'draw-rectangle'`, `'select'`, `'split'`, `'union'`, `'setback'`, or `'rotate'`.
 
 **Throws:** [`LibreDrawError`](/api/types#libredrawerror) if this instance has been destroyed.
 
@@ -448,7 +449,7 @@ console.log('Point radius:', style.point.radius);
 
 Undo the last action.
 
-Reverts the most recent action (`create`, `update`, `delete`, `split`, or `setback`) and updates the map rendering. If a feature is selected and its geometry changes, vertex handles are refreshed.
+Reverts the most recent action (`create`, `update`, `delete`, `split`, `setback`, or `union`) and updates the map rendering. If a feature is selected and its geometry changes, vertex handles are refreshed.
 
 **Returns:** `boolean` — `true` if an action was undone, `false` if nothing to undo.
 
@@ -573,6 +574,14 @@ draw.on('split', (e) => console.log('Split:', e.originalFeature.id, e.features))
 draw.on('splitfailed', (e) => console.log('Split failed:', e.reason, e.featureId));
 draw.on('setback', (e) => console.log('Setback:', e.originalFeature.id, e.feature.id));
 draw.on('setbackfailed', (e) => console.log('Setback failed:', e.reason, e.featureId));
+draw.on('union', (e) =>
+  console.log(
+    'Union:',
+    e.originalFeatures.map((f) => f.id),
+    e.feature.id
+  )
+);
+draw.on('unionfailed', (e) => console.log('Union failed:', e.reason, e.featureIds));
 draw.on('rotate', (e) => console.log('Rotated:', e.feature.id, e.angle));
 draw.on('selectionchange', (e) => console.log('Selected:', e.selectedIds));
 draw.on('modechange', (e) => console.log(`${e.previousMode} → ${e.mode}`));

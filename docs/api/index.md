@@ -20,24 +20,24 @@ LibreDraw exposes a single entry-point class and a set of TypeScript types.
 
 All types are exported as TypeScript type-only exports:
 
-| Type                                                      | Description                                                                                                                   |
-| --------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------- |
-| [`LibreDrawFeature`](/api/types#libredrawfeature)         | A Point, LineString, or Polygon feature with id, geometry, and properties                                                     |
-| [`PointGeometry`](/api/types#pointgeometry)               | GeoJSON Point geometry                                                                                                        |
-| [`LineStringGeometry`](/api/types#linestringgeometry)     | GeoJSON LineString geometry                                                                                                   |
-| [`PolygonGeometry`](/api/types#polygongeometry)           | GeoJSON Polygon geometry                                                                                                      |
-| [`LibreDrawGeometry`](/api/types#libredrawgeometry)       | Supported GeoJSON geometry union                                                                                              |
-| [`Position`](/api/types#position)                         | `[longitude, latitude]` coordinate pair                                                                                       |
-| [`FeatureProperties`](/api/types#featureproperties)       | Arbitrary key-value properties                                                                                                |
-| [`LibreDrawOptions`](/api/types#libredrawoptions)         | Constructor options                                                                                                           |
-| [`ToolbarOptions`](/api/types#toolbaroptions)             | Toolbar configuration                                                                                                         |
-| [`ToolbarPosition`](/api/types#toolbarposition)           | Toolbar placement                                                                                                             |
-| [`ToolbarControls`](/api/types#toolbarcontrols)           | Which toolbar buttons to show                                                                                                 |
-| [`ModeName`](/api/types#modename)                         | `'idle' \| 'draw-point' \| 'draw-line' \| 'draw-polygon' \| 'draw-rectangle' \| 'select' \| 'split' \| 'setback' \| 'rotate'` |
-| [`Action`](/api/types#action)                             | Undo/redo action interface                                                                                                    |
-| [`ActionType`](/api/types#actiontype)                     | `'create' \| 'update' \| 'delete' \| 'split' \| 'setback'`                                                                    |
-| [`NormalizedInputEvent`](/api/types#normalizedinputevent) | Unified mouse/touch event                                                                                                     |
-| [`InputType`](/api/types#inputtype)                       | `'mouse' \| 'touch'`                                                                                                          |
+| Type                                                      | Description                                                                                                                              |
+| --------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------- |
+| [`LibreDrawFeature`](/api/types#libredrawfeature)         | A Point, LineString, or Polygon feature with id, geometry, and properties                                                                |
+| [`PointGeometry`](/api/types#pointgeometry)               | GeoJSON Point geometry                                                                                                                   |
+| [`LineStringGeometry`](/api/types#linestringgeometry)     | GeoJSON LineString geometry                                                                                                              |
+| [`PolygonGeometry`](/api/types#polygongeometry)           | GeoJSON Polygon geometry                                                                                                                 |
+| [`LibreDrawGeometry`](/api/types#libredrawgeometry)       | Supported GeoJSON geometry union                                                                                                         |
+| [`Position`](/api/types#position)                         | `[longitude, latitude]` coordinate pair                                                                                                  |
+| [`FeatureProperties`](/api/types#featureproperties)       | Arbitrary key-value properties                                                                                                           |
+| [`LibreDrawOptions`](/api/types#libredrawoptions)         | Constructor options                                                                                                                      |
+| [`ToolbarOptions`](/api/types#toolbaroptions)             | Toolbar configuration                                                                                                                    |
+| [`ToolbarPosition`](/api/types#toolbarposition)           | Toolbar placement                                                                                                                        |
+| [`ToolbarControls`](/api/types#toolbarcontrols)           | Which toolbar buttons to show                                                                                                            |
+| [`ModeName`](/api/types#modename)                         | `'idle' \| 'draw-point' \| 'draw-line' \| 'draw-polygon' \| 'draw-rectangle' \| 'select' \| 'split' \| 'union' \| 'setback' \| 'rotate'` |
+| [`Action`](/api/types#action)                             | Undo/redo action interface                                                                                                               |
+| [`ActionType`](/api/types#actiontype)                     | `'create' \| 'update' \| 'delete' \| 'split' \| 'setback' \| 'union' \| 'batch'`                                                         |
+| [`NormalizedInputEvent`](/api/types#normalizedinputevent) | Unified mouse/touch event                                                                                                                |
+| [`InputType`](/api/types#inputtype)                       | `'mouse' \| 'touch'`                                                                                                                     |
 
 ### Events
 
@@ -50,6 +50,8 @@ All types are exported as TypeScript type-only exports:
 | [`splitfailed`](/api/events#splitfailed)         | `SplitFailedEvent`     | Split operation failed                    |
 | [`setback`](/api/events#setback)                 | `SetbackEvent`         | Setback operation succeeded               |
 | [`setbackfailed`](/api/events#setbackfailed)     | `SetbackFailedEvent`   | Setback operation failed                  |
+| [`union`](/api/events#union)                     | `UnionEvent`           | Two polygons merged into one              |
+| [`unionfailed`](/api/events#unionfailed)         | `UnionFailedEvent`     | Union operation failed                    |
 | [`rotate`](/api/events#rotate)                   | `RotateEvent`          | Feature rotated                           |
 | [`selectionchange`](/api/events#selectionchange) | `SelectionChangeEvent` | Selection changed                         |
 | [`modechange`](/api/events#modechange)           | `ModeChangeEvent`      | Mode switched                             |

@@ -26,6 +26,7 @@ export interface ToolbarControls {
   select?: boolean;
   split?: boolean;
   setback?: boolean;
+  union?: boolean;
   rotate?: boolean;
   settings?: boolean;
   delete?: boolean;

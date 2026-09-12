@@ -43,7 +43,7 @@ export interface FeatureProperties {
 
 /**
  * A GeoJSON Feature used internally by LibreDraw.
- * Supports Point and Polygon geometry types.
+ * Supports Point, LineString, and Polygon geometry types.
  */
 export interface LibreDrawFeature {
   id: string;
@@ -53,7 +53,7 @@ export interface LibreDrawFeature {
 }
 
 /**
- * A GeoJSON FeatureCollection containing LibreDraw polygons.
+ * A GeoJSON FeatureCollection containing LibreDraw features.
  */
 export interface FeatureCollection {
   type: 'FeatureCollection';
@@ -63,7 +63,7 @@ export interface FeatureCollection {
 /**
  * The type of history action.
  */
-export type ActionType = 'create' | 'update' | 'delete' | 'split' | 'setback' | 'batch';
+export type ActionType = 'create' | 'update' | 'delete' | 'split' | 'setback' | 'union' | 'batch';
 
 /**
  * A reversible action that can be applied and reverted on a FeatureStore.
@@ -213,6 +213,43 @@ export class SetbackAction implements Action {
   revert(store: FeatureStoreInterface): void {
     store.remove(this.resultFeature.id);
     store.add(this.originalFeature);
+  }
+}
+
+/**
+ * Action that represents merging two features into one (2 -> 1 replacement).
+ *
+ * `apply` removes both source features and adds the merged result; `revert`
+ * removes the result and restores both sources. Kept as a dedicated action
+ * (rather than a `BatchAction`) so that a redo can report a `union` event
+ * carrying the original pair.
+ */
+export class UnionAction implements Action {
+  public readonly type: ActionType = 'union';
+  public readonly featureA: LibreDrawFeature;
+  public readonly featureB: LibreDrawFeature;
+  public readonly resultFeature: LibreDrawFeature;
+
+  constructor(
+    featureA: LibreDrawFeature,
+    featureB: LibreDrawFeature,
+    resultFeature: LibreDrawFeature
+  ) {
+    this.featureA = cloneFeature(featureA);
+    this.featureB = cloneFeature(featureB);
+    this.resultFeature = cloneFeature(resultFeature);
+  }
+
+  apply(store: FeatureStoreInterface): void {
+    store.remove(this.featureA.id);
+    store.remove(this.featureB.id);
+    store.add(this.resultFeature);
+  }
+
+  revert(store: FeatureStoreInterface): void {
+    store.remove(this.resultFeature.id);
+    store.add(this.featureA);
+    store.add(this.featureB);
   }
 }
 
