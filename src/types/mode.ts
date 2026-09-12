@@ -10,4 +10,5 @@ export type ModeName =
   | 'select'
   | 'split'
   | 'setback'
+  | 'union'
   | 'rotate';

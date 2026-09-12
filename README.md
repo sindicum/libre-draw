@@ -15,6 +15,7 @@ A point, line, and polygon drawing and editing library for [MapLibre GL JS](http
 - **Select & edit** — Click a feature to select it, drag vertices to reshape, drag midpoints to add vertices
 - **Feature drag** — Drag an entire selected point, line, or polygon to reposition it
 - **Split polygon** — Cut a polygon into two polygons with a two-point split line
+- **Union** — Merge two touching or overlapping polygons into one by clicking them in turn
 - **Setback edge** — Offset a selected edge inward and remove the setback band
 - **Rotate** — Turn a polygon or line by dragging it or by entering a relative angle
 - **Snap** — Vertices snap to nearby existing vertices and edges during drawing and editing
@@ -65,24 +66,24 @@ new LibreDraw(map: maplibregl.Map, options?: LibreDrawOptions)
 
 ### Methods
 
-| Method                    | Description                                                                                                                                       |
-| ------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `setMode(mode)`           | Set active mode: `'idle'`, `'draw-point'`, `'draw-line'`, `'draw-polygon'`, `'draw-rectangle'`, `'select'`, `'split'`, `'setback'`, or `'rotate'` |
-| `getMode()`               | Get the current mode                                                                                                                              |
-| `getFeatures()`           | Get all features as an array                                                                                                                      |
-| `toGeoJSON()`             | Export all features as a GeoJSON FeatureCollection                                                                                                |
-| `getFeatureById(id)`      | Get a single feature by ID                                                                                                                        |
-| `setFeatures(geojson)`    | Replace all features with a GeoJSON FeatureCollection                                                                                             |
-| `addFeatures(features)`   | Add an array of GeoJSON Feature objects (undoable as one step)                                                                                    |
-| `deleteFeature(id)`       | Delete a feature by ID (undoable)                                                                                                                 |
-| `selectFeature(id)`       | Programmatically select a feature                                                                                                                 |
-| `clearSelection()`        | Clear the current selection                                                                                                                       |
-| `getSelectedFeatureIds()` | Get IDs of selected features                                                                                                                      |
-| `undo()`                  | Undo the last action                                                                                                                              |
-| `redo()`                  | Redo the last undone action                                                                                                                       |
-| `on(event, callback)`     | Register an event listener                                                                                                                        |
-| `off(event, callback)`    | Remove an event listener                                                                                                                          |
-| `destroy()`               | Clean up all resources                                                                                                                            |
+| Method                    | Description                                                                                                                                                  |
+| ------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `setMode(mode)`           | Set active mode: `'idle'`, `'draw-point'`, `'draw-line'`, `'draw-polygon'`, `'draw-rectangle'`, `'select'`, `'split'`, `'union'`, `'setback'`, or `'rotate'` |
+| `getMode()`               | Get the current mode                                                                                                                                         |
+| `getFeatures()`           | Get all features as an array                                                                                                                                 |
+| `toGeoJSON()`             | Export all features as a GeoJSON FeatureCollection                                                                                                           |
+| `getFeatureById(id)`      | Get a single feature by ID                                                                                                                                   |
+| `setFeatures(geojson)`    | Replace all features with a GeoJSON FeatureCollection                                                                                                        |
+| `addFeatures(features)`   | Add an array of GeoJSON Feature objects (undoable as one step)                                                                                               |
+| `deleteFeature(id)`       | Delete a feature by ID (undoable)                                                                                                                            |
+| `selectFeature(id)`       | Programmatically select a feature                                                                                                                            |
+| `clearSelection()`        | Clear the current selection                                                                                                                                  |
+| `getSelectedFeatureIds()` | Get IDs of selected features                                                                                                                                 |
+| `undo()`                  | Undo the last action                                                                                                                                         |
+| `redo()`                  | Redo the last undone action                                                                                                                                  |
+| `on(event, callback)`     | Register an event listener                                                                                                                                   |
+| `off(event, callback)`    | Remove an event listener                                                                                                                                     |
+| `destroy()`               | Clean up all resources                                                                                                                                       |
 
 ### Events
 
@@ -95,6 +96,8 @@ new LibreDraw(map: maplibregl.Map, options?: LibreDrawOptions)
 | `splitfailed`     | `{ reason, featureId }`                               | Split operation failed                          |
 | `setback`         | `{ originalFeature, feature, edgeIndex, distance }`   | Setback operation succeeded                     |
 | `setbackfailed`   | `{ reason, featureId }`                               | Setback operation failed                        |
+| `union`           | `{ originalFeatures: [featureA, featureB], feature }` | Two polygons were merged into one               |
+| `unionfailed`     | `{ reason, featureIds }`                              | Union operation failed                          |
 | `rotate`          | `{ originalFeature, feature, angle }`                 | A polygon or line was rotated                   |
 | `selectionchange` | `{ selectedIds }`                                     | Selection changed                               |
 | `modechange`      | `{ mode, previousMode }`                              | Active mode changed                             |
@@ -114,6 +117,7 @@ interface LibreDrawOptions {
           drawRectangle?: boolean;
           select?: boolean;
           split?: boolean;
+          union?: boolean;
           setback?: boolean;
           rotate?: boolean;
           delete?: boolean;

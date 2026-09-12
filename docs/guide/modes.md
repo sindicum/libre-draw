@@ -13,6 +13,7 @@ LibreDraw uses a mode-based architecture. Only one mode is active at a time, and
 | `draw-rectangle` | Click two opposite corners to create a rectangle.                  | Toolbar rectangle button / `setMode('draw-rectangle')`  |
 | `select`         | Click to select, drag to edit vertices or move point/line/polygon. | Toolbar select button / `setMode('select')`             |
 | `split`          | Split a polygon with a two-point line.                             | Toolbar split button / `setMode('split')`               |
+| `union`          | Merge two touching or overlapping polygons into one.               | Toolbar union button / `setMode('union')`               |
 | `setback`        | Apply inward edge setback with distance input.                     | Toolbar setback button / `setMode('setback')`           |
 | `rotate`         | Rotate a polygon or line by dragging or by entering an angle.      | Toolbar rotate button / `setMode('rotate')`             |
 
@@ -289,6 +290,39 @@ draw.on('split', (e) => console.log(e.originalFeature.id, e.features));
 draw.on('splitfailed', (e) => console.warn(e.reason));
 ```
 
+## Union Mode
+
+In union mode, you merge two touching or overlapping polygons into one polygon.
+
+| Action                           | Effect                                     |
+| -------------------------------- | ------------------------------------------ |
+| Click / tap a polygon            | Select the first polygon                   |
+| Click / tap another polygon      | Merge it with the selected polygon         |
+| Click / tap the selected polygon | Keep the selection (nothing happens)       |
+| Click / tap empty space          | Clear the selection                        |
+| Drag                             | Pan the map (the selection is unchanged)   |
+| Escape key                       | Clear the selection and stay in union mode |
+
+```ts
+draw.setMode('union');
+draw.on('union', (e) =>
+  console.log(
+    e.originalFeatures.map((f) => f.id),
+    '->',
+    e.feature.id
+  )
+);
+draw.on('unionfailed', (e) => console.warn(e.reason));
+```
+
+**Notes:**
+
+- Only polygons can be merged; points and lines are ignored
+- The merged polygon gets a new id and inherits the properties of the first selected polygon
+- Each union is one undo step. Undoing it restores both source polygons
+- The union succeeds only when the result is a single polygon without holes. Polygons that do not touch (`disjoint`), polygons with holes, and merges that would enclose a hole (`has-holes`) emit [`unionfailed`](/api/events#unionfailed) and keep the first polygon selected
+- Map panning stays enabled so the second polygon can be off screen when you start
+
 ## Setback Mode
 
 In setback mode, you select an edge and apply inward offset by distance.
@@ -388,6 +422,14 @@ draw.on('rotate', (e) => console.log(`${e.originalFeature.id} rotated by ${e.ang
            │                         ▼
            │                   ┌──────────┐
            │                   │  split   │
+           │                   └──────────┘
+           │                         │
+           ├─────────────────────────┘
+           │    setMode('union')
+           ├─────────────────────────┐
+           │                         ▼
+           │                   ┌──────────┐
+           │                   │  union   │
            │                   └──────────┘
            │                         │
            ├─────────────────────────┘

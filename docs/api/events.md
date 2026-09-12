@@ -13,6 +13,8 @@ interface LibreDrawEventMap {
   splitfailed: SplitFailedEvent;
   setback: SetbackEvent;
   setbackfailed: SetbackFailedEvent;
+  union: UnionEvent;
+  unionfailed: UnionFailedEvent;
   rotate: RotateEvent;
   selectionchange: SelectionChangeEvent;
   modechange: ModeChangeEvent;
@@ -235,6 +237,76 @@ interface SetbackFailedEvent {
 ```ts
 draw.on('setbackfailed', (e) => {
   console.warn('Setback failed:', e.reason, e.featureId);
+});
+```
+
+---
+
+## `union`
+
+Emitted when two polygons are merged into one in `union` mode. The merge is one history step: undoing it emits a [`delete`](#delete) for the merged polygon and a [`create`](#create) for each source polygon, and redoing it emits `union` again.
+
+### Payload: `UnionEvent`
+
+```ts
+interface UnionEvent {
+  originalFeatures: [LibreDrawFeature, LibreDrawFeature];
+  feature: LibreDrawFeature;
+}
+```
+
+| Property           | Type                                              | Description                                                                |
+| ------------------ | ------------------------------------------------- | -------------------------------------------------------------------------- |
+| `originalFeatures` | <code>[LibreDrawFeature, LibreDrawFeature]</code> | The two source polygons in selection order                                 |
+| `feature`          | [`LibreDrawFeature`](/api/types#libredrawfeature) | The merged polygon. It has a new id and the properties of the first source |
+
+### Example
+
+```ts
+draw.on('union', (e) => {
+  console.log(
+    'Merged:',
+    e.originalFeatures.map((f) => f.id),
+    '->',
+    e.feature.id
+  );
+});
+```
+
+---
+
+## `unionfailed`
+
+Emitted when a union operation fails. The store is left untouched and the first polygon stays selected so another partner can be picked.
+
+### Payload: `UnionFailedEvent`
+
+```ts
+type UnionFailReason = 'not-polygon' | 'has-holes' | 'disjoint' | 'invalid-result';
+
+interface UnionFailedEvent {
+  reason: UnionFailReason;
+  featureIds: [string, string];
+}
+```
+
+| Property     | Type               | Description                                       |
+| ------------ | ------------------ | ------------------------------------------------- |
+| `reason`     | `UnionFailReason`  | Reason of union failure                           |
+| `featureIds` | `[string, string]` | IDs of the two target polygons in selection order |
+
+| Reason             | Meaning                                                          |
+| ------------------ | ---------------------------------------------------------------- |
+| `'disjoint'`       | The polygons do not touch, so the result would be a MultiPolygon |
+| `'has-holes'`      | A target has a hole, or the merged outline would enclose a hole  |
+| `'not-polygon'`    | A target is not a Polygon                                        |
+| `'invalid-result'` | The geometry engine could not produce a usable polygon           |
+
+### Example
+
+```ts
+draw.on('unionfailed', (e) => {
+  console.warn('Union failed:', e.reason, e.featureIds);
 });
 ```
 

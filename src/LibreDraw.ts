@@ -17,6 +17,7 @@ import {
   UpdateAction,
   SplitAction,
   SetbackAction,
+  UnionAction,
   BatchAction,
 } from './types/features';
 import { EventBus } from './core/EventBus';
@@ -35,6 +36,7 @@ import { DrawLineMode } from './modes/DrawLineMode';
 import { SelectMode } from './modes/SelectMode';
 import { SplitMode } from './modes/SplitMode';
 import { SetbackMode } from './modes/SetbackMode';
+import { UnionMode } from './modes/UnionMode';
 import { RotateMode } from './modes/RotateMode';
 import type { MapInteractionConfig } from './modes/Mode';
 import { isDraftCapableMode } from './modes/Mode';
@@ -200,6 +202,7 @@ export class LibreDraw {
     const drawRectangleMode = new DrawRectangleMode(modeContext);
     this.selectMode = new SelectMode(modeContext);
     const splitMode = new SplitMode(modeContext);
+    const unionMode = new UnionMode(modeContext);
     this.setbackMode = new SetbackMode(modeContext);
     this.rotateMode = new RotateMode(modeContext, (hasSelection) => {
       this.toolbar?.setRotateSelection(hasSelection);
@@ -213,6 +216,7 @@ export class LibreDraw {
     this.modeManager.registerMode('draw-rectangle', drawRectangleMode);
     this.modeManager.registerMode('select', this.selectMode);
     this.modeManager.registerMode('split', splitMode);
+    this.modeManager.registerMode('union', unionMode);
     this.modeManager.registerMode('setback', this.setbackMode);
     this.modeManager.registerMode('rotate', this.rotateMode);
 
@@ -264,7 +268,7 @@ export class LibreDraw {
    *
    * @param mode - `'idle'` (no interaction), `'draw-point'` / `'draw-line'` /
    *   `'draw-polygon'` / `'draw-rectangle'` (create features), `'select'` (select/edit
-   *   existing features), `'split'`, `'setback'`, or `'rotate'`.
+   *   existing features), `'split'`, `'union'`, `'setback'`, or `'rotate'`.
    *
    * @throws {LibreDrawError} If this instance has been destroyed.
    *
@@ -764,8 +768,8 @@ export class LibreDraw {
    * Register an event listener.
    *
    * Supported events: `'create'`, `'update'`, `'delete'`, `'split'`,
-   * `'splitfailed'`, `'setback'`, `'setbackfailed'`, `'rotate'`, `'selectionchange'`,
-   * `'modechange'`, `'draftchange'`.
+   * `'splitfailed'`, `'setback'`, `'setbackfailed'`, `'union'`, `'unionfailed'`, `'rotate'`,
+   * `'selectionchange'`, `'modechange'`, `'draftchange'`.
    *
    * @param type - The event type to listen for.
    * @param listener - The callback to invoke when the event fires.
@@ -779,6 +783,8 @@ export class LibreDraw {
    * draw.on('delete', (e) => console.log('Deleted:', e.feature.id));
    * draw.on('split', (e) => console.log('Split:', e.originalFeature.id));
    * draw.on('splitfailed', (e) => console.log('Split failed:', e.reason));
+   * draw.on('union', (e) => console.log('Merged into:', e.feature.id));
+   * draw.on('unionfailed', (e) => console.log('Union failed:', e.reason));
    * draw.on('selectionchange', (e) => console.log('Selected:', e.selectedIds));
    * draw.on('modechange', (e) => console.log(`${e.previousMode} -> ${e.mode}`));
    * draw.on('draftchange', (e) => console.log('Draft vertices:', e.vertexCount));
@@ -901,6 +907,10 @@ export class LibreDraw {
         onSplitClick: () => {
           const current = this.modeManager.getMode();
           this.modeManager.setMode(current === 'split' ? 'idle' : 'split');
+        },
+        onUnionClick: () => {
+          const current = this.modeManager.getMode();
+          this.modeManager.setMode(current === 'union' ? 'idle' : 'union');
         },
         onSetbackClick: () => {
           const current = this.modeManager.getMode();
@@ -1026,6 +1036,10 @@ export class LibreDraw {
     } else if (action instanceof SetbackAction) {
       this.eventBus.emit('delete', { feature: cloneFeature(action.resultFeature) });
       this.eventBus.emit('create', { feature: cloneFeature(action.originalFeature) });
+    } else if (action instanceof UnionAction) {
+      this.eventBus.emit('delete', { feature: cloneFeature(action.resultFeature) });
+      this.eventBus.emit('create', { feature: cloneFeature(action.featureA) });
+      this.eventBus.emit('create', { feature: cloneFeature(action.featureB) });
     }
   }
 
@@ -1059,6 +1073,11 @@ export class LibreDraw {
         feature: cloneFeature(action.resultFeature),
         edgeIndex: action.edgeIndex,
         distance: action.distance,
+      });
+    } else if (action instanceof UnionAction) {
+      this.eventBus.emit('union', {
+        originalFeatures: [cloneFeature(action.featureA), cloneFeature(action.featureB)],
+        feature: cloneFeature(action.resultFeature),
       });
     }
   }

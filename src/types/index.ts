@@ -20,6 +20,7 @@ export {
   DeleteAction,
   SplitAction,
   SetbackAction,
+  UnionAction,
   BatchAction,
 } from './features';
 
@@ -32,6 +33,9 @@ export type {
   SetbackEvent,
   SetbackFailedEvent,
   SetbackFailReason,
+  UnionEvent,
+  UnionFailedEvent,
+  UnionFailReason,
   RotateEvent,
   SelectionChangeEvent,
   ModeChangeEvent,

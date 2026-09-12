@@ -25,6 +25,9 @@ export type {
   SetbackEvent,
   SetbackFailedEvent,
   SetbackFailReason,
+  UnionEvent,
+  UnionFailedEvent,
+  UnionFailReason,
   RotateEvent,
   SelectionChangeEvent,
   ModeChangeEvent,
@@ -63,6 +66,9 @@ export { SplitAction } from './types';
 
 // Setback history action
 export { SetbackAction } from './types';
+
+// Union history action
+export { UnionAction } from './types';
 
 // Batch history action (used by addFeatures)
 export { BatchAction } from './types';
