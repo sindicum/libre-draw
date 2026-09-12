@@ -6,6 +6,7 @@ import { cloneFeature } from '../utils/featureSnapshot';
 import type { ModeContext } from '../core/ModeContext';
 import { findSnapTarget } from '../utils/snap';
 import { LONG_PRESS_MS } from '../input/gestures';
+import { createFeatureId } from '../utils/id';
 
 /**
  * Maximum pointer travel, in pixels, between pointer down and pointer up
@@ -288,7 +289,7 @@ export class DrawRectangleMode implements DraftCapableMode {
     if (!ring) return false;
 
     const feature: LibreDrawFeature = {
-      id: crypto.randomUUID(),
+      id: createFeatureId(),
       type: 'Feature',
       geometry: {
         type: 'Polygon',
