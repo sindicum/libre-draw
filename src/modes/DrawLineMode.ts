@@ -5,6 +5,7 @@ import { CreateAction } from '../types/features';
 import { cloneFeature } from '../utils/featureSnapshot';
 import type { ModeContext } from '../core/ModeContext';
 import { findSnapTarget } from '../utils/snap';
+import { createFeatureId } from '../utils/id';
 
 /**
  * Minimum number of vertices required to form a valid LineString.
@@ -178,7 +179,7 @@ export class DrawLineMode implements DraftCapableMode {
     if (this.vertices.length < MIN_VERTICES) return false;
 
     const feature: LibreDrawFeature = {
-      id: crypto.randomUUID(),
+      id: createFeatureId(),
       type: 'Feature',
       geometry: {
         type: 'LineString',

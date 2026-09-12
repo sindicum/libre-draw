@@ -5,6 +5,7 @@ import {
   hasRingSelfIntersection,
   EPSILON,
 } from '../validation/intersection';
+import { createFeatureId } from './id';
 
 /**
  * Intersection of the split line with a polygon edge.
@@ -219,14 +220,14 @@ export function splitLine(
   }
 
   const featureA: LibreDrawFeature = {
-    id: crypto.randomUUID(),
+    id: createFeatureId(),
     type: 'Feature',
     geometry: { type: 'LineString', coordinates: coordsA },
     properties: cloneProperties(feature.properties),
   };
 
   const featureB: LibreDrawFeature = {
-    id: crypto.randomUUID(),
+    id: createFeatureId(),
     type: 'Feature',
     geometry: { type: 'LineString', coordinates: coordsB },
     properties: cloneProperties(feature.properties),
@@ -354,7 +355,7 @@ export function splitPolygon(
   }
 
   const featureA: LibreDrawFeature = {
-    id: crypto.randomUUID(),
+    id: createFeatureId(),
     type: 'Feature',
     geometry: {
       type: 'Polygon',
@@ -364,7 +365,7 @@ export function splitPolygon(
   };
 
   const featureB: LibreDrawFeature = {
-    id: crypto.randomUUID(),
+    id: createFeatureId(),
     type: 'Feature',
     geometry: {
       type: 'Polygon',

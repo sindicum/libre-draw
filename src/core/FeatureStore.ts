@@ -1,5 +1,6 @@
 import type { LibreDrawFeature, FeatureStoreInterface, FeatureCollection } from '../types/features';
 import { cloneFeature, cloneFeatureCollection } from '../utils/featureSnapshot';
+import { createFeatureId } from '../utils/id';
 
 /**
  * Internal store for managing LibreDraw features.
@@ -18,7 +19,7 @@ export class FeatureStore implements FeatureStoreInterface {
    * @returns The added feature (with ID assigned).
    */
   add(feature: LibreDrawFeature): LibreDrawFeature {
-    const id = feature.id || crypto.randomUUID();
+    const id = feature.id || createFeatureId();
     const stored = cloneFeature({ ...feature, id });
     this.features.set(id, stored);
     return cloneFeature(stored);
@@ -82,7 +83,7 @@ export class FeatureStore implements FeatureStoreInterface {
   setAll(features: LibreDrawFeature[]): void {
     this.features.clear();
     for (const feature of features) {
-      const id = feature.id || crypto.randomUUID();
+      const id = feature.id || createFeatureId();
       this.features.set(id, cloneFeature({ ...feature, id }));
     }
   }

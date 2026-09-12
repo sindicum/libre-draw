@@ -6,6 +6,7 @@ import { cloneFeature } from '../utils/featureSnapshot';
 import type { ModeContext } from '../core/ModeContext';
 import { findSnapTarget } from '../utils/snap';
 import { LONG_PRESS_MS, clickTolerance, pointerTravel } from '../input/gestures';
+import { createFeatureId } from '../utils/id';
 
 /**
  * Build a closed, counter-clockwise rectangle ring from two opposite corners.
@@ -263,7 +264,7 @@ export class DrawRectangleMode implements DraftCapableMode {
     if (!ring) return false;
 
     const feature: LibreDrawFeature = {
-      id: crypto.randomUUID(),
+      id: createFeatureId(),
       type: 'Feature',
       geometry: {
         type: 'Polygon',
