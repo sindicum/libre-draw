@@ -5,6 +5,7 @@ import { CreateAction } from '../types/features';
 import { cloneFeature } from '../utils/featureSnapshot';
 import type { ModeContext } from '../core/ModeContext';
 import { findSnapTarget } from '../utils/snap';
+import { createFeatureId } from '../utils/id';
 
 /**
  * Drawing mode for placing point features.
@@ -44,7 +45,7 @@ export class DrawPointMode implements Mode {
     const coordinate: Position = [snappedPos.lng, snappedPos.lat];
 
     const feature: LibreDrawFeature = {
-      id: crypto.randomUUID(),
+      id: createFeatureId(),
       type: 'Feature',
       geometry: {
         type: 'Point',

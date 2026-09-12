@@ -9,6 +9,7 @@ import {
 import { cloneFeature } from '../utils/featureSnapshot';
 import type { ModeContext } from '../core/ModeContext';
 import { findSnapTarget } from '../utils/snap';
+import { createFeatureId } from '../utils/id';
 
 /**
  * Threshold in pixels: if a click is within this distance of the first
@@ -222,7 +223,7 @@ export class DrawPolygonMode implements DraftCapableMode {
     const ring: Position[] = [...this.vertices, [...this.vertices[0]] as Position];
 
     const feature: LibreDrawFeature = {
-      id: crypto.randomUUID(),
+      id: createFeatureId(),
       type: 'Feature',
       geometry: {
         type: 'Polygon',

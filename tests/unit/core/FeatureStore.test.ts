@@ -1,4 +1,4 @@
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, afterEach, vi } from 'vitest';
 import { FeatureStore } from '../../../src/core/FeatureStore';
 import type { LibreDrawFeature } from '../../../src/types/features';
 
@@ -205,5 +205,55 @@ describe('FeatureStore', () => {
     // Mutating clone should not affect original
     clone.geometry.coordinates[0][0][0] = 999;
     expect(original.geometry.coordinates[0][0][0]).toBe(0);
+  });
+  describe('id generation without a secure context', () => {
+    afterEach(() => {
+      vi.restoreAllMocks();
+    });
+
+    /**
+     * Drop `crypto.randomUUID` for the duration of `fn`, as on a plain-HTTP
+     * origin where the method is undefined because it needs a secure context.
+     */
+    function withoutRandomUUID<T>(fn: () => T): T {
+      const original = Object.getOwnPropertyDescriptor(crypto, 'randomUUID');
+      Object.defineProperty(crypto, 'randomUUID', {
+        value: undefined,
+        configurable: true,
+        writable: true,
+      });
+      try {
+        return fn();
+      } finally {
+        if (original) {
+          Object.defineProperty(crypto, 'randomUUID', original);
+        } else {
+          delete (crypto as { randomUUID?: unknown }).randomUUID;
+        }
+      }
+    }
+
+    it('should assign an id in add() when crypto.randomUUID is undefined', () => {
+      const store = new FeatureStore();
+      const feature = makeFeature('');
+
+      const stored = withoutRandomUUID(() => store.add(feature));
+
+      expect(stored.id).toMatch(/^[0-9a-f-]{36}$/);
+      expect(store.getById(stored.id)).toBeDefined();
+    });
+
+    it('should assign ids in setAll() when crypto.randomUUID is undefined', () => {
+      const store = new FeatureStore();
+
+      withoutRandomUUID(() => store.setAll([makeFeature(''), makeFeature('')]));
+
+      const ids = store.getAll().map((f) => f.id);
+      expect(ids).toHaveLength(2);
+      expect(new Set(ids).size).toBe(2);
+      for (const id of ids) {
+        expect(id).toMatch(/^[0-9a-f-]{36}$/);
+      }
+    });
   });
 });
