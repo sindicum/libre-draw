@@ -68,7 +68,7 @@
   "author": "Sindicum",
   "repository": {
     "type": "git",
-    "url": "https://github.com/sindicum/libre-draw.git"
+    "url": "git+https://github.com/sindicum/libre-draw.git"
   },
   "homepage": "https://sindicum.github.io/libre-draw/",
   "bugs": {
