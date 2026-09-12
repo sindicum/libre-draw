@@ -346,8 +346,8 @@ Emitted whenever the in-progress draft of a drawing mode (`'draw-polygon'`, `'dr
 Fires when:
 
 1. A vertex is added via pointer-down
-2. A vertex is removed (long-press, or the auto-pop during double-click finalization)
-3. The draft is finalized — via double-click, close-on-first-vertex, or [`finishDrawing()`](/api/libre-draw#finishdrawing) — with `vertexCount: 0`
+2. A vertex is removed (long-press)
+3. The draft is finalized — via a click or tap on the first (polygon only) or last draft vertex, or [`finishDrawing()`](/api/libre-draw#finishdrawing) — with `vertexCount: 0`
 4. The draft is discarded — via Escape or [`cancelDrawing()`](/api/libre-draw#canceldrawing) — with `vertexCount: 0`
 5. The active mode transitions away from a drawing mode (deactivation), with `vertexCount: 0`
 

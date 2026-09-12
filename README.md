@@ -9,8 +9,8 @@ A point, line, and polygon drawing and editing library for [MapLibre GL JS](http
 
 - **Zero-config** — `new LibreDraw(map)` gives you a full toolbar and drawing capabilities out of the box
 - **Draw points** — Click/tap to place point features
-- **Draw lines** — Click/tap to add vertices, double-click/double-tap to finalize
-- **Draw polygons** — Click/tap to place vertices, double-click/double-tap to close
+- **Draw lines** — Click/tap to add vertices, click/tap the last vertex to finalize
+- **Draw polygons** — Click/tap to place vertices, click/tap the first or last vertex to close
 - **Draw rectangles** — Click/tap two opposite corners to create an axis-aligned rectangle
 - **Select & edit** — Click a feature to select it, drag vertices to reshape, drag midpoints to add vertices
 - **Feature drag** — Drag an entire selected point, line, or polygon to reposition it

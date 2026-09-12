@@ -281,8 +281,8 @@ type ModeName =
 | ------------------ | -------------------------------------------------------------------------- |
 | `'idle'`           | No drawing interaction. Map behaves normally.                              |
 | `'draw-point'`     | Place point features by clicking/tapping.                                  |
-| `'draw-line'`      | Create lines by clicking/tapping vertices, double-click to finalize.       |
-| `'draw-polygon'`   | Create polygons by clicking/tapping vertices.                              |
+| `'draw-line'`      | Create lines by clicking/tapping vertices, click the last one to finalize. |
+| `'draw-polygon'`   | Create polygons by clicking/tapping vertices, click the first or last one. |
 | `'draw-rectangle'` | Create an axis-aligned rectangle by clicking/tapping two opposite corners. |
 | `'select'`         | Select and edit existing features (points, lines, and polygons).           |
 | `'split'`          | Split a polygon into two polygons with a two-point line.                   |

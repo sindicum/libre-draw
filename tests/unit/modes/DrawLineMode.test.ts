@@ -1,7 +1,7 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { DrawLineMode } from '../../../src/modes/DrawLineMode';
 import type { ModeContext } from '../../../src/core/ModeContext';
-import type { NormalizedInputEvent } from '../../../src/types/input';
+import type { NormalizedInputEvent, InputType } from '../../../src/types/input';
 import type { LibreDrawFeature } from '../../../src/types/features';
 
 function createMockContext(): ModeContext {
@@ -49,13 +49,28 @@ function createMockContext(): ModeContext {
   };
 }
 
-function createPointerEvent(lng: number, lat: number): NormalizedInputEvent {
+function createPointerEvent(
+  lng: number,
+  lat: number,
+  inputType: InputType = 'mouse'
+): NormalizedInputEvent {
   return {
     lngLat: { lng, lat },
     point: { x: lng * 10, y: lat * 10 },
     originalEvent: new MouseEvent('click'),
-    inputType: 'mouse',
+    inputType,
   };
+}
+
+/** A click or tap: pointer down and up at the same position. */
+function clickAt(
+  mode: DrawLineMode,
+  lng: number,
+  lat: number,
+  inputType: InputType = 'mouse'
+): void {
+  mode.onPointerDown(createPointerEvent(lng, lat, inputType));
+  mode.onPointerUp(createPointerEvent(lng, lat, inputType));
 }
 
 describe('DrawLineMode', () => {
@@ -65,6 +80,10 @@ describe('DrawLineMode', () => {
   beforeEach(() => {
     context = createMockContext();
     mode = new DrawLineMode(context);
+  });
+
+  afterEach(() => {
+    vi.useRealTimers();
   });
 
   it('should not respond to events when inactive', () => {
@@ -81,13 +100,11 @@ describe('DrawLineMode', () => {
     expect(context.store.add).not.toHaveBeenCalled(); // Not finalized yet
   });
 
-  it('should finalize a LineString on double-click with 2+ vertices', () => {
+  it('should finalize a LineString by clicking the last vertex with 2+ vertices', () => {
     mode.activate();
-    mode.onPointerDown(createPointerEvent(0, 0));
-    mode.onPointerDown(createPointerEvent(10, 5));
-    // Double-click adds a 3rd vertex via pointerDown, then onDoubleClick pops it
-    mode.onPointerDown(createPointerEvent(10, 5));
-    mode.onDoubleClick(createPointerEvent(10, 5));
+    clickAt(mode, 0, 0);
+    clickAt(mode, 10, 5);
+    clickAt(mode, 10, 5);
 
     expect(context.store.add).toHaveBeenCalledWith(
       expect.objectContaining({
@@ -114,26 +131,160 @@ describe('DrawLineMode', () => {
 
   it('should not finalize with fewer than 2 vertices', () => {
     mode.activate();
-    mode.onPointerDown(createPointerEvent(0, 0));
-    mode.onDoubleClick(createPointerEvent(0, 0));
+    clickAt(mode, 0, 0);
+    clickAt(mode, 0, 0);
 
     expect(context.store.add).not.toHaveBeenCalled();
   });
 
+  it('should not add a duplicate vertex when clicking the only vertex', () => {
+    mode.activate();
+    clickAt(mode, 0, 0);
+    vi.mocked(context.events.emit).mockClear();
+
+    clickAt(mode, 0, 0);
+
+    expect(mode.getDraftVertexCount()).toBe(1);
+    expect(context.events.emit).not.toHaveBeenCalled();
+  });
+
+  it('should finish a mouse double click at a new spot without leaving an extra vertex', () => {
+    mode.activate();
+    clickAt(mode, 0, 0);
+
+    // Browser order for a double click: down/up, down/up, dblclick.
+    clickAt(mode, 10, 5); // places the 2nd vertex
+    clickAt(mode, 10, 5); // lands on it → finish
+    const dblClickEvent = createPointerEvent(10, 5);
+    vi.spyOn(dblClickEvent.originalEvent, 'preventDefault');
+    vi.spyOn(dblClickEvent.originalEvent, 'stopPropagation');
+    mode.onDoubleClick(dblClickEvent);
+
+    expect(context.store.add).toHaveBeenCalledTimes(1);
+    expect(vi.mocked(context.store.add).mock.calls[0][0].geometry.coordinates).toEqual([
+      [0, 0],
+      [10, 5],
+    ]);
+  });
+
+  it('should not pop a vertex or finish on double click alone', () => {
+    mode.activate();
+    clickAt(mode, 0, 0);
+    clickAt(mode, 10, 5);
+    clickAt(mode, 20, 10);
+    vi.mocked(context.events.emit).mockClear();
+
+    mode.onDoubleClick(createPointerEvent(20, 10));
+
+    expect(context.store.add).not.toHaveBeenCalled();
+    expect(mode.getDraftVertexCount()).toBe(3);
+    expect(context.events.emit).not.toHaveBeenCalled();
+  });
+
+  it('should not treat the first vertex as a finish target', () => {
+    mode.activate();
+    clickAt(mode, 0, 0);
+    clickAt(mode, 10, 5);
+
+    // Clicking back on the first vertex adds a vertex there (open path).
+    clickAt(mode, 0, 0);
+
+    expect(context.store.add).not.toHaveBeenCalled();
+    expect(mode.getDraftVertexCount()).toBe(3);
+  });
+
+  it('should not finish when the pointer drags off the vertex before release', () => {
+    mode.activate();
+    clickAt(mode, 0, 0);
+    clickAt(mode, 10, 5);
+
+    mode.onPointerDown(createPointerEvent(10, 5));
+    mode.onPointerUp(createPointerEvent(10.5, 5)); // 5px > mouse tolerance
+
+    expect(context.store.add).not.toHaveBeenCalled();
+    expect(mode.getDraftVertexCount()).toBe(2);
+  });
+
+  it('should use the snap threshold as the mouse radius and widen it for touch', () => {
+    mode.activate();
+    clickAt(mode, 0, 0);
+    clickAt(mode, 10, 5);
+
+    // 20px away: outside the 10px mouse radius → new vertex.
+    clickAt(mode, 12, 5);
+    expect(mode.getDraftVertexCount()).toBe(3);
+
+    // 20px away with touch: inside the 22px radius → finish.
+    clickAt(mode, 14, 5, 'touch');
+    expect(context.store.add).toHaveBeenCalledTimes(1);
+  });
+
+  it('should finish on two slow touch taps at the same spot', () => {
+    vi.useFakeTimers();
+    mode.activate();
+    clickAt(mode, 0, 0, 'touch');
+    clickAt(mode, 10, 5, 'touch');
+
+    vi.advanceTimersByTime(1000); // well past any double-tap window
+    clickAt(mode, 10, 5, 'touch');
+
+    expect(context.store.add).toHaveBeenCalledTimes(1);
+  });
+
+  it('should place two vertices on two quick touch taps at different spots', () => {
+    mode.activate();
+    clickAt(mode, 0, 0, 'touch');
+    clickAt(mode, 10, 5, 'touch');
+    clickAt(mode, 20, 10, 'touch');
+
+    expect(context.store.add).not.toHaveBeenCalled();
+    expect(mode.getDraftVertexCount()).toBe(3);
+  });
+
+  it('should treat a touch release after the long-press delay as the long press', () => {
+    vi.useFakeTimers();
+    mode.activate();
+    clickAt(mode, 0, 0, 'touch');
+    clickAt(mode, 10, 5, 'touch');
+
+    mode.onPointerDown(createPointerEvent(10, 5, 'touch'));
+    vi.advanceTimersByTime(500);
+    mode.onPointerUp(createPointerEvent(10, 5, 'touch'));
+    mode.onLongPress(createPointerEvent(10, 5, 'touch'));
+
+    expect(context.store.add).not.toHaveBeenCalled();
+    expect(mode.getDraftVertexCount()).toBe(1);
+  });
+
+  it('should show the snap indicator on the last vertex and snap the preview to it', () => {
+    mode.activate();
+    clickAt(mode, 0, 0);
+    clickAt(mode, 10, 5);
+    vi.mocked(context.render.renderSnapIndicator).mockClear();
+    vi.mocked(context.render.renderPreview).mockClear();
+
+    mode.onPointerMove(createPointerEvent(10.5, 5));
+
+    expect(context.render.renderSnapIndicator).toHaveBeenCalledWith([10, 5]);
+    expect(vi.mocked(context.render.renderPreview).mock.calls[0][0]).toEqual([
+      [0, 0],
+      [10, 5],
+      [10, 5],
+    ]);
+  });
+
   it('should stay in mode after finalization for continuous drawing', () => {
     mode.activate();
-    mode.onPointerDown(createPointerEvent(0, 0));
-    mode.onPointerDown(createPointerEvent(10, 5));
-    mode.onPointerDown(createPointerEvent(10, 5));
-    mode.onDoubleClick(createPointerEvent(10, 5));
+    clickAt(mode, 0, 0);
+    clickAt(mode, 10, 5);
+    clickAt(mode, 10, 5);
 
     expect(context.store.add).toHaveBeenCalledTimes(1);
 
     // Can start drawing again
-    mode.onPointerDown(createPointerEvent(20, 20));
-    mode.onPointerDown(createPointerEvent(30, 30));
-    mode.onPointerDown(createPointerEvent(30, 30));
-    mode.onDoubleClick(createPointerEvent(30, 30));
+    clickAt(mode, 20, 20);
+    clickAt(mode, 30, 30);
+    clickAt(mode, 30, 30);
 
     expect(context.store.add).toHaveBeenCalledTimes(2);
   });
@@ -148,9 +299,10 @@ describe('DrawLineMode', () => {
     expect(context.render.clearPreview).toHaveBeenCalled();
     expect(context.render.clearSnapIndicator).toHaveBeenCalled();
 
-    // After cancel, double-click should not finalize (no vertices)
-    mode.onDoubleClick(createPointerEvent(10, 5));
+    // After cancel, a click where the last vertex was starts a new draft
+    clickAt(mode, 10, 5);
     expect(context.store.add).not.toHaveBeenCalled();
+    expect(mode.getDraftVertexCount()).toBe(1);
   });
 
   it('should remove last vertex on long press', () => {
@@ -161,9 +313,8 @@ describe('DrawLineMode', () => {
 
     mode.onLongPress(createPointerEvent(20, 10));
 
-    // Now should have 2 vertices, finalize should work
-    mode.onPointerDown(createPointerEvent(20, 10));
-    mode.onDoubleClick(createPointerEvent(20, 10));
+    // Now should have 2 vertices, clicking the last one finalizes
+    clickAt(mode, 10, 5);
 
     expect(context.store.add).toHaveBeenCalledWith(
       expect.objectContaining({
