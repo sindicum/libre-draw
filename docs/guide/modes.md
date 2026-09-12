@@ -31,26 +31,31 @@ draw.setMode('idle');
 
 ## Draw Point Mode
 
-In draw-point mode, you place point features on the map. Each click/tap instantly creates a Point feature.
+In draw-point mode, you place point features on the map. Each click or tap — a press and release at the same spot — creates a Point feature.
 
 ### Mouse Interaction
 
 | Action     | Effect               |
 | ---------- | -------------------- |
 | Click      | Place a point        |
+| Drag       | Pan the map          |
 | Escape key | Clear snap indicator |
 
 ### Touch Interaction
 
-| Action | Effect        |
-| ------ | ------------- |
-| Tap    | Place a point |
+| Action     | Effect        |
+| ---------- | ------------- |
+| Tap        | Place a point |
+| Drag       | Pan the map   |
+| Long press | Nothing       |
 
 ### Behavior
 
-- One click = one Point feature (instant creation, no multi-step workflow)
+- One click = one Point feature (no multi-step workflow)
+- Points are placed on release, not on press. A drag is left to the map, so you can pan while drawing — on touch, a one-finger drag is the only way to move the map
+- A long press does not place a point
 - The mode stays active for continuous placement — you can place multiple points without switching modes
-- Snap to existing vertices is supported when enabled
+- Snap to existing vertices is supported when enabled, and applies to the position where the point is placed
 - Map panning remains enabled during draw-point mode
 - Double-click zoom is disabled to prevent accidental zoom
 

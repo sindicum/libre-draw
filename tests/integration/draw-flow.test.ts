@@ -8,6 +8,7 @@ import { IdleMode } from '../../src/modes/IdleMode';
 import { DrawPolygonMode } from '../../src/modes/DrawPolygonMode';
 import { DrawLineMode } from '../../src/modes/DrawLineMode';
 import { DrawRectangleMode } from '../../src/modes/DrawRectangleMode';
+import { DrawPointMode } from '../../src/modes/DrawPointMode';
 import { SelectMode } from '../../src/modes/SelectMode';
 import type { NormalizedInputEvent } from '../../src/types/input';
 import type {
@@ -45,6 +46,25 @@ function clickAt(
 ): void {
   mode.onPointerDown(createPointerEvent(lng, lat, inputType));
   mode.onPointerUp(createPointerEvent(lng, lat, inputType));
+}
+
+/**
+ * A drag: down at the first position, move and release at the second.
+ * Modes that place features on pointer up must leave this to the map.
+ */
+function dragAt(
+  mode: {
+    onPointerDown(event: NormalizedInputEvent): void;
+    onPointerMove(event: NormalizedInputEvent): void;
+    onPointerUp(event: NormalizedInputEvent): void;
+  },
+  from: [number, number],
+  to: [number, number],
+  inputType: 'mouse' | 'touch' = 'mouse'
+): void {
+  mode.onPointerDown(createPointerEvent(from[0], from[1], inputType));
+  mode.onPointerMove(createPointerEvent(to[0], to[1], inputType));
+  mode.onPointerUp(createPointerEvent(to[0], to[1], inputType));
 }
 
 describe('Draw Flow Integration', () => {
@@ -92,12 +112,14 @@ describe('Draw Flow Integration', () => {
     const drawPolygonMode = new DrawPolygonMode(modeContext);
     const drawLineMode = new DrawLineMode(modeContext);
     const drawRectangleMode = new DrawRectangleMode(modeContext);
+    const drawPointMode = new DrawPointMode(modeContext);
     const selectMode = new SelectMode(modeContext, vi.fn());
 
     modeManager.registerMode('idle', new IdleMode());
     modeManager.registerMode('draw-polygon', drawPolygonMode);
     modeManager.registerMode('draw-line', drawLineMode);
     modeManager.registerMode('draw-rectangle', drawRectangleMode);
+    modeManager.registerMode('draw-point', drawPointMode);
     modeManager.registerMode('select', selectMode);
 
     return {
@@ -108,6 +130,7 @@ describe('Draw Flow Integration', () => {
       drawPolygonMode,
       drawLineMode,
       drawRectangleMode,
+      drawPointMode,
       selectMode,
     };
   }
@@ -602,6 +625,74 @@ describe('Draw Flow Integration', () => {
 
       expect(draftListener).toHaveBeenCalledWith({ vertexCount: 0 });
       expect(drawRectangleMode.getDraftVertexCount()).toBe(0);
+    });
+  });
+  describe('draw-point flow', () => {
+    it('should create a point with a click, then undo and redo it', () => {
+      const { eventBus, store, history, modeManager, drawPointMode } = createDrawingSystem();
+      const createListener = vi.fn();
+      eventBus.on('create', createListener);
+
+      modeManager.setMode('draw-point');
+      clickAt(drawPointMode, 139.7, 35.6);
+
+      expect(store.getAll()).toHaveLength(1);
+      const feature = store.getAll()[0];
+      expect(feature.geometry).toEqual({ type: 'Point', coordinates: [139.7, 35.6] });
+      expect(createListener).toHaveBeenCalledTimes(1);
+      expect(modeManager.getMode()).toBe('draw-point');
+
+      history.undo(store);
+      expect(store.getAll()).toHaveLength(0);
+
+      history.redo(store);
+      expect(store.getAll()).toHaveLength(1);
+      expect(store.getAll()[0].id).toBe(feature.id);
+    });
+
+    it('should place a point per click for continuous placement', () => {
+      const { store, modeManager, drawPointMode } = createDrawingSystem();
+
+      modeManager.setMode('draw-point');
+      clickAt(drawPointMode, 0, 0);
+      clickAt(drawPointMode, 10, 20);
+
+      expect(store.getAll()).toHaveLength(2);
+    });
+
+    it('should not create a point when the map is dragged', () => {
+      // Regression (TD6): points used to be placed on pointer down, so
+      // dragging to pan the map dropped a point at the drag start.
+      const { eventBus, store, modeManager, drawPointMode } = createDrawingSystem();
+      const createListener = vi.fn();
+      eventBus.on('create', createListener);
+
+      modeManager.setMode('draw-point');
+      dragAt(drawPointMode, [0, 0], [10, 10]);
+
+      expect(store.getAll()).toHaveLength(0);
+      expect(createListener).not.toHaveBeenCalled();
+    });
+
+    it('should not create a point when a finger drags the map', () => {
+      // On touch, a one-finger drag is the only way to pan the map.
+      const { store, modeManager, drawPointMode } = createDrawingSystem();
+
+      modeManager.setMode('draw-point');
+      dragAt(drawPointMode, [0, 0], [10, 10], 'touch');
+
+      expect(store.getAll()).toHaveLength(0);
+    });
+
+    it('should keep placing points after a drag', () => {
+      const { store, modeManager, drawPointMode } = createDrawingSystem();
+
+      modeManager.setMode('draw-point');
+      dragAt(drawPointMode, [0, 0], [10, 10]);
+      clickAt(drawPointMode, 5, 5);
+
+      expect(store.getAll()).toHaveLength(1);
+      expect(store.getAll()[0].geometry).toEqual({ type: 'Point', coordinates: [5, 5] });
     });
   });
 });
