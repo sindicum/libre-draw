@@ -147,11 +147,11 @@ describe('RenderManager', () => {
       expect(features[0].id).toBe(ID_A);
     });
 
-    it('should mark points so the vertices layer can exclude them', () => {
+    it('should not add rendering-only flags besides _id and _selected', () => {
       manager.render([makePoint(ID_A)]);
 
       const features = map.sourceData(SOURCE_IDS.FEATURES)?.features ?? [];
-      expect(features[0].properties?._isPoint).toBe(true);
+      expect(Object.keys(features[0].properties ?? {}).sort()).toEqual(['_id', '_selected']);
     });
   });
 

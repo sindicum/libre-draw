@@ -286,7 +286,7 @@ export class SetbackMode implements Mode {
     this.context.store.remove(feature.id);
     this.context.store.add(resultFeature);
 
-    const action = new SetbackAction(feature, resultFeature);
+    const action = new SetbackAction(feature, resultFeature, this.selectedEdgeIndex, distance);
     this.context.history.push(action);
     this.context.events.emit('setback', {
       originalFeature: cloneFeature(feature),

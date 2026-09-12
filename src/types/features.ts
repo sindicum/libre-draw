@@ -188,10 +188,21 @@ export class SetbackAction implements Action {
   public readonly type: ActionType = 'setback';
   public readonly originalFeature: LibreDrawFeature;
   public readonly resultFeature: LibreDrawFeature;
+  /** Index of the edge that was set back, so a redo can report it. */
+  public readonly edgeIndex: number;
+  /** Setback distance in meters, so a redo can report it. */
+  public readonly distance: number;
 
-  constructor(originalFeature: LibreDrawFeature, resultFeature: LibreDrawFeature) {
+  constructor(
+    originalFeature: LibreDrawFeature,
+    resultFeature: LibreDrawFeature,
+    edgeIndex = -1,
+    distance = 0
+  ) {
     this.originalFeature = cloneFeature(originalFeature);
     this.resultFeature = cloneFeature(resultFeature);
+    this.edgeIndex = edgeIndex;
+    this.distance = distance;
   }
 
   apply(store: FeatureStoreInterface): void {

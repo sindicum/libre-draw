@@ -410,7 +410,7 @@ interface StyleConfig {
 | ------------ | ------------------------------------- | --------------------------------------- |
 | `fill`       | [`FillStyle`](#fillstyle)             | Polygon fill rendering                  |
 | `outline`    | [`OutlineStyle`](#outlinestyle)       | Polygon/line outline rendering          |
-| `vertex`     | [`VertexStyle`](#vertexstyle)         | Vertex markers on features              |
+| `vertex`     | [`VertexStyle`](#vertexstyle)         | **Deprecated.** Has no effect           |
 | `preview`    | [`PreviewStyle`](#previewstyle)       | Draw preview / guide line               |
 | `editVertex` | [`EditVertexStyle`](#editvertexstyle) | Edit vertex handles (selected features) |
 | `midpoint`   | [`MidpointStyle`](#midpointstyle)     | Midpoint handles (selected features)    |
@@ -480,7 +480,9 @@ interface OutlineStyle {
 
 ### `VertexStyle`
 
-Style for feature vertex markers displayed on all features.
+::: warning Deprecated
+`vertex` has no effect. The layer it styled was removed in v0.9.1 (it had rendered nothing since v0.5.2). The option is still accepted so existing code keeps compiling, and will be removed in v1.0. Draft and edit vertex markers are styled by [`EditVertexStyle`](#editvertexstyle).
+:::
 
 ```ts
 interface VertexStyle {

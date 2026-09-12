@@ -229,7 +229,7 @@ describe('LibreDraw lifecycle integration', () => {
     expect(map.hasSource(SOURCE_IDS.EDIT_VERTICES)).toBe(true);
     expect(map.hasLayer(LAYER_IDS.FILL)).toBe(true);
     expect(map.hasLayer(LAYER_IDS.OUTLINE)).toBe(true);
-    expect(map.hasLayer(LAYER_IDS.VERTICES)).toBe(true);
+    expect(map.hasLayer(LAYER_IDS.POINT)).toBe(true);
     expect(map.getSourceData(SOURCE_IDS.FEATURES)?.features).toHaveLength(1);
 
     draw.setMode('select');
@@ -313,21 +313,14 @@ describe('LibreDraw lifecycle integration', () => {
     draw.destroy();
   });
 
-  it('should not double-render Point features in VERTICES and POINT layers', () => {
+  it('should render Point features through the POINT layer only', () => {
     const map = new FakeMap();
     const draw = new LibreDraw(map.asMap(), { toolbar: false });
 
-    const verticesLayer = map.getLayer(LAYER_IDS.VERTICES) as {
-      filter: unknown[];
-    };
-    // VERTICES layer should exclude Point features via _isPoint property
-    expect(verticesLayer.filter).toEqual([
-      'all',
-      ['==', '$type', 'Point'],
-      ['!=', '_isPoint', true],
-    ]);
+    // The former vertices layer rendered nothing and is gone.
+    expect(map.hasLayer('libre-draw-vertices')).toBe(false);
+    expect(map.hasLayer(LAYER_IDS.POINT)).toBe(true);
 
-    // Point features should have _isPoint property set
     draw.addFeatures([
       {
         type: 'Feature',
@@ -338,7 +331,8 @@ describe('LibreDraw lifecycle integration', () => {
 
     const sourceData = map.getSourceData(SOURCE_IDS.FEATURES);
     const pointFeature = sourceData?.features.find((f) => f.geometry.type === 'Point');
-    expect(pointFeature?.properties?._isPoint).toBe(true);
+    expect(pointFeature).toBeDefined();
+    expect(pointFeature?.properties?._isPoint).toBeUndefined();
 
     draw.destroy();
   });
@@ -458,10 +452,8 @@ describe('LibreDraw lifecycle integration', () => {
     expect(previewLayer.paint['line-dasharray']).toEqual([4, 1]);
     expect(previewLayer.paint['line-width']).toBe(3);
 
-    const verticesLayer = map.getLayer(LAYER_IDS.VERTICES) as {
-      paint: Record<string, unknown>;
-    };
-    expect(verticesLayer.paint['circle-stroke-width']).toBe(4);
+    // The deprecated `vertex` section is accepted and ignored.
+    expect(map.hasLayer('libre-draw-vertices')).toBe(false);
 
     const editVerticesLayer = map.getLayer(LAYER_IDS.EDIT_VERTICES) as {
       paint: Record<string, unknown>;
@@ -706,6 +698,64 @@ describe('LibreDraw lifecycle integration', () => {
       expect(container.querySelector('button[title="Draw rectangle"]')).toBeNull();
       // Other buttons are unaffected.
       expect(container.querySelector('button[title="Draw polygon"]')).not.toBeNull();
+
+      draw.destroy();
+    });
+  });
+
+  describe('setback undo / redo', () => {
+    /** Click on the canvas; FakeMap projects screen pixels 1:1 to lng/lat. */
+    function clickAt(map: FakeMap, x: number, y: number): void {
+      const canvas = map.getCanvasContainer();
+      canvas.dispatchEvent(new MouseEvent('mousedown', { clientX: x, clientY: y, button: 0 }));
+      window.dispatchEvent(new MouseEvent('mouseup', { clientX: x, clientY: y, button: 0 }));
+    }
+
+    it('re-emits the original edge index and distance on redo()', () => {
+      const map = new FakeMap();
+      // The toolbar's setback input is the only way to execute a setback
+      // (KeyboardInput does not forward Enter), so keep the toolbar on.
+      const draw = new LibreDraw(map.asMap());
+      draw.addFeatures([
+        {
+          id: 'sq',
+          type: 'Feature',
+          geometry: {
+            type: 'Polygon',
+            coordinates: [
+              [
+                [10, 10],
+                [50, 10],
+                [50, 50],
+                [10, 50],
+                [10, 10],
+              ],
+            ],
+          },
+          properties: {},
+        },
+      ]);
+      const setbackListener = vi.fn();
+      draw.on('setback', setbackListener);
+
+      draw.setMode('setback');
+      clickAt(map, 30, 30); // select the polygon
+      clickAt(map, 30, 12); // pick the top edge (index 0)
+      const execute = map
+        .getContainer()
+        .querySelector('button[aria-label="Execute setback"]') as HTMLButtonElement;
+      execute.click(); // default distance of 10 m
+
+      expect(setbackListener).toHaveBeenCalledTimes(1);
+      const first = setbackListener.mock.calls[0][0];
+      expect(first.edgeIndex).toBe(0);
+      expect(first.distance).toBe(10);
+
+      draw.undo();
+      draw.redo();
+
+      expect(setbackListener).toHaveBeenCalledTimes(2);
+      expect(setbackListener.mock.calls[1][0]).toMatchObject({ edgeIndex: 0, distance: 10 });
 
       draw.destroy();
     });

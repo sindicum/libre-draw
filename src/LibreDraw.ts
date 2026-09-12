@@ -1054,13 +1054,11 @@ export class LibreDraw {
         features: [cloneFeature(action.featureA), cloneFeature(action.featureB)],
       });
     } else if (action instanceof SetbackAction) {
-      // edgeIndex and distance are not preserved in SetbackAction,
-      // so we emit placeholder values for redo events
       this.eventBus.emit('setback', {
         originalFeature: cloneFeature(action.originalFeature),
         feature: cloneFeature(action.resultFeature),
-        edgeIndex: -1,
-        distance: 0,
+        edgeIndex: action.edgeIndex,
+        distance: action.distance,
       });
     }
   }

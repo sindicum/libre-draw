@@ -11,7 +11,6 @@ import { createCrosshairImage, CROSSHAIR_PIXEL_RATIO } from './crosshairImage';
 export const LAYER_IDS = {
   FILL: 'libre-draw-fill',
   OUTLINE: 'libre-draw-outline',
-  VERTICES: 'libre-draw-vertices',
   LINE: 'libre-draw-line',
   POINT: 'libre-draw-point',
   PREVIEW: 'libre-draw-preview',
@@ -29,10 +28,10 @@ export const ROTATION_CENTER_IMAGE_ID = 'libre-draw-rotation-center-crosshair';
  * Manages the rendering layers for LibreDraw.
  *
  * Creates and manages MapLibre layers for:
- * - Fill: polygon fill rendering
- * - Outline: polygon border rendering
- * - Vertices: vertex point rendering
+ * - Fill / Outline / Line / Point: feature rendering by geometry type
  * - Preview: in-progress drawing preview
+ * - Edit vertices / midpoints, edge highlight, snap indicator, rotation center:
+ *   interaction feedback
  *
  * Uses requestAnimationFrame for batch updates to avoid
  * redundant re-renders within a single frame.
@@ -135,23 +134,6 @@ export class RenderManager {
             this.style.outline.width + 1,
             this.style.outline.width,
           ],
-        },
-      });
-    }
-
-    // Feature vertices layer (circle markers at each vertex)
-    // Excludes Point features to avoid double-drawing with the POINT layer
-    if (!this.map.getLayer(LAYER_IDS.VERTICES)) {
-      this.map.addLayer({
-        id: LAYER_IDS.VERTICES,
-        type: 'circle',
-        source: SOURCE_IDS.FEATURES,
-        filter: ['all', ['==', '$type', 'Point'], ['!=', '_isPoint', true]],
-        paint: {
-          'circle-radius': this.style.vertex.radius,
-          'circle-color': this.style.vertex.color,
-          'circle-stroke-color': this.style.vertex.strokeColor,
-          'circle-stroke-width': this.style.vertex.strokeWidth,
         },
       });
     }
@@ -590,12 +572,6 @@ export class RenderManager {
       style.outline.width,
     ]);
 
-    // VERTICES
-    set(LAYER_IDS.VERTICES, 'circle-radius', style.vertex.radius);
-    set(LAYER_IDS.VERTICES, 'circle-color', style.vertex.color);
-    set(LAYER_IDS.VERTICES, 'circle-stroke-color', style.vertex.strokeColor);
-    set(LAYER_IDS.VERTICES, 'circle-stroke-width', style.vertex.strokeWidth);
-
     // POINT
     set(LAYER_IDS.POINT, 'circle-radius', [
       'case',
@@ -681,7 +657,6 @@ export class RenderManager {
       LAYER_IDS.PREVIEW,
       LAYER_IDS.POINT,
       LAYER_IDS.LINE,
-      LAYER_IDS.VERTICES,
       LAYER_IDS.OUTLINE,
       LAYER_IDS.FILL,
     ];
@@ -714,7 +689,6 @@ export class RenderManager {
         // The source promotes this to the feature id (see SourceManager).
         _id: feature.id,
         _selected: this.selectedIds.has(feature.id),
-        _isPoint: feature.geometry.type === 'Point',
       },
       geometry: feature.geometry,
     }));
@@ -770,7 +744,6 @@ export class RenderManager {
     return Boolean(
       this.map.getLayer(LAYER_IDS.FILL) &&
       this.map.getLayer(LAYER_IDS.OUTLINE) &&
-      this.map.getLayer(LAYER_IDS.VERTICES) &&
       this.map.getLayer(LAYER_IDS.POINT) &&
       this.map.getLayer(LAYER_IDS.LINE) &&
       this.map.getLayer(LAYER_IDS.PREVIEW) &&

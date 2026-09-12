@@ -246,6 +246,19 @@ describe('SetbackMode', () => {
     );
   });
 
+  it('should record the edge index and distance on the history action', () => {
+    harness.setDistance(1000);
+
+    mode.activate();
+    mode.onPointerDown(pointerEvent(5, 5));
+    mode.onPointerDown(pointerEvent(5, 0));
+    mode.onKeyDown('Enter', new KeyboardEvent('keydown', { key: 'Enter' }));
+
+    expect(harness.mocks.push).toHaveBeenCalledWith(
+      expect.objectContaining({ type: 'setback', edgeIndex: 0, distance: 1000 })
+    );
+  });
+
   it('should reset interaction state on Escape key', () => {
     mode.activate();
     mode.onPointerDown(pointerEvent(5, 5));
