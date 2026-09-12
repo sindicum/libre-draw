@@ -19,6 +19,10 @@ export interface OutlineStyle {
 
 /**
  * Style for feature vertex markers.
+ *
+ * @deprecated Has no effect: the layer it styled was removed in v0.9.1
+ * (it had rendered nothing since v0.5.2). Accepted for compatibility and
+ * removed in v1.0. Draft and edit vertices are styled by {@link EditVertexStyle}.
  */
 export interface VertexStyle {
   color: string;
@@ -77,6 +81,7 @@ export interface PointStyle {
 export interface StyleConfig {
   fill: FillStyle;
   outline: OutlineStyle;
+  /** @deprecated Has no effect. See {@link VertexStyle}. */
   vertex: VertexStyle;
   preview: PreviewStyle;
   editVertex: EditVertexStyle;
@@ -90,6 +95,7 @@ export interface StyleConfig {
 export interface PartialStyleConfig {
   fill?: Partial<FillStyle>;
   outline?: Partial<OutlineStyle>;
+  /** @deprecated Has no effect. See {@link VertexStyle}. */
   vertex?: Partial<VertexStyle>;
   preview?: Partial<PreviewStyle>;
   editVertex?: Partial<EditVertexStyle>;

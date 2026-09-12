@@ -98,4 +98,45 @@ describe('SetbackAction', () => {
 
     expect(store.getById('result')?.properties.tag).toBe('result');
   });
+  it('should keep the edge index and distance for redo events', () => {
+    const original = makeFeature('orig', [
+      [0, 0],
+      [10, 0],
+      [10, 10],
+      [0, 10],
+      [0, 0],
+    ]);
+    const result = makeFeature('result', [
+      [0, 2],
+      [10, 2],
+      [10, 10],
+      [0, 10],
+      [0, 2],
+    ]);
+    const action = new SetbackAction(original, result, 2, 12.5);
+
+    expect(action.edgeIndex).toBe(2);
+    expect(action.distance).toBe(12.5);
+  });
+
+  it('should default the edge index and distance when not given', () => {
+    const original = makeFeature('orig', [
+      [0, 0],
+      [10, 0],
+      [10, 10],
+      [0, 10],
+      [0, 0],
+    ]);
+    const result = makeFeature('result', [
+      [0, 2],
+      [10, 2],
+      [10, 10],
+      [0, 10],
+      [0, 2],
+    ]);
+    const action = new SetbackAction(original, result);
+
+    expect(action.edgeIndex).toBe(-1);
+    expect(action.distance).toBe(0);
+  });
 });
