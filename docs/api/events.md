@@ -146,7 +146,7 @@ draw.on('delete', (e) => {
 
 ## `split`
 
-Emitted when a polygon is successfully split into two polygons. Undoing a split emits a [`delete`](#delete) for each half and a [`create`](#create) for the original; redoing it emits a `delete` for the original followed by `split` again.
+Emitted when a polygon or line is successfully split into two, in `split` mode or through [`split()`](/api/libre-draw#split-id-line) (`origin` tells which). Undoing a split emits a [`delete`](#delete) for each half and a [`create`](#create) for the original; redoing it emits a `delete` for the original followed by `split` again.
 
 ### Payload: `SplitEvent`
 
@@ -180,7 +180,7 @@ draw.on('split', (e) => {
 
 ## `splitfailed`
 
-Emitted when split operation fails.
+Emitted when a split fails for a geometric reason, in `split` mode or through [`split()`](/api/libre-draw#split-id-line). Argument errors of the API (`'not-found'`, `'not-splittable'`) are only returned, not emitted.
 
 ### Payload: `SplitFailedEvent`
 
@@ -217,7 +217,7 @@ draw.on('splitfailed', (e) => {
 
 ## `setback`
 
-Emitted when a setback operation succeeds. Undoing it emits a [`delete`](#delete) for the result and a [`create`](#create) for the original; redoing it emits `setback` again.
+Emitted when a setback succeeds, in `setback` mode or through [`setback()`](/api/libre-draw#setback-id-edge-distancemeters). Undoing it emits a [`delete`](#delete) for the result and a [`create`](#create) for the original; redoing it emits `setback` again.
 
 ### Payload: `SetbackEvent`
 
@@ -252,7 +252,7 @@ draw.on('setback', (e) => {
 
 ## `setbackfailed`
 
-Emitted when setback operation fails.
+Emitted when a setback fails for a geometric reason, in `setback` mode or through [`setback()`](/api/libre-draw#setback-id-edge-distancemeters). Argument errors of the API (`'not-found'`, `'not-polygon'`, `'invalid-edge'`, `'invalid-distance'`) are only returned, not emitted.
 
 ### Payload: `SetbackFailedEvent`
 
@@ -284,7 +284,7 @@ draw.on('setbackfailed', (e) => {
 
 ## `union`
 
-Emitted when two polygons are merged into one in `union` mode. The merge is one history step: undoing it emits a [`delete`](#delete) for the merged polygon and a [`create`](#create) for each source polygon, and redoing it emits `union` again.
+Emitted when two polygons are merged into one, in `union` mode or through [`union()`](/api/libre-draw#union-ids). The merge is one history step: undoing it emits a [`delete`](#delete) for the merged polygon and a [`create`](#create) for each source polygon, and redoing it emits `union` again.
 
 ### Payload: `UnionEvent`
 
@@ -319,7 +319,7 @@ draw.on('union', (e) => {
 
 ## `unionfailed`
 
-Emitted when a union operation fails. The store is left untouched and the first polygon stays selected so another partner can be picked.
+Emitted when a union fails for a geometric reason, in `union` mode or through [`union()`](/api/libre-draw#union-ids). The store is left untouched; in the mode the first polygon stays selected so another partner can be picked. Argument errors of the API (`'not-found'`, `'unsupported-count'`) are only returned, not emitted.
 
 ### Payload: `UnionFailedEvent`
 

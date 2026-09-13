@@ -48,6 +48,10 @@ export type {
   UpdateFeaturePatch,
   UpdateFeatureFailReason,
   RotateFailReason,
+  EdgeRef,
+  SplitOperationFailReason,
+  SetbackOperationFailReason,
+  UnionOperationFailReason,
 } from './types';
 
 export type {

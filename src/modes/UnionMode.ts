@@ -3,11 +3,9 @@ import { point as turfPoint } from '@turf/helpers';
 import type { Mode } from './Mode';
 import type { ModeContext } from '../core/ModeContext';
 import type { LibreDrawFeature, Position } from '../types/features';
-import { UnionAction } from '../types/features';
 import type { NormalizedInputEvent } from '../types/input';
 import { LONG_PRESS_MS, clickTolerance, pointerTravel } from '../input/gestures';
-import { cloneFeature } from '../utils/featureSnapshot';
-import { unionPolygons } from '../utils/unionPolygon';
+import { union } from '../operations/union';
 
 /**
  * Mode for merging two polygons into one.
@@ -115,35 +113,19 @@ export class UnionMode implements Mode {
     this.executeUnion(hit);
   }
 
-  /** Merge the selected polygon with `second`, recording one history step. */
+  /**
+   * Merge the selected polygon with `second` through the `union` operation
+   * (one UnionAction, one `union` or `unionfailed` event). A failure keeps
+   * the first polygon selected so another partner can be picked.
+   */
   private executeUnion(second: LibreDrawFeature): void {
     if (!this.selectedFeatureId) return;
 
-    const first = this.context.store.getById(this.selectedFeatureId);
-    if (!first) {
-      this.resetInteractionState();
+    const result = union(this.context, [this.selectedFeatureId, second.id]);
+    if (!result.ok) {
+      if (result.reason === 'not-found') this.resetInteractionState();
       return;
     }
-
-    const result = unionPolygons(first, second);
-    if (result.type === 'error') {
-      this.context.events.emit('unionfailed', {
-        reason: result.reason,
-        featureIds: [first.id, second.id],
-      });
-      return;
-    }
-
-    const merged = result.feature;
-    this.context.store.remove(first.id);
-    this.context.store.remove(second.id);
-    this.context.store.add(merged);
-
-    this.context.history.push(new UnionAction(first, second, merged));
-    this.context.events.emit('union', {
-      originalFeatures: [cloneFeature(first), cloneFeature(second)],
-      feature: cloneFeature(merged),
-    });
 
     this.clearSelection();
     this.context.render.renderFeatures();

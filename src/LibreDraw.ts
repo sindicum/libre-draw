@@ -16,6 +16,8 @@ import type {
   FeatureValidationResult,
   OperationResult,
   UpdateFeaturePatch,
+  EdgeRef,
+  Position,
 } from './types';
 import { mergeStyleConfig } from './types/style';
 import type { Action } from './types/features';
@@ -38,6 +40,9 @@ import { LibreDrawError } from './core/errors';
 import { validateGeoJSON, tryValidateFeature } from './validation/geojson';
 import { updateFeature as updateFeatureOperation } from './operations/updateFeature';
 import { rotate as rotateOperation } from './operations/rotate';
+import { split as splitOperation } from './operations/split';
+import { setback as setbackOperation } from './operations/setback';
+import { union as unionOperation } from './operations/union';
 import { IdleMode } from './modes/IdleMode';
 import { DrawPolygonMode } from './modes/DrawPolygonMode';
 import { DrawRectangleMode } from './modes/DrawRectangleMode';
@@ -707,6 +712,106 @@ export class LibreDraw {
   rotate(id: string, angleDeg: number): OperationResult {
     this.assertNotDestroyed();
     const result = this.asApi(() => rotateOperation(this.modeContext, id, angleDeg));
+    if (result.ok) this.syncAfterExternalChange();
+    return result;
+  }
+
+  /**
+   * Split a Polygon or LineString along the line through two points.
+   *
+   * Same computation as the [`split` mode]: a Polygon is cut where the
+   * extended line crosses its outer ring exactly twice, a LineString at its
+   * first crossing. The two parts get fresh ids and a copy of the original's
+   * properties. Recorded as one undoable step and reported with a `'split'`
+   * event (`origin: 'api'`); a geometric failure also emits `'splitfailed'`
+   * as the mode does. If the original is selected, the selection is dropped.
+   *
+   * @param id - The feature to split.
+   * @param line - Two positions `[start, end]` defining the split line.
+   * @returns `{ ok: true, created: [a, b], deleted: [original] }`, or
+   *   `{ ok: false, reason }` with `'not-found'`, `'not-splittable'` (a
+   *   Point), a {@link SplitFailReason}, or a validation message. Nothing
+   *   changes on failure.
+   *
+   * @throws {LibreDrawError} If this instance has been destroyed.
+   *
+   * @example
+   * ```ts
+   * const result = draw.split('abc-123', [
+   *   [139.70, 35.65],
+   *   [139.72, 35.67],
+   * ]);
+   * if (result.ok) console.log(result.created.map((f) => f.id)); // two new ids
+   * ```
+   */
+  split(id: string, line: [Position, Position]): OperationResult {
+    this.assertNotDestroyed();
+    const result = this.asApi(() => splitOperation(this.modeContext, id, line));
+    if (result.ok) this.syncAfterExternalChange();
+    return result;
+  }
+
+  /**
+   * Move one edge of a Polygon inward by a distance in meters.
+   *
+   * Same computation as the [`setback` mode]: the ring is split along the
+   * offset line and the band on the edge's side is discarded. The result
+   * gets a fresh id and a copy of the original's properties. Recorded as
+   * one undoable step and reported with a `'setback'` event
+   * (`origin: 'api'`); a geometric failure also emits `'setbackfailed'` as
+   * the mode does. Works without the toolbar: the distance is a parameter,
+   * not the input field's value.
+   *
+   * @param id - The Polygon to set back.
+   * @param edge - The edge to move; see {@link EdgeRef}. Only the outer
+   *   ring is supported for now.
+   * @param distanceMeters - Offset distance in meters, greater than zero.
+   * @returns `{ ok: true, created: [result], deleted: [original] }`, or
+   *   `{ ok: false, reason }` with `'not-found'`, `'not-polygon'`,
+   *   `'invalid-edge'`, `'invalid-distance'`, `'has-holes'`, or
+   *   `'invalid-split'`. Nothing changes on failure.
+   *
+   * @throws {LibreDrawError} If this instance has been destroyed.
+   *
+   * @example
+   * ```ts
+   * draw.setback('abc-123', { index: 2 }, 10); // edge 2, 10 m inward
+   * draw.undo();
+   * ```
+   */
+  setback(id: string, edge: EdgeRef, distanceMeters: number): OperationResult {
+    this.assertNotDestroyed();
+    const result = this.asApi(() => setbackOperation(this.modeContext, id, edge, distanceMeters));
+    if (result.ok) this.syncAfterExternalChange();
+    return result;
+  }
+
+  /**
+   * Merge two Polygons into one.
+   *
+   * Same computation as the [`union` mode]: the merged polygon gets a fresh
+   * id and a copy of the first polygon's properties, and only a single
+   * Polygon without holes counts as success. Recorded as one undoable step
+   * and reported with a `'union'` event (`origin: 'api'`); a geometric
+   * failure also emits `'unionfailed'` as the mode does.
+   *
+   * @param ids - Exactly two distinct feature ids, in the order that decides
+   *   whose properties survive.
+   * @returns `{ ok: true, created: [merged], deleted: [a, b] }`, or
+   *   `{ ok: false, reason }` with `'unsupported-count'`, `'not-found'`, or a
+   *   {@link UnionFailReason}. Nothing changes on failure.
+   *
+   * @throws {LibreDrawError} If this instance has been destroyed.
+   *
+   * @example
+   * ```ts
+   * const result = draw.union(['a', 'b']);
+   * if (!result.ok) console.warn(result.reason); // e.g. 'disjoint'
+   * ```
+   */
+  union(ids: string[]): OperationResult {
+    this.assertNotDestroyed();
+    const result = this.asApi(() => unionOperation(this.modeContext, ids));
     if (result.ok) this.syncAfterExternalChange();
     return result;
   }

@@ -44,6 +44,10 @@ import type {
   UpdateFeaturePatch,
   UpdateFeatureFailReason,
   RotateFailReason,
+  EdgeRef,
+  SplitOperationFailReason,
+  SetbackOperationFailReason,
+  UnionOperationFailReason,
 } from '@sindicum/libre-draw';
 ```
 
@@ -524,7 +528,7 @@ Structured outcomes returned by the public API. None of them is thrown; narrow o
 
 ### `OperationResult`
 
-The result of an editing operation ([`updateFeature`](/api/libre-draw#updatefeature-id-patch), [`rotate`](/api/libre-draw#rotate-id-angledeg), and the operations added in later releases).
+The result of an editing operation ([`updateFeature`](/api/libre-draw#updatefeature-id-patch), [`rotate`](/api/libre-draw#rotate-id-angledeg), [`split`](/api/libre-draw#split-id-line), [`setback`](/api/libre-draw#setback-id-edge-distancemeters), and [`union`](/api/libre-draw#union-ids)).
 
 ```ts
 interface OperationSuccess {
@@ -660,6 +664,76 @@ type RotateFailReason = 'not-found' | 'not-rotatable' | 'no-rotation';
 | `'not-found'`     | No feature has that id                                                    |
 | `'not-rotatable'` | The feature is a Point                                                    |
 | `'no-rotation'`   | The angle is 0, a multiple of 360, or not finite, so nothing would change |
+
+---
+
+### `EdgeRef`
+
+A reference to one edge of a Polygon, used by [`setback()`](/api/libre-draw#setback-id-edge-distancemeters).
+
+```ts
+interface EdgeRef {
+  ring?: number;
+  index: number;
+}
+```
+
+| Property | Type     | Description                                                                                                                                                                                            |
+| -------- | -------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `ring`   | `number` | Ring index; `0` (the outer ring) when omitted. Inner rings cannot be edited yet, so any other value is rejected with `'has-holes'`                                                                     |
+| `index`  | `number` | Edge index within the ring, counted without the closing position: edge `i` runs from vertex `i` to vertex `i + 1`, and the last edge returns to vertex `0`. Same numbering as `SetbackEvent.edgeIndex` |
+
+---
+
+### `SplitOperationFailReason`
+
+Failure codes of [`split()`](/api/libre-draw#split-id-line). The geometric codes are the [`SplitFailReason`](/api/events#payload-splitfailedevent) values of the `splitfailed` event, which is emitted alongside; the argument errors below emit no event. A result that fails validation reports the validation message instead of a code.
+
+```ts
+type SplitOperationFailReason = 'not-found' | 'not-splittable' | SplitFailReason;
+```
+
+| Value              | Meaning                |
+| ------------------ | ---------------------- |
+| `'not-found'`      | No feature has that id |
+| `'not-splittable'` | The feature is a Point |
+
+---
+
+### `SetbackOperationFailReason`
+
+Failure codes of [`setback()`](/api/libre-draw#setback-id-edge-distancemeters). `'has-holes'` and `'invalid-split'` are the [`SetbackFailReason`](/api/events#payload-setbackfailedevent) values of the `setbackfailed` event, which is emitted alongside; the argument errors below emit no event.
+
+```ts
+type SetbackOperationFailReason =
+  | 'not-found'
+  | 'not-polygon'
+  | 'invalid-edge'
+  | 'invalid-distance'
+  | SetbackFailReason;
+```
+
+| Value                | Meaning                                               |
+| -------------------- | ----------------------------------------------------- |
+| `'not-found'`        | No feature has that id                                |
+| `'not-polygon'`      | The feature is not a Polygon                          |
+| `'invalid-edge'`     | `edge.index` is not an integer in `[0, vertexCount)`  |
+| `'invalid-distance'` | The distance is not a finite number greater than zero |
+
+---
+
+### `UnionOperationFailReason`
+
+Failure codes of [`union()`](/api/libre-draw#union-ids). The geometric codes are the [`UnionFailReason`](/api/events#payload-unionfailedevent) values of the `unionfailed` event, which is emitted alongside; the argument errors below emit no event.
+
+```ts
+type UnionOperationFailReason = 'not-found' | 'unsupported-count' | UnionFailReason;
+```
+
+| Value                 | Meaning                                           |
+| --------------------- | ------------------------------------------------- |
+| `'not-found'`         | One of the ids has no feature                     |
+| `'unsupported-count'` | `ids` does not name exactly two distinct features |
 
 ---
 

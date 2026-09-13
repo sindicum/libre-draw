@@ -420,6 +420,91 @@ draw.undo(); // back to 90°
 
 ---
 
+### `split(id, line)`
+
+Split a Polygon or LineString along the line through two points.
+
+Same computation as the [`split` mode](/guide/modes#split): a Polygon is cut where the extended line crosses its outer ring exactly twice, a LineString at its first crossing. The two parts get fresh ids and a copy of the original's properties. Recorded as **one undoable step** and reported with a [`split`](/api/events#split) event (`origin: 'api'`); a geometric failure also emits [`splitfailed`](/api/events#splitfailed), as the mode does. If the original is selected, the selection is dropped.
+
+**Parameters:**
+
+| Name   | Type                                              | Description                                          |
+| ------ | ------------------------------------------------- | ---------------------------------------------------- |
+| `id`   | `string`                                          | The feature to split                                 |
+| `line` | `[`[`Position`](/api/types#position)`, Position]` | Two positions `[start, end]` defining the split line |
+
+**Returns:** [`OperationResult`](/api/types#operationresult) — `{ ok: true, created: [a, b], deleted: [original] }`, or `{ ok: false, reason }` with `'not-found'`, `'not-splittable'` (a Point), a [`SplitFailReason`](/api/events#payload-splitfailedevent), or a validation message (see [`SplitOperationFailReason`](/api/types#splitoperationfailreason)). Nothing changes on failure.
+
+**Throws:** [`LibreDrawError`](/api/types#libredrawerror) if this instance has been destroyed.
+
+**Example:**
+
+```ts
+const result = draw.split('abc-123', [
+  [139.7, 35.65],
+  [139.72, 35.67],
+]);
+if (result.ok) {
+  console.log(result.created.map((f) => f.id)); // two new ids
+} else {
+  console.warn(result.reason); // e.g. 'invalid-intersection-count'
+}
+```
+
+---
+
+### `setback(id, edge, distanceMeters)`
+
+Move one edge of a Polygon inward by a distance in meters.
+
+Same computation as the [`setback` mode](/guide/modes#setback): the ring is split along the offset line and the band on the edge's side is discarded. The result gets a fresh id and a copy of the original's properties. Recorded as **one undoable step** and reported with a [`setback`](/api/events#setback) event (`origin: 'api'`); a geometric failure also emits [`setbackfailed`](/api/events#setbackfailed), as the mode does. Works without the toolbar: the distance is a parameter, not the input field's value.
+
+**Parameters:**
+
+| Name             | Type                            | Description                                                                                                     |
+| ---------------- | ------------------------------- | --------------------------------------------------------------------------------------------------------------- |
+| `id`             | `string`                        | The Polygon to set back                                                                                         |
+| `edge`           | [`EdgeRef`](/api/types#edgeref) | The edge to move (`{ index }`, counted like `SetbackEvent.edgeIndex`). Only the outer ring is supported for now |
+| `distanceMeters` | `number`                        | Offset distance in meters, greater than zero                                                                    |
+
+**Returns:** [`OperationResult`](/api/types#operationresult) — `{ ok: true, created: [result], deleted: [original] }`, or `{ ok: false, reason }` with `'not-found'`, `'not-polygon'`, `'invalid-edge'`, `'invalid-distance'`, `'has-holes'`, or `'invalid-split'` (see [`SetbackOperationFailReason`](/api/types#setbackoperationfailreason)). Nothing changes on failure.
+
+**Throws:** [`LibreDrawError`](/api/types#libredrawerror) if this instance has been destroyed.
+
+**Example:**
+
+```ts
+draw.setback('abc-123', { index: 2 }, 10); // edge 2, 10 m inward
+draw.undo();
+```
+
+---
+
+### `union(ids)`
+
+Merge two Polygons into one.
+
+Same computation as the [`union` mode](/guide/modes#union): the merged polygon gets a fresh id and a copy of the first polygon's properties, and only a single Polygon without holes counts as success. Recorded as **one undoable step** and reported with a [`union`](/api/events#union) event (`origin: 'api'`); a geometric failure also emits [`unionfailed`](/api/events#unionfailed), as the mode does.
+
+**Parameters:**
+
+| Name  | Type       | Description                                                                          |
+| ----- | ---------- | ------------------------------------------------------------------------------------ |
+| `ids` | `string[]` | Exactly two distinct feature ids, in the order that decides whose properties survive |
+
+**Returns:** [`OperationResult`](/api/types#operationresult) — `{ ok: true, created: [merged], deleted: [a, b] }`, or `{ ok: false, reason }` with `'unsupported-count'`, `'not-found'`, or a [`UnionFailReason`](/api/events#payload-unionfailedevent) (see [`UnionOperationFailReason`](/api/types#unionoperationfailreason)). Nothing changes on failure.
+
+**Throws:** [`LibreDrawError`](/api/types#libredrawerror) if this instance has been destroyed.
+
+**Example:**
+
+```ts
+const result = draw.union(['a', 'b']);
+if (!result.ok) console.warn(result.reason); // e.g. 'disjoint'
+```
+
+---
+
 ### `selectFeature(id)`
 
 Programmatically select a feature by its ID.

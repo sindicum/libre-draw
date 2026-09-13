@@ -56,6 +56,10 @@ export type {
   UpdateFeaturePatch,
   UpdateFeatureFailReason,
   RotateFailReason,
+  EdgeRef,
+  SplitOperationFailReason,
+  SetbackOperationFailReason,
+  UnionOperationFailReason,
 } from './operations';
 
 export type { Locale, Messages } from './messages';

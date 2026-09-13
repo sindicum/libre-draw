@@ -145,3 +145,22 @@ export function extendLine(start: Position, end: Position, ratio: number): [Posi
     [end[0] + dX * ratio, end[1] + dY * ratio],
   ];
 }
+
+/**
+ * Offset edge `edgeIndex` of a polygon ring inward by `distanceMeters`.
+ *
+ * `vertices` is the ring without its closing position; the edge runs from
+ * `vertices[edgeIndex]` to the next vertex (wrapping to the first). The
+ * winding of `vertices` decides which side is inward. Throws when the edge
+ * is too short to have a direction (see {@link computeInwardNormal}).
+ */
+export function computeEdgeOffsetLine(
+  vertices: Position[],
+  edgeIndex: number,
+  distanceMeters: number
+): [Position, Position] {
+  const edgeStart = vertices[edgeIndex];
+  const edgeEnd = vertices[(edgeIndex + 1) % vertices.length];
+  const inwardNormal = computeInwardNormal(edgeStart, edgeEnd, vertices);
+  return computeOffsetLine(edgeStart, edgeEnd, distanceMeters, inwardNormal);
+}

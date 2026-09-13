@@ -1,4 +1,5 @@
 import type { FeatureProperties, LibreDrawFeature, LibreDrawGeometry } from './features';
+import type { SetbackFailReason, SplitFailReason, UnionFailReason } from './events';
 
 /**
  * Result of a successful editing operation.
@@ -109,3 +110,56 @@ export type UpdateFeatureFailReason = 'not-found' | 'geometry-type-mismatch' | '
  * - `no-rotation`: the angle is 0, a multiple of 360, or not finite, so nothing would change
  */
 export type RotateFailReason = 'not-found' | 'not-rotatable' | 'no-rotation';
+
+/**
+ * Reference to one edge of a Polygon.
+ *
+ * `index` counts the edges of the ring without its closing position: edge
+ * `i` runs from vertex `i` to vertex `i + 1`, and the last edge returns to
+ * vertex `0`. This is the same numbering as `SetbackEvent.edgeIndex`.
+ * `ring` selects the ring (`0` is the outer ring, the default); inner
+ * rings are not editable yet, so any other value is rejected.
+ */
+export interface EdgeRef {
+  /** Ring index. `0` (the outer ring) when omitted. */
+  ring?: number;
+  /** Edge index within the ring, `0 <= index < vertexCount`. */
+  index: number;
+}
+
+/**
+ * Failure codes of {@link LibreDraw.split}. Geometric failures reuse the
+ * `SplitFailReason` codes of the `splitfailed` event and emit that event;
+ * the argument errors below emit nothing.
+ *
+ * - `not-found`: no feature has that id
+ * - `not-splittable`: the feature is a Point
+ */
+export type SplitOperationFailReason = 'not-found' | 'not-splittable' | SplitFailReason;
+
+/**
+ * Failure codes of {@link LibreDraw.setback}. `has-holes` and
+ * `invalid-split` are the `setbackfailed` event's codes and emit that event;
+ * the argument errors below emit nothing.
+ *
+ * - `not-found`: no feature has that id
+ * - `not-polygon`: the feature is not a Polygon
+ * - `invalid-edge`: `edge.index` is not an integer in `[0, vertexCount)`
+ * - `invalid-distance`: the distance is not a finite positive number
+ */
+export type SetbackOperationFailReason =
+  | 'not-found'
+  | 'not-polygon'
+  | 'invalid-edge'
+  | 'invalid-distance'
+  | SetbackFailReason;
+
+/**
+ * Failure codes of {@link LibreDraw.union}. Geometric failures reuse the
+ * `UnionFailReason` codes of the `unionfailed` event and emit that event;
+ * the argument errors below emit nothing.
+ *
+ * - `not-found`: one of the ids has no feature
+ * - `unsupported-count`: `ids` does not name exactly two distinct features
+ */
+export type UnionOperationFailReason = 'not-found' | 'unsupported-count' | UnionFailReason;

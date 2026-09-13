@@ -3,18 +3,10 @@ import { point as turfPoint } from '@turf/helpers';
 import type { Mode } from './Mode';
 import type { ModeContext } from '../core/ModeContext';
 import type { LibreDrawFeature, PolygonGeometry, Position } from '../types/features';
-import { SetbackAction } from '../types/features';
 import type { NormalizedInputEvent } from '../types/input';
-import { cloneFeature } from '../utils/featureSnapshot';
+import { setback } from '../operations/setback';
 import { getVertices } from '../utils/geometry';
-import { splitPolygon } from '../utils/splitPolygon';
-import {
-  computeInwardNormal,
-  computeOffsetLine,
-  extendLine,
-  findNearestEdge,
-} from '../utils/setback';
-import { EPSILON } from '../validation/intersection';
+import { computeEdgeOffsetLine, findNearestEdge } from '../utils/setback';
 
 type SetbackState = 'idle' | 'selecting-edge' | 'previewing';
 
@@ -22,7 +14,6 @@ const HIT_THRESHOLD_MOUSE_PX = 18;
 const HIT_THRESHOLD_TOUCH_PX = 24;
 // Expand edge hit area when clicking slightly outside polygon in preview state.
 const OUTSIDE_EDGE_HIT_BONUS_PX = 12;
-const EXTENDED_OFFSET_LINE_RATIO = 1.0;
 const DEFAULT_SETBACK_DISTANCE_METERS = 10;
 
 /**
@@ -207,24 +198,23 @@ export class SetbackMode implements Mode {
     const distance = distanceOverride ?? this.getSetbackDistance();
     if (distance <= 0) return;
 
-    const vertices = getVertices(feature);
-    const [edgeStart, edgeEnd] = this.getEdgeCoordinates(feature, this.selectedEdgeIndex);
-
     try {
-      const inwardNormal = computeInwardNormal(edgeStart, edgeEnd, vertices);
-      const [offsetStart, offsetEnd] = computeOffsetLine(
-        edgeStart,
-        edgeEnd,
-        distance,
-        inwardNormal
+      const offsetLine = computeEdgeOffsetLine(
+        getVertices(feature),
+        this.selectedEdgeIndex,
+        distance
       );
-      this.context.render.renderPreview([offsetStart, offsetEnd]);
+      this.context.render.renderPreview(offsetLine);
     } catch {
       this.context.render.clearPreview();
     }
   }
 
-  /** Execute the setback operation and commit history/event updates on success. */
+  /**
+   * Commit the setback through the `setback` operation (one SetbackAction,
+   * one `setback` or `setbackfailed` event). On failure the polygon stays
+   * selected and the mode goes back to picking an edge.
+   */
   private executeSetback(distanceOverride?: number): void {
     if (!this.isActive || this.state !== 'previewing') return;
 
@@ -234,66 +224,17 @@ export class SetbackMode implements Mode {
       return;
     }
 
-    if (feature.geometry.type !== 'Polygon' || feature.geometry.coordinates.length > 1) {
-      this.emitSetbackFailed('has-holes', feature.id);
-      this.state = 'selecting-edge';
-      this.selectedEdgeIndex = -1;
-      this.context.render.clearPreview();
-      this.context.render.clearEdgeHighlight();
-      return;
-    }
-
     const distance = distanceOverride ?? this.getSetbackDistance();
     if (distance <= 0) return;
 
-    const vertices = getVertices(feature);
-    const [edgeStart, edgeEnd] = this.getEdgeCoordinates(feature, this.selectedEdgeIndex);
-
-    let extendedStart: Position;
-    let extendedEnd: Position;
-    try {
-      const inwardNormal = computeInwardNormal(edgeStart, edgeEnd, vertices);
-      const [offsetStart, offsetEnd] = computeOffsetLine(
-        edgeStart,
-        edgeEnd,
-        distance,
-        inwardNormal
-      );
-      [extendedStart, extendedEnd] = extendLine(offsetStart, offsetEnd, EXTENDED_OFFSET_LINE_RATIO);
-    } catch {
-      this.emitSetbackFailed('invalid-split', feature.id);
-      return;
-    }
-
-    const splitResult = splitPolygon(feature, extendedStart, extendedEnd);
-    if (splitResult.type === 'error') {
-      this.emitSetbackFailed('invalid-split', feature.id);
+    const result = setback(this.context, feature.id, { index: this.selectedEdgeIndex }, distance);
+    if (!result.ok) {
       this.state = 'selecting-edge';
       this.selectedEdgeIndex = -1;
       this.context.render.clearPreview();
       this.context.render.clearEdgeHighlight();
       return;
     }
-
-    const [featureA, featureB] = splitResult.features;
-    const verticesA = (featureA.geometry as PolygonGeometry).coordinates[0];
-    const isASetbackBand = verticesA.some(
-      (v) => Math.abs(v[0] - edgeStart[0]) < EPSILON && Math.abs(v[1] - edgeStart[1]) < EPSILON
-    );
-
-    const resultFeature = isASetbackBand ? featureB : featureA;
-
-    this.context.store.remove(feature.id);
-    this.context.store.add(resultFeature);
-
-    const action = new SetbackAction(feature, resultFeature, this.selectedEdgeIndex, distance);
-    this.context.history.push(action);
-    this.context.events.emit('setback', {
-      originalFeature: cloneFeature(feature),
-      feature: cloneFeature(resultFeature),
-      edgeIndex: this.selectedEdgeIndex,
-      distance,
-    });
 
     this.context.render.renderFeatures();
     this.resetInteractionState(true);
@@ -348,14 +289,6 @@ export class SetbackMode implements Mode {
   private renderSelectedEdgeHighlight(feature: LibreDrawFeature, edgeIndex: number): void {
     const [start, end] = this.getEdgeCoordinates(feature, edgeIndex);
     this.context.render.renderEdgeHighlight([start, end]);
-  }
-
-  /** Emit a normalized setback failure event. */
-  private emitSetbackFailed(reason: 'has-holes' | 'invalid-split', featureId: string): void {
-    this.context.events.emit('setbackfailed', {
-      reason,
-      featureId,
-    });
   }
 
   /** Read setback distance from context with numeric safety fallback. */

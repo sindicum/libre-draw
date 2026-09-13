@@ -3,11 +3,8 @@ import { point as turfPoint } from '@turf/helpers';
 import type { Mode } from './Mode';
 import type { ModeContext } from '../core/ModeContext';
 import type { LibreDrawFeature, Position } from '../types/features';
-import { SplitAction } from '../types/features';
 import type { NormalizedInputEvent } from '../types/input';
-import { cloneFeature } from '../utils/featureSnapshot';
-import { splitPolygon, splitLine } from '../utils/splitPolygon';
-import type { SplitResult } from '../utils/splitPolygon';
+import { split } from '../operations/split';
 
 type SplitState = 'idle' | 'first-point' | 'second-point';
 
@@ -102,46 +99,24 @@ export class SplitMode implements Mode {
     this.context.render.clearPreview();
   }
 
-  /** Execute the split operation using the stored first point and the given second point. */
+  /**
+   * Commit the split through the `split` operation (one SplitAction, one
+   * `split` or `splitfailed` event). On failure the target stays selected
+   * and the mode waits for a new first point.
+   */
   private executeSplit(lineEnd: Position): void {
     if (!this.selectedFeatureId || !this.lineStart) {
       this.resetInteractionState(true);
       return;
     }
 
-    const feature = this.context.store.getById(this.selectedFeatureId);
-    if (!feature) {
-      this.resetInteractionState(true);
-      return;
-    }
-
-    const splitResult: SplitResult =
-      feature.geometry.type === 'LineString'
-        ? splitLine(feature, this.lineStart, lineEnd)
-        : splitPolygon(feature, this.lineStart, lineEnd);
-    if (splitResult.type === 'error') {
-      this.context.events.emit('splitfailed', {
-        reason: splitResult.reason,
-        featureId: feature.id,
-      });
-      this.state = 'first-point';
+    const result = split(this.context, this.selectedFeatureId, [this.lineStart, lineEnd]);
+    if (!result.ok) {
+      this.state = this.context.store.getById(this.selectedFeatureId) ? 'first-point' : 'idle';
       this.lineStart = null;
       this.context.render.clearPreview();
       return;
     }
-
-    const [featureA, featureB] = splitResult.features;
-
-    this.context.store.remove(feature.id);
-    this.context.store.add(featureA);
-    this.context.store.add(featureB);
-
-    const action = new SplitAction(feature, featureA, featureB);
-    this.context.history.push(action);
-    this.context.events.emit('split', {
-      originalFeature: cloneFeature(feature),
-      features: [cloneFeature(featureA), cloneFeature(featureB)],
-    });
 
     this.clearSelection();
     this.context.render.clearPreview();
