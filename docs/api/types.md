@@ -35,10 +35,16 @@ import type {
   InputType,
   Locale,
   Messages,
+  OperationResult,
+  OperationSuccess,
+  OperationFailure,
+  AddFeaturesOptions,
+  AddFeatureResult,
+  FeatureValidationResult,
 } from '@sindicum/libre-draw';
 ```
 
-Event payload types (`CreateEvent`, `LibreDrawEventMap`, the `*FailReason` unions, …) are documented on the [Events](/api/events) page and exported the same way. Runtime values (`LibreDrawError`, `DEFAULT_STYLE_CONFIG`, `mergeStyleConfig`, the `*Action` classes) use a plain `import`.
+Event payload types (`CreateEvent`, `LibreDrawEventMap`, `EventOrigin`, the `*FailReason` unions, …) are documented on the [Events](/api/events) page and exported the same way. Runtime values (`LibreDrawError`, `DEFAULT_STYLE_CONFIG`, `mergeStyleConfig`, the `*Action` classes) use a plain `import`.
 
 ---
 
@@ -426,7 +432,7 @@ The type of history action.
 type ActionType = 'create' | 'update' | 'delete' | 'split' | 'setback' | 'union' | 'batch';
 ```
 
-`'batch'` is used by [`BatchAction`](#batchaction), which groups several actions into one history step (for example, one [`addFeatures()`](/api/libre-draw#addfeatures-features) call).
+`'batch'` is used by [`BatchAction`](#batchaction), which groups several actions into one history step (for example, one [`addFeatures()`](/api/libre-draw#addfeatures-features-options) call).
 
 ---
 
@@ -506,6 +512,101 @@ interface FeatureStoreInterface {
   getById(id: string): LibreDrawFeature | undefined;
 }
 ```
+
+---
+
+## Operation Result Types
+
+Structured outcomes returned by the public API. None of them is thrown; narrow on the discriminant (`ok` / `valid`) to read the rest.
+
+### `OperationResult`
+
+The result of an editing operation (used by the operation API introduced in later releases; defined and exported now so integrations can type against it).
+
+```ts
+interface OperationSuccess {
+  ok: true;
+  created: LibreDrawFeature[];
+  updated: LibreDrawFeature[];
+  deleted: LibreDrawFeature[];
+}
+
+interface OperationFailure {
+  ok: false;
+  reason: string;
+}
+
+type OperationResult = OperationSuccess | OperationFailure;
+```
+
+| Property  | Type                                      | Description                                                                                              |
+| --------- | ----------------------------------------- | -------------------------------------------------------------------------------------------------------- |
+| `ok`      | `boolean`                                 | `true` when the store changed, `false` when the operation was rejected and nothing changed               |
+| `created` | [`LibreDrawFeature[]`](#libredrawfeature) | Features added by the operation (empty when none)                                                        |
+| `updated` | [`LibreDrawFeature[]`](#libredrawfeature) | Features whose geometry or properties changed, as they are after the change (empty when none)            |
+| `deleted` | [`LibreDrawFeature[]`](#libredrawfeature) | Features removed by the operation (empty when none)                                                      |
+| `reason`  | `string`                                  | Why the operation was rejected: an operation's failure code (e.g. `'has-holes'`) or a validation message |
+
+All three arrays are always present on success, so a caller can read "what appeared, what changed, what disappeared" without knowing which operation ran.
+
+```ts
+const result = draw.split(id, line); // available from the operation API
+if (!result.ok) {
+  console.warn(result.reason);
+  return;
+}
+result.created.forEach(save);
+```
+
+---
+
+### `AddFeaturesOptions`
+
+Options for [`addFeatures()`](/api/libre-draw#addfeatures-features-options).
+
+```ts
+interface AddFeaturesOptions {
+  strict?: boolean;
+}
+```
+
+| Property | Type      | Default | Description                                                                                                                                                    |
+| -------- | --------- | ------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `strict` | `boolean` | `true`  | `true`: one invalid feature makes the call throw and nothing is added. `false`: invalid features are reported in the result and only the valid ones are added. |
+
+---
+
+### `AddFeatureResult`
+
+One entry per input feature of [`addFeatures()`](/api/libre-draw#addfeatures-features-options), in input order.
+
+```ts
+type AddFeatureResult = { valid: true; id: string } | { valid: false; id?: string; reason: string };
+```
+
+| Property | Type      | Description                                                                                                          |
+| -------- | --------- | -------------------------------------------------------------------------------------------------------------------- |
+| `valid`  | `boolean` | Whether the feature was added                                                                                        |
+| `id`     | `string`  | Valid: the id the feature has in the store (generated when the input had none). Invalid: the input id, if it had one |
+| `reason` | `string`  | Invalid only: the same message the strict mode would have thrown                                                     |
+
+---
+
+### `FeatureValidationResult`
+
+Returned by [`validateFeature()`](/api/libre-draw#validatefeature-feature).
+
+```ts
+type FeatureValidationResult =
+  | { valid: true; feature: LibreDrawFeature }
+  | { valid: false; reason: string };
+```
+
+| Property  | Type                                    | Description                                                                |
+| --------- | --------------------------------------- | -------------------------------------------------------------------------- |
+| `valid`   | `boolean`                               | Whether the object would be accepted by `addFeatures()`                    |
+| `feature` | [`LibreDrawFeature`](#libredrawfeature) | Valid only: a normalized copy (ids and properties as they would be stored) |
+| `reason`  | `string`                                | Invalid only: the rejection message                                        |
 
 ---
 

@@ -371,7 +371,7 @@ describe('Draw Flow Integration', () => {
       expect(store.getAll()).toHaveLength(0);
       expect(drawPolygonMode.getDraftVertexCount()).toBe(0);
       expect(modeManager.getMode()).toBe('draw-polygon');
-      expect(draftListener).toHaveBeenCalledWith({ vertexCount: 0 });
+      expect(draftListener).toHaveBeenCalledWith({ vertexCount: 0, origin: 'user' });
     });
 
     it('should emit draftchange when long-press removes a vertex', () => {
@@ -386,7 +386,7 @@ describe('Draw Flow Integration', () => {
       draftListener.mockClear();
       drawPolygonMode.onLongPress(createPointerEvent(10, 0));
 
-      expect(draftListener).toHaveBeenCalledWith({ vertexCount: 1 });
+      expect(draftListener).toHaveBeenCalledWith({ vertexCount: 1, origin: 'user' });
       expect(drawPolygonMode.getDraftVertexCount()).toBe(1);
     });
 
@@ -402,7 +402,7 @@ describe('Draw Flow Integration', () => {
 
       modeManager.setMode('select');
 
-      expect(draftListener).toHaveBeenCalledWith({ vertexCount: 0 });
+      expect(draftListener).toHaveBeenCalledWith({ vertexCount: 0, origin: 'user' });
     });
 
     it('should return 0 from getDraftVertexCount() in non-drawing modes', () => {
@@ -481,7 +481,7 @@ describe('Draw Flow Integration', () => {
       expect(store.getAll()).toHaveLength(0);
       expect(drawLineMode.getDraftVertexCount()).toBe(0);
       expect(modeManager.getMode()).toBe('draw-line');
-      expect(draftListener).toHaveBeenCalledWith({ vertexCount: 0 });
+      expect(draftListener).toHaveBeenCalledWith({ vertexCount: 0, origin: 'user' });
     });
   });
 
@@ -597,7 +597,7 @@ describe('Draw Flow Integration', () => {
 
       expect(drawRectangleMode.getDraftVertexCount()).toBe(0);
       expect(modeManager.getMode()).toBe('draw-rectangle');
-      expect(draftListener).toHaveBeenCalledWith({ vertexCount: 0 });
+      expect(draftListener).toHaveBeenCalledWith({ vertexCount: 0, origin: 'user' });
     });
 
     it('should emit draftchange(0) when leaving draw-rectangle mode with a pending corner', () => {
@@ -611,7 +611,7 @@ describe('Draw Flow Integration', () => {
 
       modeManager.setMode('idle');
 
-      expect(draftListener).toHaveBeenCalledWith({ vertexCount: 0 });
+      expect(draftListener).toHaveBeenCalledWith({ vertexCount: 0, origin: 'user' });
       expect(drawRectangleMode.getDraftVertexCount()).toBe(0);
     });
   });

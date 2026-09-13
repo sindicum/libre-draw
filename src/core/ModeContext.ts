@@ -1,4 +1,4 @@
-import type { LibreDrawEventMap } from '../types/events';
+import type { EventInput, LibreDrawEventMap } from '../types/events';
 import type { Action, LibreDrawFeature, Position } from '../types/features';
 import type { SnapConfig } from '../types/options';
 import type { ViewportBounds } from '../utils/snap';
@@ -18,7 +18,7 @@ export interface ModeContext {
     push(action: Action): void;
   };
   events: {
-    emit<K extends keyof LibreDrawEventMap>(type: K, payload: LibreDrawEventMap[K]): void;
+    emit<K extends keyof LibreDrawEventMap>(type: K, payload: EventInput<K>): void;
   };
   render: {
     renderFeatures(): void;

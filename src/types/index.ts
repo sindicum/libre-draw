@@ -41,8 +41,19 @@ export type {
   SelectionChangeEvent,
   ModeChangeEvent,
   DraftChangeEvent,
+  EventOrigin,
+  EventInput,
   LibreDrawEventMap,
 } from './events';
+
+export type {
+  OperationSuccess,
+  OperationFailure,
+  OperationResult,
+  AddFeaturesOptions,
+  AddFeatureResult,
+  FeatureValidationResult,
+} from './operations';
 
 export type { Locale, Messages } from './messages';
 

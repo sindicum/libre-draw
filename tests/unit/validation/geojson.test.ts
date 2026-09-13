@@ -1,5 +1,9 @@
 import { describe, it, expect } from 'vitest';
-import { validateFeature, validateGeoJSON } from '../../../src/validation/geojson';
+import {
+  validateFeature,
+  validateGeoJSON,
+  tryValidateFeature,
+} from '../../../src/validation/geojson';
 import { LibreDrawError } from '../../../src/core/errors';
 
 function makeFeature(overrides: Record<string, unknown> = {}) {
@@ -319,5 +323,53 @@ describe('validateGeoJSON', () => {
       features: [makeFeature(), { type: 'Invalid' }],
     };
     expect(() => validateGeoJSON(fc)).toThrow('Invalid feature at index 1');
+  });
+});
+
+describe('tryValidateFeature', () => {
+  it('should return a normalized copy for a valid feature', () => {
+    const feature = makeFeature();
+    const result = tryValidateFeature(feature);
+
+    expect(result.valid).toBe(true);
+    if (!result.valid) throw new Error('expected valid');
+    expect(result.feature).toEqual(feature);
+    expect(result.feature).not.toBe(feature);
+    expect(result.feature.geometry).not.toBe(feature.geometry);
+  });
+
+  it('should report the same message validateFeature throws', () => {
+    const invalid = makeFeature({ geometry: { type: 'Point', coordinates: [200, 0] } });
+
+    let thrown = '';
+    try {
+      validateFeature(invalid);
+    } catch (err) {
+      thrown = (err as Error).message;
+    }
+    const result = tryValidateFeature(invalid);
+
+    expect(thrown).not.toBe('');
+    expect(result).toEqual({ valid: false, reason: thrown });
+  });
+
+  it('should reject non-objects without throwing', () => {
+    expect(tryValidateFeature(null)).toEqual({
+      valid: false,
+      reason: 'Feature must be a non-null object.',
+    });
+    expect(tryValidateFeature('feature').valid).toBe(false);
+  });
+
+  it('should let non-LibreDrawError exceptions propagate', () => {
+    // A getter that throws stands in for a programming error inside validation.
+    const hostile = {
+      type: 'Feature',
+      get geometry(): never {
+        throw new TypeError('boom');
+      },
+      properties: {},
+    };
+    expect(() => tryValidateFeature(hostile)).toThrow(TypeError);
   });
 });

@@ -222,25 +222,26 @@ draw.setFeatures({
 
 ---
 
-### `addFeatures(features)`
+### `addFeatures(features, options?)`
 
 Add features to the store from an array of GeoJSON Feature objects.
 
-All features are validated before any of them is added, so an invalid entry leaves the store untouched. Unlike [`setFeatures`](#setfeatures-geojson), this does **not** clear existing features or history: the whole call is recorded as a **single undoable step** (one [`undo()`](#undo) removes every feature added by the call), and a `'create'` event fires for each added feature.
+Every feature is validated first. With `strict: true` (the default) one invalid entry makes the call throw and leaves the store untouched; with `strict: false` the invalid entries are reported in the returned array and only the valid ones are added. Either way the added features form a **single undoable step** (one [`undo()`](#undo) removes every feature added by the call), and a `'create'` event fires for each added feature. Unlike [`setFeatures`](#setfeatures-geojson), existing features and history are kept.
 
 **Parameters:**
 
-| Name       | Type        | Description                                                                                                                         |
-| ---------- | ----------- | ----------------------------------------------------------------------------------------------------------------------------------- |
-| `features` | `unknown[]` | An array of GeoJSON Feature objects with Point, LineString, and/or Polygon geometry. Features without an `id` get a generated UUID. |
+| Name       | Type                                                  | Description                                                                                                                         |
+| ---------- | ----------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------- |
+| `features` | `unknown[]`                                           | An array of GeoJSON Feature objects with Point, LineString, and/or Polygon geometry. Features without an `id` get a generated UUID. |
+| `options`  | [`AddFeaturesOptions`](/api/types#addfeaturesoptions) | Optional. `{ strict }`, default `{ strict: true }`.                                                                                 |
 
-**Returns:** `void`
+**Returns:** [`AddFeatureResult[]`](/api/types#addfeatureresult) — one entry per input feature, in input order. Valid entries carry the id the feature has in the store; invalid entries carry the rejection `reason` (and the input `id`, if it had one). A duplicate id (already in the store, or repeated within the array) counts as invalid in both modes.
 
 **Throws:**
 
 - [`LibreDrawError`](/api/types#libredrawerror) if this instance has been destroyed.
-- [`LibreDrawError`](/api/types#libredrawerror) if any feature has invalid geometry.
-- [`LibreDrawError`](/api/types#libredrawerror) if a feature `id` already exists in the store or appears more than once in the array.
+- [`LibreDrawError`](/api/types#libredrawerror) in strict mode, if any feature has invalid geometry.
+- [`LibreDrawError`](/api/types#libredrawerror) in strict mode, if a feature `id` already exists in the store or appears more than once in the array.
 
 **Example:**
 
@@ -265,6 +266,39 @@ draw.addFeatures([
 ]);
 
 draw.undo(); // removes the feature added above
+
+// Report per-feature problems instead of throwing:
+const results = draw.addFeatures(features, { strict: false });
+results.forEach((r, i) => {
+  if (!r.valid) console.warn(`feature ${i} rejected: ${r.reason}`);
+});
+```
+
+---
+
+### `validateFeature(feature)`
+
+Check whether an object would be accepted by [`addFeatures`](#addfeatures-features-options) / [`setFeatures`](#setfeatures-geojson), without adding it and without throwing.
+
+Applies the same rules (Feature envelope, geometry type, coordinate ranges, ring closure, self-intersection). Duplicate ids are not checked here because they depend on the store's contents at add time.
+
+**Parameters:**
+
+| Name      | Type      | Description            |
+| --------- | --------- | ---------------------- |
+| `feature` | `unknown` | The object to validate |
+
+**Returns:** [`FeatureValidationResult`](/api/types#featurevalidationresult) — `{ valid: true, feature }` with a normalized copy, or `{ valid: false, reason }` with the same message `addFeatures` would throw.
+
+**Throws:** [`LibreDrawError`](/api/types#libredrawerror) if this instance has been destroyed.
+
+**Example:**
+
+```ts
+const result = draw.validateFeature(candidate);
+if (!result.valid) {
+  showError(result.reason);
+}
 ```
 
 ---
@@ -457,7 +491,7 @@ console.log('Point radius:', style.point.radius);
 
 Undo the last action.
 
-Reverts the most recent action (`create`, `update`, `delete`, `split`, `setback`, `union`, or a `batch` recorded by [`addFeatures`](#addfeatures-features)) and updates the map rendering. If a feature is selected and its geometry changes, vertex handles are refreshed.
+Reverts the most recent action (`create`, `update`, `delete`, `split`, `setback`, `union`, or a `batch` recorded by [`addFeatures`](#addfeatures-features-options)) and updates the map rendering. If a feature is selected and its geometry changes, vertex handles are refreshed.
 
 **Returns:** `boolean` — `true` if an action was undone, `false` if nothing to undo.
 

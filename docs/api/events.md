@@ -22,6 +22,30 @@ interface LibreDrawEventMap {
 }
 ```
 
+## Event origin
+
+Every payload carries an `origin` telling you who caused the change:
+
+```ts
+type EventOrigin = 'api' | 'user';
+```
+
+| Value    | Meaning                                                                                                                                                                                                                 |
+| -------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `'api'`  | A public `LibreDraw` method was running: `addFeatures()`, `deleteFeature()`, `setMode()`, `selectFeature()`, `clearSelection()`, `finishDrawing()`, `cancelDrawing()`, `undo()`, `redo()`, … and anything they trigger. |
+| `'user'` | Pointer or touch input on the map, a toolbar button (including its Undo / Redo / Delete buttons), or a keyboard shortcut.                                                                                               |
+
+Use it to keep a sync loop from reacting to its own changes:
+
+```ts
+draw.on('delete', (e) => {
+  if (e.origin === 'api') return; // we did this ourselves, no need to echo it
+  api.deleteParcel(e.feature.id);
+});
+```
+
+The value is decided by the call path, not by the kind of change: the same `delete` is `'api'` from `deleteFeature()` and `'user'` from the Delete key. A public method invoked from inside a `'user'` listener stamps only its own events; the surrounding user-originated events keep `'user'`.
+
 ---
 
 ## `create`
@@ -29,18 +53,20 @@ interface LibreDrawEventMap {
 Emitted when a new feature is created.
 In `draw-point` mode this happens on each click/tap. In `draw-line` mode it happens when the line is finalized. In `draw-polygon` mode it happens when the polygon is completed. In `draw-rectangle` mode it happens on the second corner click.
 
-It also fires once per feature from [`addFeatures()`](/api/libre-draw#addfeatures-features), and from history: redoing a `create` emits it again, and undoing a `delete`, `split`, `setback`, or `union` emits `create` for every feature that comes back.
+It also fires once per feature from [`addFeatures()`](/api/libre-draw#addfeatures-features-options), and from history: redoing a `create` emits it again, and undoing a `delete`, `split`, `setback`, or `union` emits `create` for every feature that comes back.
 
 ### Payload: `CreateEvent`
 
 ```ts
 interface CreateEvent {
+  origin: EventOrigin;
   feature: LibreDrawFeature;
 }
 ```
 
 | Property  | Type                                              | Description                                             |
 | --------- | ------------------------------------------------- | ------------------------------------------------------- |
+| `origin`  | [`EventOrigin`](#event-origin)                    | Who caused the change: `'api'` or `'user'`              |
 | `feature` | [`LibreDrawFeature`](/api/types#libredrawfeature) | The newly created Point, LineString, or Polygon feature |
 
 ### Example
@@ -66,6 +92,7 @@ This includes vertex edits and dragging of polygons and lines, and point draggin
 
 ```ts
 interface UpdateEvent {
+  origin: EventOrigin;
   feature: LibreDrawFeature;
   oldFeature: LibreDrawFeature;
 }
@@ -73,6 +100,7 @@ interface UpdateEvent {
 
 | Property     | Type                                              | Description                                                   |
 | ------------ | ------------------------------------------------- | ------------------------------------------------------------- |
+| `origin`     | [`EventOrigin`](#event-origin)                    | Who caused the change: `'api'` or `'user'`                    |
 | `feature`    | [`LibreDrawFeature`](/api/types#libredrawfeature) | The updated Point, LineString, or Polygon feature (new state) |
 | `oldFeature` | [`LibreDrawFeature`](/api/types#libredrawfeature) | The feature before the update (previous state)                |
 
@@ -96,12 +124,14 @@ Emitted when a feature is deleted (via toolbar button, Delete key, or `deleteFea
 
 ```ts
 interface DeleteEvent {
+  origin: EventOrigin;
   feature: LibreDrawFeature;
 }
 ```
 
 | Property  | Type                                              | Description                                       |
 | --------- | ------------------------------------------------- | ------------------------------------------------- |
+| `origin`  | [`EventOrigin`](#event-origin)                    | Who caused the change: `'api'` or `'user'`        |
 | `feature` | [`LibreDrawFeature`](/api/types#libredrawfeature) | The deleted Point, LineString, or Polygon feature |
 
 ### Example
@@ -122,15 +152,17 @@ Emitted when a polygon is successfully split into two polygons. Undoing a split 
 
 ```ts
 interface SplitEvent {
+  origin: EventOrigin;
   originalFeature: LibreDrawFeature;
   features: [LibreDrawFeature, LibreDrawFeature];
 }
 ```
 
-| Property          | Type                                              | Description                     |
-| ----------------- | ------------------------------------------------- | ------------------------------- |
-| `originalFeature` | [`LibreDrawFeature`](/api/types#libredrawfeature) | The source polygon before split |
-| `features`        | <code>[LibreDrawFeature, LibreDrawFeature]</code> | The two resulting polygons      |
+| Property          | Type                                              | Description                                |
+| ----------------- | ------------------------------------------------- | ------------------------------------------ |
+| `origin`          | [`EventOrigin`](#event-origin)                    | Who caused the change: `'api'` or `'user'` |
+| `originalFeature` | [`LibreDrawFeature`](/api/types#libredrawfeature) | The source polygon before split            |
+| `features`        | <code>[LibreDrawFeature, LibreDrawFeature]</code> | The two resulting polygons                 |
 
 ### Example
 
@@ -161,15 +193,17 @@ type SplitFailReason =
   | 'self-intersecting-result';
 
 interface SplitFailedEvent {
+  origin: EventOrigin;
   reason: SplitFailReason;
   featureId: string;
 }
 ```
 
-| Property    | Type              | Description             |
-| ----------- | ----------------- | ----------------------- |
-| `reason`    | `SplitFailReason` | Reason of split failure |
-| `featureId` | `string`          | Target feature ID       |
+| Property    | Type                           | Description                                |
+| ----------- | ------------------------------ | ------------------------------------------ |
+| `origin`    | [`EventOrigin`](#event-origin) | Who caused the change: `'api'` or `'user'` |
+| `reason`    | `SplitFailReason`              | Reason of split failure                    |
+| `featureId` | `string`                       | Target feature ID                          |
 
 ### Example
 
@@ -189,6 +223,7 @@ Emitted when a setback operation succeeds. Undoing it emits a [`delete`](#delete
 
 ```ts
 interface SetbackEvent {
+  origin: EventOrigin;
   originalFeature: LibreDrawFeature;
   feature: LibreDrawFeature;
   edgeIndex: number;
@@ -196,12 +231,13 @@ interface SetbackEvent {
 }
 ```
 
-| Property          | Type                                              | Description                       |
-| ----------------- | ------------------------------------------------- | --------------------------------- |
-| `originalFeature` | [`LibreDrawFeature`](/api/types#libredrawfeature) | The source polygon before setback |
-| `feature`         | [`LibreDrawFeature`](/api/types#libredrawfeature) | Result polygon after setback      |
-| `edgeIndex`       | `number`                                          | Applied edge index                |
-| `distance`        | `number`                                          | Setback distance in meters        |
+| Property          | Type                                              | Description                                |
+| ----------------- | ------------------------------------------------- | ------------------------------------------ |
+| `origin`          | [`EventOrigin`](#event-origin)                    | Who caused the change: `'api'` or `'user'` |
+| `originalFeature` | [`LibreDrawFeature`](/api/types#libredrawfeature) | The source polygon before setback          |
+| `feature`         | [`LibreDrawFeature`](/api/types#libredrawfeature) | Result polygon after setback               |
+| `edgeIndex`       | `number`                                          | Applied edge index                         |
+| `distance`        | `number`                                          | Setback distance in meters                 |
 
 ### Example
 
@@ -224,15 +260,17 @@ Emitted when setback operation fails.
 type SetbackFailReason = 'has-holes' | 'invalid-split';
 
 interface SetbackFailedEvent {
+  origin: EventOrigin;
   reason: SetbackFailReason;
   featureId: string;
 }
 ```
 
-| Property    | Type                | Description               |
-| ----------- | ------------------- | ------------------------- |
-| `reason`    | `SetbackFailReason` | Reason of setback failure |
-| `featureId` | `string`            | Target feature ID         |
+| Property    | Type                           | Description                                |
+| ----------- | ------------------------------ | ------------------------------------------ |
+| `origin`    | [`EventOrigin`](#event-origin) | Who caused the change: `'api'` or `'user'` |
+| `reason`    | `SetbackFailReason`            | Reason of setback failure                  |
+| `featureId` | `string`                       | Target feature ID                          |
 
 ### Example
 
@@ -252,6 +290,7 @@ Emitted when two polygons are merged into one in `union` mode. The merge is one 
 
 ```ts
 interface UnionEvent {
+  origin: EventOrigin;
   originalFeatures: [LibreDrawFeature, LibreDrawFeature];
   feature: LibreDrawFeature;
 }
@@ -259,6 +298,7 @@ interface UnionEvent {
 
 | Property           | Type                                              | Description                                                                |
 | ------------------ | ------------------------------------------------- | -------------------------------------------------------------------------- |
+| `origin`           | [`EventOrigin`](#event-origin)                    | Who caused the change: `'api'` or `'user'`                                 |
 | `originalFeatures` | <code>[LibreDrawFeature, LibreDrawFeature]</code> | The two source polygons in selection order                                 |
 | `feature`          | [`LibreDrawFeature`](/api/types#libredrawfeature) | The merged polygon. It has a new id and the properties of the first source |
 
@@ -287,15 +327,17 @@ Emitted when a union operation fails. The store is left untouched and the first 
 type UnionFailReason = 'not-polygon' | 'has-holes' | 'disjoint' | 'invalid-result';
 
 interface UnionFailedEvent {
+  origin: EventOrigin;
   reason: UnionFailReason;
   featureIds: [string, string];
 }
 ```
 
-| Property     | Type               | Description                                       |
-| ------------ | ------------------ | ------------------------------------------------- |
-| `reason`     | `UnionFailReason`  | Reason of union failure                           |
-| `featureIds` | `[string, string]` | IDs of the two target polygons in selection order |
+| Property     | Type                           | Description                                       |
+| ------------ | ------------------------------ | ------------------------------------------------- |
+| `origin`     | [`EventOrigin`](#event-origin) | Who caused the change: `'api'` or `'user'`        |
+| `reason`     | `UnionFailReason`              | Reason of union failure                           |
+| `featureIds` | `[string, string]`             | IDs of the two target polygons in selection order |
 
 | Reason             | Meaning                                                          |
 | ------------------ | ---------------------------------------------------------------- |
@@ -324,6 +366,7 @@ Undo and redo of a rotation emit [`update`](#update) events rather than `rotate`
 
 ```ts
 interface RotateEvent {
+  origin: EventOrigin;
   originalFeature: LibreDrawFeature;
   feature: LibreDrawFeature;
   angle: number;
@@ -332,6 +375,7 @@ interface RotateEvent {
 
 | Property          | Type                                              | Description                                                   |
 | ----------------- | ------------------------------------------------- | ------------------------------------------------------------- |
+| `origin`          | [`EventOrigin`](#event-origin)                    | Who caused the change: `'api'` or `'user'`                    |
 | `originalFeature` | [`LibreDrawFeature`](/api/types#libredrawfeature) | The feature before this rotation                              |
 | `feature`         | [`LibreDrawFeature`](/api/types#libredrawfeature) | The feature after this rotation                               |
 | `angle`           | `number`                                          | Angle applied by this step in degrees, positive for clockwise |
@@ -354,13 +398,15 @@ Emitted when the set of selected features changes.
 
 ```ts
 interface SelectionChangeEvent {
+  origin: EventOrigin;
   selectedIds: string[];
 }
 ```
 
-| Property      | Type       | Description                                                                    |
-| ------------- | ---------- | ------------------------------------------------------------------------------ |
-| `selectedIds` | `string[]` | Array of currently selected feature IDs. Empty array when nothing is selected. |
+| Property      | Type                           | Description                                                                    |
+| ------------- | ------------------------------ | ------------------------------------------------------------------------------ |
+| `origin`      | [`EventOrigin`](#event-origin) | Who caused the change: `'api'` or `'user'`                                     |
+| `selectedIds` | `string[]`                     | Array of currently selected feature IDs. Empty array when nothing is selected. |
 
 ### Example
 
@@ -387,6 +433,7 @@ Emitted when the active mode changes.
 
 ```ts
 interface ModeChangeEvent {
+  origin: EventOrigin;
   mode: ModeName;
   previousMode: ModeName;
 }
@@ -394,6 +441,7 @@ interface ModeChangeEvent {
 
 | Property       | Type                              | Description                                                                                                                                                       |
 | -------------- | --------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `origin`       | [`EventOrigin`](#event-origin)    | Who caused the change: `'api'` or `'user'`                                                                                                                        |
 | `mode`         | [`ModeName`](/api/types#modename) | The new active mode (`'idle'`, `'draw-point'`, `'draw-line'`, `'draw-polygon'`, `'draw-rectangle'`, `'select'`, `'split'`, `'setback'`, `'union'`, or `'rotate'`) |
 | `previousMode` | [`ModeName`](/api/types#modename) | The previous mode                                                                                                                                                 |
 
@@ -431,13 +479,15 @@ In `'draw-rectangle'` mode the draft holds at most the first corner: `vertexCoun
 
 ```ts
 interface DraftChangeEvent {
+  origin: EventOrigin;
   vertexCount: number;
 }
 ```
 
-| Property      | Type     | Description                                                                                      |
-| ------------- | -------- | ------------------------------------------------------------------------------------------------ |
-| `vertexCount` | `number` | The number of vertices in the current draft (`0` after finalization, cancellation, or mode exit) |
+| Property      | Type                           | Description                                                                                      |
+| ------------- | ------------------------------ | ------------------------------------------------------------------------------------------------ |
+| `origin`      | [`EventOrigin`](#event-origin) | Who caused the change: `'api'` or `'user'`                                                       |
+| `vertexCount` | `number`                       | The number of vertices in the current draft (`0` after finalization, cancellation, or mode exit) |
 
 ### Example
 

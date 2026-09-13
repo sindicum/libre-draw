@@ -1,4 +1,5 @@
 import type { LibreDrawFeature, Position } from '../types/features';
+import type { FeatureValidationResult } from '../types/operations';
 import { LibreDrawError } from '../core/errors';
 import { hasRingSelfIntersection } from './intersection';
 import { deepCloneValue } from '../utils/featureSnapshot';
@@ -245,6 +246,28 @@ export function validateFeature(feature: unknown): LibreDrawFeature {
   throw new LibreDrawError(
     `Feature.geometry.type must be "Point", "LineString", or "Polygon", got "${String(geom.type)}".`
   );
+}
+
+/**
+ * Validate a single GeoJSON-like object without throwing.
+ *
+ * Wraps {@link validateFeature}: a `LibreDrawError` becomes
+ * `{ valid: false, reason }` carrying the same message, so callers that
+ * report per-feature outcomes (`addFeatures` with `strict: false`, the
+ * public `validateFeature`) share one wording with the throwing path.
+ * Any other exception is a bug and propagates.
+ * @param feature - The object to validate.
+ * @returns The normalized feature, or the rejection reason.
+ */
+export function tryValidateFeature(feature: unknown): FeatureValidationResult {
+  try {
+    return { valid: true, feature: validateFeature(feature) };
+  } catch (err) {
+    if (err instanceof LibreDrawError) {
+      return { valid: false, reason: err.message };
+    }
+    throw err;
+  }
 }
 
 /**
