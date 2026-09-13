@@ -11,10 +11,12 @@ import type { Mode } from '../../../src/modes/Mode';
 describe('KeyboardInput', () => {
   let onKeyDown: ReturnType<typeof vi.fn>;
   let keyboardInput: KeyboardInput;
+  let canvas: HTMLElement;
 
   beforeEach(() => {
     onKeyDown = vi.fn();
-    keyboardInput = new KeyboardInput({ onKeyDown });
+    canvas = document.createElement('div');
+    keyboardInput = new KeyboardInput(createMapMock(canvas), { onKeyDown });
     keyboardInput.enable();
   });
 
@@ -24,35 +26,35 @@ describe('KeyboardInput', () => {
 
   it('should call onKeyDown when a key is pressed', () => {
     const event = new KeyboardEvent('keydown', { key: 'Escape' });
-    document.dispatchEvent(event);
+    canvas.dispatchEvent(event);
 
     expect(onKeyDown).toHaveBeenCalledWith('Escape', event);
   });
 
   it('should not call onKeyDown when disabled', () => {
     keyboardInput.disable();
-    document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape' }));
+    canvas.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape' }));
 
     expect(onKeyDown).not.toHaveBeenCalled();
   });
 
   it('should handle Delete key', () => {
     const event = new KeyboardEvent('keydown', { key: 'Delete' });
-    document.dispatchEvent(event);
+    canvas.dispatchEvent(event);
 
     expect(onKeyDown).toHaveBeenCalledWith('Delete', event);
   });
 
   it('should handle Backspace key', () => {
     const event = new KeyboardEvent('keydown', { key: 'Backspace' });
-    document.dispatchEvent(event);
+    canvas.dispatchEvent(event);
 
     expect(onKeyDown).toHaveBeenCalledWith('Backspace', event);
   });
 
   it('should stop receiving events after destroy', () => {
     keyboardInput.destroy();
-    document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape' }));
+    canvas.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape' }));
 
     expect(onKeyDown).not.toHaveBeenCalled();
   });
@@ -62,7 +64,7 @@ describe('KeyboardInput', () => {
     keyboardInput.enable();
 
     const event = new KeyboardEvent('keydown', { key: 'Escape' });
-    document.dispatchEvent(event);
+    canvas.dispatchEvent(event);
 
     expect(onKeyDown).toHaveBeenCalled();
   });
@@ -71,6 +73,7 @@ describe('KeyboardInput', () => {
 function createMapMock(canvas: HTMLElement): MaplibreMap {
   return {
     getCanvasContainer: () => canvas,
+    getContainer: () => canvas,
     unproject: ([x, y]: [number, number]) => ({ lng: x, lat: y }),
   } as unknown as MaplibreMap;
 }

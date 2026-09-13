@@ -30,6 +30,7 @@ All types are exported as TypeScript type-only exports:
 | [`Position`](/api/types#position)                         | `[longitude, latitude]` coordinate pair                                                                                                  |
 | [`FeatureProperties`](/api/types#featureproperties)       | Arbitrary key-value properties                                                                                                           |
 | [`LibreDrawOptions`](/api/types#libredrawoptions)         | Constructor options                                                                                                                      |
+| [`KeyboardOptions`](/api/types#keyboardoptions)           | Keyboard shortcut configuration                                                                                                          |
 | [`ToolbarOptions`](/api/types#toolbaroptions)             | Toolbar configuration                                                                                                                    |
 | [`ToolbarPosition`](/api/types#toolbarposition)           | Toolbar placement                                                                                                                        |
 | [`ToolbarControls`](/api/types#toolbarcontrols)           | Which toolbar buttons to show                                                                                                            |

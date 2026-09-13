@@ -39,6 +39,7 @@ export type {
   ToolbarOptions,
   ToolbarPosition,
   ToolbarControls,
+  KeyboardOptions,
   StyleConfig,
   PartialStyleConfig,
   PointStyle,

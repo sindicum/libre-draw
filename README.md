@@ -126,6 +126,7 @@ interface LibreDrawOptions {
           redo?: boolean;
         };
       };
+  keyboard?: boolean | { undoRedo?: boolean }; // Ctrl/Cmd+Z, Ctrl/Cmd+Shift+Z, Ctrl+Y. Default: true
   historyLimit?: number; // Default: 100
   snap?: boolean | { enabled?: boolean; threshold?: number }; // Default: true
   locale?: 'en' | 'ja'; // UI language. Default: 'en'
@@ -133,7 +134,7 @@ interface LibreDrawOptions {
 }
 ```
 
-Set `toolbar: false` for headless mode (API-only, no UI).
+Set `toolbar: false` for headless mode (API-only, no UI). Undo / redo keyboard shortcuts stay active in headless mode and only fire while the map has focus; set `keyboard: false` to turn them off.
 
 ## Documentation
 

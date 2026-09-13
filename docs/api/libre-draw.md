@@ -68,6 +68,9 @@ const draw = new LibreDraw(map, {
 // Headless mode (no toolbar)
 const draw = new LibreDraw(map, { toolbar: false });
 
+// Keep the toolbar but turn off the undo / redo keyboard shortcuts
+const draw = new LibreDraw(map, { keyboard: false });
+
 // Japanese UI strings, with one label overridden
 const draw = new LibreDraw(map, { locale: 'ja', messages: { setbackExecute: '適用' } });
 ```

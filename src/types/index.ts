@@ -47,6 +47,7 @@ export type { Locale, Messages } from './messages';
 
 export type {
   SnapConfig,
+  KeyboardOptions,
   ToolbarPosition,
   ToolbarControls,
   ToolbarOptions,
