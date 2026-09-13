@@ -1,4 +1,4 @@
-import type { LibreDrawEventMap } from '../types/events';
+import type { EventInput, EventOrigin, LibreDrawEventMap } from '../types/events';
 
 /**
  * A listener callback for a given event type.
@@ -12,10 +12,23 @@ type AnyListener = Listener<any>;
  * Type-safe event bus for LibreDraw events.
  *
  * Supports registering, removing, and emitting events
- * defined in LibreDrawEventMap.
+ * defined in LibreDrawEventMap. Every delivered payload carries an
+ * `origin` obtained from the provider given at construction, so emitters
+ * (modes, the facade) never have to know who triggered the change.
  */
 export class EventBus {
   private listeners: Map<string, Set<AnyListener>> = new Map();
+  private readonly originProvider: () => EventOrigin;
+
+  /**
+   * Create a new EventBus.
+   * @param originProvider - Called on every emit to stamp the payload's
+   *   `origin`. Defaults to `'user'`, which is right for a bus that is
+   *   only ever driven by map input.
+   */
+  constructor(originProvider: () => EventOrigin = () => 'user') {
+    this.originProvider = originProvider;
+  }
 
   /**
    * Register a listener for a specific event type.
@@ -45,15 +58,18 @@ export class EventBus {
 
   /**
    * Emit an event, invoking all registered listeners.
+   *
+   * The delivered object is a new one with `origin` attached; the emitter's
+   * payload is left untouched.
    * @param type - The event type to emit.
-   * @param payload - The event payload.
+   * @param payload - The event payload without `origin`.
    */
-  emit<K extends keyof LibreDrawEventMap>(type: K, payload: LibreDrawEventMap[K]): void {
+  emit<K extends keyof LibreDrawEventMap>(type: K, payload: EventInput<K>): void {
     const set = this.listeners.get(type as string);
-    if (set) {
-      for (const listener of set) {
-        listener(payload);
-      }
+    if (!set || set.size === 0) return;
+    const delivered = { ...payload, origin: this.originProvider() } as LibreDrawEventMap[K];
+    for (const listener of set) {
+      listener(delivered);
     }
   }
 

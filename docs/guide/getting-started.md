@@ -87,6 +87,23 @@ draw.setMode('draw-polygon');
 draw.setMode('draw-rectangle');
 draw.setMode('select');
 draw.setMode('idle');
+
+// Edit without any pointer input. Each call is one undo step and returns a
+// structured result instead of throwing.
+const rotated = draw.rotate(featureId, 90);
+if (!rotated.ok) console.warn(rotated.reason); // e.g. 'not-rotatable' for a Point
+
+draw.updateFeature(featureId, { properties: { crop: 'wheat' } });
+draw.undo(); // properties back, still rotated
+
+// The geometry operations of the split / setback / union modes are API
+// calls too, so a headless page (or an AI agent) can run them.
+const halves = draw.split(featureId, [
+  [139.7, 35.65],
+  [139.72, 35.67],
+]);
+if (halves.ok) draw.union(halves.created.map((f) => f.id)); // and back together
+draw.setback(featureId, { index: 0 }, 10); // edge 0, 10 m inward
 ```
 
 ## Listening to Events

@@ -1,167 +1,9 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import type { Map as MaplibreMap } from 'maplibre-gl';
 import { LibreDraw } from '../../src/LibreDraw';
+import { FakeMap } from './helpers/fakeMap';
 import { SOURCE_IDS } from '../../src/rendering/SourceManager';
 import { LAYER_IDS } from '../../src/rendering/RenderManager';
 import { LibreDrawError } from '../../src/core/errors';
-
-class FakeGeoJSONSource {
-  public data: GeoJSON.FeatureCollection;
-
-  constructor(initialData: GeoJSON.FeatureCollection) {
-    this.data = initialData;
-  }
-
-  setData(data: GeoJSON.FeatureCollection): void {
-    this.data = data;
-  }
-}
-
-class FakeMap {
-  private styleLoaded = true;
-  private canvas: HTMLDivElement;
-  private sources: Map<string, FakeGeoJSONSource> = new Map();
-  private layers: Map<string, unknown> = new Map();
-  private images: Map<string, unknown> = new Map();
-  private listeners: Map<string, Set<(...args: unknown[]) => void>> = new Map();
-
-  public dragPan = {
-    enable: vi.fn(),
-    disable: vi.fn(),
-  };
-
-  public doubleClickZoom = {
-    enable: vi.fn(),
-    disable: vi.fn(),
-  };
-
-  /** Runtime style updates are applied per layer; record them instead of rendering. */
-  public setPaintProperty = vi.fn();
-  public setLayoutProperty = vi.fn();
-
-  constructor() {
-    this.canvas = document.createElement('div');
-    vi.spyOn(this.canvas, 'getBoundingClientRect').mockReturnValue({
-      x: 0,
-      y: 0,
-      width: 1000,
-      height: 600,
-      top: 0,
-      left: 0,
-      right: 1000,
-      bottom: 600,
-      toJSON: () => ({}),
-    } as DOMRect);
-  }
-
-  asMap(): MaplibreMap {
-    return this as unknown as MaplibreMap;
-  }
-
-  emit(event: string, ...args: unknown[]): void {
-    const set = this.listeners.get(event);
-    if (!set) return;
-    for (const listener of set) {
-      listener(...args);
-    }
-  }
-
-  on(event: string, listener: (...args: unknown[]) => void): void {
-    const set = this.listeners.get(event) ?? new Set();
-    set.add(listener);
-    this.listeners.set(event, set);
-  }
-
-  off(event: string, listener: (...args: unknown[]) => void): void {
-    this.listeners.get(event)?.delete(listener);
-  }
-
-  once(event: string, listener: (...args: unknown[]) => void): void {
-    const wrapped = (...args: unknown[]): void => {
-      this.off(event, wrapped);
-      listener(...args);
-    };
-    this.on(event, wrapped);
-  }
-
-  isStyleLoaded(): boolean {
-    return this.styleLoaded;
-  }
-
-  setStyle(_style: string): void {
-    this.styleLoaded = false;
-    this.sources.clear();
-    this.layers.clear();
-    this.images.clear();
-    this.emit('styledata');
-    this.styleLoaded = true;
-    this.emit('styledata');
-  }
-
-  getCanvasContainer(): HTMLDivElement {
-    return this.canvas;
-  }
-
-  getContainer(): HTMLDivElement {
-    return this.canvas;
-  }
-
-  unproject(point: [number, number]): { lng: number; lat: number } {
-    return { lng: point[0], lat: point[1] };
-  }
-
-  project(point: [number, number]): { x: number; y: number } {
-    return { x: point[0], y: point[1] };
-  }
-
-  getSource<T>(id: string): T | undefined {
-    return this.sources.get(id) as T | undefined;
-  }
-
-  addSource(id: string, source: { type: 'geojson'; data: GeoJSON.FeatureCollection }): void {
-    this.sources.set(id, new FakeGeoJSONSource(source.data));
-  }
-
-  removeSource(id: string): void {
-    this.sources.delete(id);
-  }
-
-  getLayer(id: string): unknown {
-    return this.layers.get(id);
-  }
-
-  addLayer(layer: { id: string }): void {
-    this.layers.set(layer.id, layer);
-  }
-
-  removeLayer(id: string): void {
-    this.layers.delete(id);
-  }
-
-  hasImage(id: string): boolean {
-    return this.images.has(id);
-  }
-
-  addImage(id: string, image: unknown): void {
-    this.images.set(id, image);
-  }
-
-  removeImage(id: string): void {
-    this.images.delete(id);
-  }
-
-  hasSource(id: string): boolean {
-    return this.sources.has(id);
-  }
-
-  hasLayer(id: string): boolean {
-    return this.layers.has(id);
-  }
-
-  getSourceData(id: string): GeoJSON.FeatureCollection | undefined {
-    return this.sources.get(id)?.data;
-  }
-}
 
 function makeFeature(id: string): GeoJSON.Feature {
   return {
@@ -411,7 +253,7 @@ describe('LibreDraw lifecycle integration', () => {
     draw.on('draftchange', draftListener);
 
     draw.cancelDrawing();
-    expect(draftListener).toHaveBeenCalledWith({ vertexCount: 0 });
+    expect(draftListener).toHaveBeenCalledWith({ vertexCount: 0, origin: 'api' });
 
     draw.setMode('draw-line');
     expect(draw.getDraftVertexCount()).toBe(0);
@@ -657,6 +499,7 @@ describe('LibreDraw lifecycle integration', () => {
       expect(modeListener).toHaveBeenLastCalledWith({
         mode: 'draw-rectangle',
         previousMode: 'idle',
+        origin: 'user',
       });
 
       // Pressing the active button again returns to idle.
@@ -852,12 +695,15 @@ describe('LibreDraw lifecycle integration', () => {
       ).toEqual(['a', 'b']);
       expect(deleteListener).toHaveBeenCalledWith({
         feature: expect.objectContaining({ id: merged.id }),
+        origin: 'api',
       });
       expect(createListener).toHaveBeenCalledWith({
         feature: expect.objectContaining({ id: 'a' }),
+        origin: 'api',
       });
       expect(createListener).toHaveBeenCalledWith({
         feature: expect.objectContaining({ id: 'b' }),
+        origin: 'api',
       });
 
       expect(draw.redo()).toBe(true);
@@ -890,7 +736,11 @@ describe('LibreDraw lifecycle integration', () => {
       clickAt(map, 15, 15);
       clickAt(map, 70, 70);
 
-      expect(failedListener).toHaveBeenCalledWith({ reason: 'disjoint', featureIds: ['a', 'b'] });
+      expect(failedListener).toHaveBeenCalledWith({
+        reason: 'disjoint',
+        featureIds: ['a', 'b'],
+        origin: 'user',
+      });
       expect(draw.getFeatures()).toHaveLength(2);
       // Nothing was pushed: the only undoable step is the addFeatures() call.
       expect(draw.undo()).toBe(true);
@@ -1044,7 +894,7 @@ describe('LibreDraw lifecycle integration', () => {
       draw.clearSelection();
 
       expect(draw.getSelectedFeatureIds()).toEqual([]);
-      expect(selectionListener).toHaveBeenCalledWith({ selectedIds: [] });
+      expect(selectionListener).toHaveBeenCalledWith({ selectedIds: [], origin: 'api' });
 
       draw.destroy();
     });

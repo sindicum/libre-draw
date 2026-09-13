@@ -222,25 +222,26 @@ draw.setFeatures({
 
 ---
 
-### `addFeatures(features)`
+### `addFeatures(features, options?)`
 
 Add features to the store from an array of GeoJSON Feature objects.
 
-All features are validated before any of them is added, so an invalid entry leaves the store untouched. Unlike [`setFeatures`](#setfeatures-geojson), this does **not** clear existing features or history: the whole call is recorded as a **single undoable step** (one [`undo()`](#undo) removes every feature added by the call), and a `'create'` event fires for each added feature.
+Every feature is validated first. With `strict: true` (the default) one invalid entry makes the call throw and leaves the store untouched; with `strict: false` the invalid entries are reported in the returned array and only the valid ones are added. Either way the added features form a **single undoable step** (one [`undo()`](#undo) removes every feature added by the call), and a `'create'` event fires for each added feature. Unlike [`setFeatures`](#setfeatures-geojson), existing features and history are kept.
 
 **Parameters:**
 
-| Name       | Type        | Description                                                                                                                         |
-| ---------- | ----------- | ----------------------------------------------------------------------------------------------------------------------------------- |
-| `features` | `unknown[]` | An array of GeoJSON Feature objects with Point, LineString, and/or Polygon geometry. Features without an `id` get a generated UUID. |
+| Name       | Type                                                  | Description                                                                                                                         |
+| ---------- | ----------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------- |
+| `features` | `unknown[]`                                           | An array of GeoJSON Feature objects with Point, LineString, and/or Polygon geometry. Features without an `id` get a generated UUID. |
+| `options`  | [`AddFeaturesOptions`](/api/types#addfeaturesoptions) | Optional. `{ strict }`, default `{ strict: true }`.                                                                                 |
 
-**Returns:** `void`
+**Returns:** [`AddFeatureResult[]`](/api/types#addfeatureresult) — one entry per input feature, in input order. Valid entries carry the id the feature has in the store; invalid entries carry the rejection `reason` (and the input `id`, if it had one). A duplicate id (already in the store, or repeated within the array) counts as invalid in both modes.
 
 **Throws:**
 
 - [`LibreDrawError`](/api/types#libredrawerror) if this instance has been destroyed.
-- [`LibreDrawError`](/api/types#libredrawerror) if any feature has invalid geometry.
-- [`LibreDrawError`](/api/types#libredrawerror) if a feature `id` already exists in the store or appears more than once in the array.
+- [`LibreDrawError`](/api/types#libredrawerror) in strict mode, if any feature has invalid geometry.
+- [`LibreDrawError`](/api/types#libredrawerror) in strict mode, if a feature `id` already exists in the store or appears more than once in the array.
 
 **Example:**
 
@@ -265,6 +266,39 @@ draw.addFeatures([
 ]);
 
 draw.undo(); // removes the feature added above
+
+// Report per-feature problems instead of throwing:
+const results = draw.addFeatures(features, { strict: false });
+results.forEach((r, i) => {
+  if (!r.valid) console.warn(`feature ${i} rejected: ${r.reason}`);
+});
+```
+
+---
+
+### `validateFeature(feature)`
+
+Check whether an object would be accepted by [`addFeatures`](#addfeatures-features-options) / [`setFeatures`](#setfeatures-geojson), without adding it and without throwing.
+
+Applies the same rules (Feature envelope, geometry type, coordinate ranges, ring closure, self-intersection). Duplicate ids are not checked here because they depend on the store's contents at add time.
+
+**Parameters:**
+
+| Name      | Type      | Description            |
+| --------- | --------- | ---------------------- |
+| `feature` | `unknown` | The object to validate |
+
+**Returns:** [`FeatureValidationResult`](/api/types#featurevalidationresult) — `{ valid: true, feature }` with a normalized copy, or `{ valid: false, reason }` with the same message `addFeatures` would throw.
+
+**Throws:** [`LibreDrawError`](/api/types#libredrawerror) if this instance has been destroyed.
+
+**Example:**
+
+```ts
+const result = draw.validateFeature(candidate);
+if (!result.valid) {
+  showError(result.reason);
+}
 ```
 
 ---
@@ -323,6 +357,153 @@ if (deleted) {
 ---
 
 ## Selection
+
+### `updateFeature(id, patch)`
+
+Replace a feature's geometry and/or properties.
+
+The change is validated like [`addFeatures`](#addfeatures-features-options) input, recorded as **one undoable step**, and reported with an [`update`](/api/events#update) event (`origin: 'api'`). `properties` is a full replacement, not a merge. A selected feature keeps its selection; vertex handles and the rotation base follow the new shape.
+
+**Parameters:**
+
+| Name    | Type                                                  | Description                                                                          |
+| ------- | ----------------------------------------------------- | ------------------------------------------------------------------------------------ |
+| `id`    | `string`                                              | The feature to change                                                                |
+| `patch` | [`UpdateFeaturePatch`](/api/types#updatefeaturepatch) | `{ geometry?, properties? }`. Omit a field to keep it; `geometry` must keep its type |
+
+**Returns:** [`OperationResult`](/api/types#operationresult) — `{ ok: true, updated: [feature] }`, or `{ ok: false, reason }` with `'not-found'`, `'geometry-type-mismatch'`, `'empty-patch'`, or the validation message (see [`UpdateFeatureFailReason`](/api/types#updatefeaturefailreason)). Nothing changes on failure.
+
+**Throws:** [`LibreDrawError`](/api/types#libredrawerror) if this instance has been destroyed.
+
+**Example:**
+
+```ts
+const result = draw.updateFeature('abc-123', { properties: { crop: 'wheat' } });
+if (!result.ok) console.warn(result.reason);
+
+// Move a polygon by rewriting its ring (same geometry type required):
+const feature = draw.getFeatureById('abc-123');
+if (feature?.geometry.type === 'Polygon') {
+  const shifted = feature.geometry.coordinates.map((ring) =>
+    ring.map(([lng, lat]) => [lng + 0.001, lat] as [number, number])
+  );
+  draw.updateFeature('abc-123', { geometry: { type: 'Polygon', coordinates: shifted } });
+}
+```
+
+---
+
+### `rotate(id, angleDeg)`
+
+Rotate a Polygon or LineString around its area centroid.
+
+Same computation as the [`rotate` mode](/guide/modes#rotate) (screen-space rotation in Web Mercator, positive angles clockwise). Recorded as one undoable step and reported with a [`rotate`](/api/events#rotate) event (`origin: 'api'`); undo and redo report [`update`](/api/events#update). If the feature is selected in rotate mode, the next interactive rotation starts from the new shape.
+
+**Parameters:**
+
+| Name       | Type     | Description                                   |
+| ---------- | -------- | --------------------------------------------- |
+| `id`       | `string` | The feature to rotate                         |
+| `angleDeg` | `number` | Relative angle in degrees, positive clockwise |
+
+**Returns:** [`OperationResult`](/api/types#operationresult) — `{ ok: true, updated: [feature] }`, or `{ ok: false, reason }` with `'not-found'`, `'not-rotatable'` (a Point), `'no-rotation'` (0, a multiple of 360, or a non-finite angle; see [`RotateFailReason`](/api/types#rotatefailreason)), or the validation message when the rotated shape would leave the coordinate range (near the antimeridian or the poles). Nothing changes on failure.
+
+**Throws:** [`LibreDrawError`](/api/types#libredrawerror) if this instance has been destroyed.
+
+**Example:**
+
+```ts
+draw.rotate('abc-123', 90);
+draw.rotate('abc-123', 90); // stacks: now 180° from the original
+draw.undo(); // back to 90°
+```
+
+---
+
+### `split(id, line)`
+
+Split a Polygon or LineString along the line through two points.
+
+Same computation as the [`split` mode](/guide/modes#split): a Polygon is cut where the extended line crosses its outer ring exactly twice, a LineString at its first crossing. The two parts get fresh ids and a copy of the original's properties. Recorded as **one undoable step** and reported with a [`split`](/api/events#split) event (`origin: 'api'`); a geometric failure also emits [`splitfailed`](/api/events#splitfailed), as the mode does. If the original is selected, the selection is dropped.
+
+**Parameters:**
+
+| Name   | Type                                              | Description                                          |
+| ------ | ------------------------------------------------- | ---------------------------------------------------- |
+| `id`   | `string`                                          | The feature to split                                 |
+| `line` | `[`[`Position`](/api/types#position)`, Position]` | Two positions `[start, end]` defining the split line |
+
+**Returns:** [`OperationResult`](/api/types#operationresult) — `{ ok: true, created: [a, b], deleted: [original] }`, or `{ ok: false, reason }` with `'not-found'`, `'not-splittable'` (a Point), a [`SplitFailReason`](/api/events#payload-splitfailedevent), or a validation message (see [`SplitOperationFailReason`](/api/types#splitoperationfailreason)). Nothing changes on failure.
+
+**Throws:** [`LibreDrawError`](/api/types#libredrawerror) if this instance has been destroyed.
+
+**Example:**
+
+```ts
+const result = draw.split('abc-123', [
+  [139.7, 35.65],
+  [139.72, 35.67],
+]);
+if (result.ok) {
+  console.log(result.created.map((f) => f.id)); // two new ids
+} else {
+  console.warn(result.reason); // e.g. 'invalid-intersection-count'
+}
+```
+
+---
+
+### `setback(id, edge, distanceMeters)`
+
+Move one edge of a Polygon inward by a distance in meters.
+
+Same computation as the [`setback` mode](/guide/modes#setback): the ring is split along the offset line and the band on the edge's side is discarded. The result gets a fresh id and a copy of the original's properties. Recorded as **one undoable step** and reported with a [`setback`](/api/events#setback) event (`origin: 'api'`); a geometric failure also emits [`setbackfailed`](/api/events#setbackfailed), as the mode does. Works without the toolbar: the distance is a parameter, not the input field's value.
+
+**Parameters:**
+
+| Name             | Type                            | Description                                                                                                     |
+| ---------------- | ------------------------------- | --------------------------------------------------------------------------------------------------------------- |
+| `id`             | `string`                        | The Polygon to set back                                                                                         |
+| `edge`           | [`EdgeRef`](/api/types#edgeref) | The edge to move (`{ index }`, counted like `SetbackEvent.edgeIndex`). Only the outer ring is supported for now |
+| `distanceMeters` | `number`                        | Offset distance in meters, greater than zero                                                                    |
+
+**Returns:** [`OperationResult`](/api/types#operationresult) — `{ ok: true, created: [result], deleted: [original] }`, or `{ ok: false, reason }` with `'not-found'`, `'not-polygon'`, `'invalid-edge'`, `'invalid-distance'`, `'has-holes'`, or `'invalid-split'` (see [`SetbackOperationFailReason`](/api/types#setbackoperationfailreason)). Nothing changes on failure.
+
+**Throws:** [`LibreDrawError`](/api/types#libredrawerror) if this instance has been destroyed.
+
+**Example:**
+
+```ts
+draw.setback('abc-123', { index: 2 }, 10); // edge 2, 10 m inward
+draw.undo();
+```
+
+---
+
+### `union(ids)`
+
+Merge two Polygons into one.
+
+Same computation as the [`union` mode](/guide/modes#union): the merged polygon gets a fresh id and a copy of the first polygon's properties, and only a single Polygon without holes counts as success. Recorded as **one undoable step** and reported with a [`union`](/api/events#union) event (`origin: 'api'`); a geometric failure also emits [`unionfailed`](/api/events#unionfailed), as the mode does.
+
+**Parameters:**
+
+| Name  | Type       | Description                                                                          |
+| ----- | ---------- | ------------------------------------------------------------------------------------ |
+| `ids` | `string[]` | Exactly two distinct feature ids, in the order that decides whose properties survive |
+
+**Returns:** [`OperationResult`](/api/types#operationresult) — `{ ok: true, created: [merged], deleted: [a, b] }`, or `{ ok: false, reason }` with `'unsupported-count'`, `'not-found'`, or a [`UnionFailReason`](/api/events#payload-unionfailedevent) (see [`UnionOperationFailReason`](/api/types#unionoperationfailreason)). Nothing changes on failure.
+
+**Throws:** [`LibreDrawError`](/api/types#libredrawerror) if this instance has been destroyed.
+
+**Example:**
+
+```ts
+const result = draw.union(['a', 'b']);
+if (!result.ok) console.warn(result.reason); // e.g. 'disjoint'
+```
+
+---
 
 ### `selectFeature(id)`
 
@@ -457,7 +638,7 @@ console.log('Point radius:', style.point.radius);
 
 Undo the last action.
 
-Reverts the most recent action (`create`, `update`, `delete`, `split`, `setback`, `union`, or a `batch` recorded by [`addFeatures`](#addfeatures-features)) and updates the map rendering. If a feature is selected and its geometry changes, vertex handles are refreshed.
+Reverts the most recent action (`create`, `update`, `delete`, `split`, `setback`, `union`, or a `batch` recorded by [`addFeatures`](#addfeatures-features-options)) and updates the map rendering. If a feature is selected and its geometry changes, vertex handles are refreshed.
 
 **Returns:** `boolean` — `true` if an action was undone, `false` if nothing to undo.
 

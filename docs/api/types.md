@@ -35,10 +35,23 @@ import type {
   InputType,
   Locale,
   Messages,
+  OperationResult,
+  OperationSuccess,
+  OperationFailure,
+  AddFeaturesOptions,
+  AddFeatureResult,
+  FeatureValidationResult,
+  UpdateFeaturePatch,
+  UpdateFeatureFailReason,
+  RotateFailReason,
+  EdgeRef,
+  SplitOperationFailReason,
+  SetbackOperationFailReason,
+  UnionOperationFailReason,
 } from '@sindicum/libre-draw';
 ```
 
-Event payload types (`CreateEvent`, `LibreDrawEventMap`, the `*FailReason` unions, …) are documented on the [Events](/api/events) page and exported the same way. Runtime values (`LibreDrawError`, `DEFAULT_STYLE_CONFIG`, `mergeStyleConfig`, the `*Action` classes) use a plain `import`.
+Event payload types (`CreateEvent`, `LibreDrawEventMap`, `EventOrigin`, the `*FailReason` unions, …) are documented on the [Events](/api/events) page and exported the same way. Runtime values (`LibreDrawError`, `DEFAULT_STYLE_CONFIG`, `mergeStyleConfig`, the `*Action` classes) use a plain `import`.
 
 ---
 
@@ -426,7 +439,7 @@ The type of history action.
 type ActionType = 'create' | 'update' | 'delete' | 'split' | 'setback' | 'union' | 'batch';
 ```
 
-`'batch'` is used by [`BatchAction`](#batchaction), which groups several actions into one history step (for example, one [`addFeatures()`](/api/libre-draw#addfeatures-features) call).
+`'batch'` is used by [`BatchAction`](#batchaction), which groups several actions into one history step (for example, one [`addFeatures()`](/api/libre-draw#addfeatures-features-options) call).
 
 ---
 
@@ -506,6 +519,221 @@ interface FeatureStoreInterface {
   getById(id: string): LibreDrawFeature | undefined;
 }
 ```
+
+---
+
+## Operation Result Types
+
+Structured outcomes returned by the public API. None of them is thrown; narrow on the discriminant (`ok` / `valid`) to read the rest.
+
+### `OperationResult`
+
+The result of an editing operation ([`updateFeature`](/api/libre-draw#updatefeature-id-patch), [`rotate`](/api/libre-draw#rotate-id-angledeg), [`split`](/api/libre-draw#split-id-line), [`setback`](/api/libre-draw#setback-id-edge-distancemeters), and [`union`](/api/libre-draw#union-ids)).
+
+```ts
+interface OperationSuccess {
+  ok: true;
+  created: LibreDrawFeature[];
+  updated: LibreDrawFeature[];
+  deleted: LibreDrawFeature[];
+}
+
+interface OperationFailure {
+  ok: false;
+  reason: string;
+}
+
+type OperationResult = OperationSuccess | OperationFailure;
+```
+
+| Property  | Type                                      | Description                                                                                              |
+| --------- | ----------------------------------------- | -------------------------------------------------------------------------------------------------------- |
+| `ok`      | `boolean`                                 | `true` when the store changed, `false` when the operation was rejected and nothing changed               |
+| `created` | [`LibreDrawFeature[]`](#libredrawfeature) | Features added by the operation (empty when none)                                                        |
+| `updated` | [`LibreDrawFeature[]`](#libredrawfeature) | Features whose geometry or properties changed, as they are after the change (empty when none)            |
+| `deleted` | [`LibreDrawFeature[]`](#libredrawfeature) | Features removed by the operation (empty when none)                                                      |
+| `reason`  | `string`                                  | Why the operation was rejected: an operation's failure code (e.g. `'has-holes'`) or a validation message |
+
+All three arrays are always present on success, so a caller can read "what appeared, what changed, what disappeared" without knowing which operation ran.
+
+```ts
+const result = draw.rotate(id, 90);
+if (!result.ok) {
+  console.warn(result.reason);
+  return;
+}
+result.updated.forEach(save);
+```
+
+---
+
+### `AddFeaturesOptions`
+
+Options for [`addFeatures()`](/api/libre-draw#addfeatures-features-options).
+
+```ts
+interface AddFeaturesOptions {
+  strict?: boolean;
+}
+```
+
+| Property | Type      | Default | Description                                                                                                                                                    |
+| -------- | --------- | ------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `strict` | `boolean` | `true`  | `true`: one invalid feature makes the call throw and nothing is added. `false`: invalid features are reported in the result and only the valid ones are added. |
+
+---
+
+### `AddFeatureResult`
+
+One entry per input feature of [`addFeatures()`](/api/libre-draw#addfeatures-features-options), in input order.
+
+```ts
+type AddFeatureResult = { valid: true; id: string } | { valid: false; id?: string; reason: string };
+```
+
+| Property | Type      | Description                                                                                                          |
+| -------- | --------- | -------------------------------------------------------------------------------------------------------------------- |
+| `valid`  | `boolean` | Whether the feature was added                                                                                        |
+| `id`     | `string`  | Valid: the id the feature has in the store (generated when the input had none). Invalid: the input id, if it had one |
+| `reason` | `string`  | Invalid only: the same message the strict mode would have thrown                                                     |
+
+---
+
+### `FeatureValidationResult`
+
+Returned by [`validateFeature()`](/api/libre-draw#validatefeature-feature).
+
+```ts
+type FeatureValidationResult =
+  | { valid: true; feature: LibreDrawFeature }
+  | { valid: false; reason: string };
+```
+
+| Property  | Type                                    | Description                                                                |
+| --------- | --------------------------------------- | -------------------------------------------------------------------------- |
+| `valid`   | `boolean`                               | Whether the object would be accepted by `addFeatures()`                    |
+| `feature` | [`LibreDrawFeature`](#libredrawfeature) | Valid only: a normalized copy (ids and properties as they would be stored) |
+| `reason`  | `string`                                | Invalid only: the rejection message                                        |
+
+---
+
+### `UpdateFeaturePatch`
+
+What [`updateFeature()`](/api/libre-draw#updatefeature-id-patch) replaces on a feature. Each field is a full replacement; omit a field to keep it.
+
+```ts
+interface UpdateFeaturePatch {
+  geometry?: LibreDrawGeometry;
+  properties?: FeatureProperties;
+}
+```
+
+| Property     | Type                                      | Description                                                     |
+| ------------ | ----------------------------------------- | --------------------------------------------------------------- |
+| `geometry`   | [`LibreDrawGeometry`](#libredrawgeometry) | New geometry. Must have the same `type` as the current geometry |
+| `properties` | [`FeatureProperties`](#featureproperties) | New properties object. Replaces the old one entirely (no merge) |
+
+---
+
+### `UpdateFeatureFailReason`
+
+Failure codes of [`updateFeature()`](/api/libre-draw#updatefeature-id-patch). A geometry that fails validation reports the validation message instead of a code.
+
+```ts
+type UpdateFeatureFailReason = 'not-found' | 'geometry-type-mismatch' | 'empty-patch';
+```
+
+| Value                      | Meaning                                       |
+| -------------------------- | --------------------------------------------- |
+| `'not-found'`              | No feature has that id                        |
+| `'geometry-type-mismatch'` | The patch would change the geometry type      |
+| `'empty-patch'`            | Neither `geometry` nor `properties` was given |
+
+---
+
+### `RotateFailReason`
+
+Failure codes of [`rotate()`](/api/libre-draw#rotate-id-angledeg). A rotated shape that fails validation (it would leave the coordinate range near the antimeridian or the poles) reports the validation message instead of a code.
+
+```ts
+type RotateFailReason = 'not-found' | 'not-rotatable' | 'no-rotation';
+```
+
+| Value             | Meaning                                                                   |
+| ----------------- | ------------------------------------------------------------------------- |
+| `'not-found'`     | No feature has that id                                                    |
+| `'not-rotatable'` | The feature is a Point                                                    |
+| `'no-rotation'`   | The angle is 0, a multiple of 360, or not finite, so nothing would change |
+
+---
+
+### `EdgeRef`
+
+A reference to one edge of a Polygon, used by [`setback()`](/api/libre-draw#setback-id-edge-distancemeters).
+
+```ts
+interface EdgeRef {
+  ring?: number;
+  index: number;
+}
+```
+
+| Property | Type     | Description                                                                                                                                                                                            |
+| -------- | -------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `ring`   | `number` | Ring index; `0` (the outer ring) when omitted. Inner rings cannot be edited yet, so any other value is rejected with `'has-holes'`                                                                     |
+| `index`  | `number` | Edge index within the ring, counted without the closing position: edge `i` runs from vertex `i` to vertex `i + 1`, and the last edge returns to vertex `0`. Same numbering as `SetbackEvent.edgeIndex` |
+
+---
+
+### `SplitOperationFailReason`
+
+Failure codes of [`split()`](/api/libre-draw#split-id-line). The geometric codes are the [`SplitFailReason`](/api/events#payload-splitfailedevent) values of the `splitfailed` event, which is emitted alongside; the argument errors below emit no event. A result that fails validation reports the validation message instead of a code.
+
+```ts
+type SplitOperationFailReason = 'not-found' | 'not-splittable' | SplitFailReason;
+```
+
+| Value              | Meaning                |
+| ------------------ | ---------------------- |
+| `'not-found'`      | No feature has that id |
+| `'not-splittable'` | The feature is a Point |
+
+---
+
+### `SetbackOperationFailReason`
+
+Failure codes of [`setback()`](/api/libre-draw#setback-id-edge-distancemeters). `'has-holes'` and `'invalid-split'` are the [`SetbackFailReason`](/api/events#payload-setbackfailedevent) values of the `setbackfailed` event, which is emitted alongside; the argument errors below emit no event.
+
+```ts
+type SetbackOperationFailReason =
+  | 'not-found'
+  | 'not-polygon'
+  | 'invalid-edge'
+  | 'invalid-distance'
+  | SetbackFailReason;
+```
+
+| Value                | Meaning                                               |
+| -------------------- | ----------------------------------------------------- |
+| `'not-found'`        | No feature has that id                                |
+| `'not-polygon'`      | The feature is not a Polygon                          |
+| `'invalid-edge'`     | `edge.index` is not an integer in `[0, vertexCount)`  |
+| `'invalid-distance'` | The distance is not a finite number greater than zero |
+
+---
+
+### `UnionOperationFailReason`
+
+Failure codes of [`union()`](/api/libre-draw#union-ids). The geometric codes are the [`UnionFailReason`](/api/events#payload-unionfailedevent) values of the `unionfailed` event, which is emitted alongside; the argument errors below emit no event.
+
+```ts
+type UnionOperationFailReason = 'not-found' | 'unsupported-count' | UnionFailReason;
+```
+
+| Value                 | Meaning                                           |
+| --------------------- | ------------------------------------------------- |
+| `'not-found'`         | One of the ids has no feature                     |
+| `'unsupported-count'` | `ids` does not name exactly two distinct features |
 
 ---
 

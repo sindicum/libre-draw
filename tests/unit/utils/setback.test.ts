@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import type { Position } from '../../../src/types/features';
 import {
+  computeEdgeOffsetLine,
   computeInwardNormal,
   computeOffsetLine,
   extendLine,
@@ -79,5 +80,41 @@ describe('setback utils', () => {
 
     expect(extendedStart).toEqual([-1, 1]);
     expect(extendedEnd).toEqual([5, 1]);
+  });
+});
+
+describe('computeEdgeOffsetLine', () => {
+  const square: Position[] = [
+    [0, 0],
+    [10, 0],
+    [10, 10],
+    [0, 10],
+  ];
+
+  it('offsets the edge inward by the distance in meters', () => {
+    const [start, end] = computeEdgeOffsetLine(square, 0, 100_000);
+    // Edge 0 runs along lat 0; inward is north, about 0.9 degrees for 100 km.
+    expect(start[0]).toBeCloseTo(0, 6);
+    expect(end[0]).toBeCloseTo(10, 6);
+    expect(start[1]).toBeCloseTo(0.9, 1);
+    expect(end[1]).toBeCloseTo(0.9, 1);
+  });
+
+  it('wraps the last edge back to the first vertex', () => {
+    const [start, end] = computeEdgeOffsetLine(square, 3, 100_000);
+    // Edge 3 runs from (0,10) down to (0,0); inward is east.
+    expect(start[0]).toBeCloseTo(0.9, 1);
+    expect(end[0]).toBeCloseTo(0.9, 1);
+    expect(start[1]).toBeCloseTo(10, 1);
+    expect(end[1]).toBeCloseTo(0, 6);
+  });
+
+  it('throws for a degenerate edge', () => {
+    const degenerate: Position[] = [
+      [0, 0],
+      [0, 0],
+      [10, 10],
+    ];
+    expect(() => computeEdgeOffsetLine(degenerate, 0, 10)).toThrow();
   });
 });

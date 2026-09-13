@@ -3,10 +3,10 @@ import { point as turfPoint } from '@turf/helpers';
 import type { Mode } from './Mode';
 import type { ModeContext } from '../core/ModeContext';
 import type { LibreDrawFeature } from '../types/features';
-import { UpdateAction } from '../types/features';
 import type { NormalizedInputEvent } from '../types/input';
 import { clickTolerance, pointerTravel } from '../input/gestures';
 import { cloneFeature } from '../utils/featureSnapshot';
+import { rotate } from '../operations/rotate';
 import {
   angleBetween,
   getRotationCenter,
@@ -312,8 +312,9 @@ export class RotateMode implements Mode {
   }
 
   /**
-   * Commit a rotation of the base by `angle`: one UpdateAction, one `rotate`
-   * event, and the result becomes the new base for the next rotation.
+   * Commit a rotation of the base by `angle` through the `rotate` operation
+   * (one UpdateAction, one `rotate` event); the result becomes the new base
+   * for the next rotation.
    */
   private commit(angle: number): void {
     if (!this.baseFeature || !this.selectedFeatureId) return;
@@ -323,15 +324,14 @@ export class RotateMode implements Mode {
       return;
     }
 
-    const rotated = rotateFeature(this.baseFeature, angle);
-    this.context.store.update(this.selectedFeatureId, rotated);
-    this.context.history.push(new UpdateAction(this.selectedFeatureId, this.baseFeature, rotated));
-    this.context.events.emit('rotate', {
-      originalFeature: cloneFeature(this.baseFeature),
-      feature: cloneFeature(rotated),
-      angle,
-    });
-    this.baseFeature = cloneFeature(rotated);
+    // The operation rotates whatever the store holds, and the store may hold
+    // a preview: put the committed shape back first (without a redraw, the
+    // commit below redraws once).
+    this.context.store.update(this.selectedFeatureId, cloneFeature(this.baseFeature));
+    const result = rotate(this.context, this.selectedFeatureId, angle);
+    if (result.ok) {
+      this.baseFeature = cloneFeature(result.updated[0]);
+    }
     this.context.render.renderFeatures();
   }
 

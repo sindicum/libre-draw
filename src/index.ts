@@ -34,6 +34,24 @@ export type {
   SelectionChangeEvent,
   ModeChangeEvent,
   DraftChangeEvent,
+  EventOrigin,
+} from './types';
+
+// Structured results of the public API
+export type {
+  OperationSuccess,
+  OperationFailure,
+  OperationResult,
+  AddFeaturesOptions,
+  AddFeatureResult,
+  FeatureValidationResult,
+  UpdateFeaturePatch,
+  UpdateFeatureFailReason,
+  RotateFailReason,
+  EdgeRef,
+  SplitOperationFailReason,
+  SetbackOperationFailReason,
+  UnionOperationFailReason,
 } from './types';
 
 export type {

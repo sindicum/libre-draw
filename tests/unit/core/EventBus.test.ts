@@ -28,7 +28,7 @@ describe('EventBus', () => {
     bus.emit('create', { feature: mockFeature });
 
     expect(listener).toHaveBeenCalledOnce();
-    expect(listener).toHaveBeenCalledWith({ feature: mockFeature });
+    expect(listener).toHaveBeenCalledWith({ feature: mockFeature, origin: 'user' });
   });
 
   it('should support multiple listeners for the same event', () => {
@@ -98,6 +98,7 @@ describe('EventBus', () => {
     expect(listener).toHaveBeenCalledWith({
       mode: 'draw-polygon',
       previousMode: 'idle',
+      origin: 'user',
     });
   });
 
@@ -108,6 +109,53 @@ describe('EventBus', () => {
     bus.on('selectionchange', listener);
     bus.emit('selectionchange', { selectedIds: ['a', 'b'] });
 
-    expect(listener).toHaveBeenCalledWith({ selectedIds: ['a', 'b'] });
+    expect(listener).toHaveBeenCalledWith({ selectedIds: ['a', 'b'], origin: 'user' });
+  });
+
+  describe('origin', () => {
+    it('should stamp origin: user when no provider is given', () => {
+      const bus = new EventBus();
+      const listener = vi.fn();
+
+      bus.on('draftchange', listener);
+      bus.emit('draftchange', { vertexCount: 2 });
+
+      expect(listener).toHaveBeenCalledWith({ vertexCount: 2, origin: 'user' });
+    });
+
+    it('should read the provider on every emit', () => {
+      let origin: 'api' | 'user' = 'user';
+      const bus = new EventBus(() => origin);
+      const listener = vi.fn();
+
+      bus.on('delete', listener);
+      bus.emit('delete', { feature: mockFeature });
+      origin = 'api';
+      bus.emit('delete', { feature: mockFeature });
+
+      expect(listener).toHaveBeenNthCalledWith(1, { feature: mockFeature, origin: 'user' });
+      expect(listener).toHaveBeenNthCalledWith(2, { feature: mockFeature, origin: 'api' });
+    });
+
+    it('should not mutate the payload passed by the emitter', () => {
+      const bus = new EventBus(() => 'api');
+      const listener = vi.fn();
+      const payload = { selectedIds: ['a'] };
+
+      bus.on('selectionchange', listener);
+      bus.emit('selectionchange', payload);
+
+      expect(payload).toEqual({ selectedIds: ['a'] });
+      expect(listener.mock.calls[0][0]).not.toBe(payload);
+    });
+
+    it('should not call the provider when nobody is listening', () => {
+      const provider = vi.fn(() => 'api' as const);
+      const bus = new EventBus(provider);
+
+      bus.emit('modechange', { mode: 'idle', previousMode: 'select' });
+
+      expect(provider).not.toHaveBeenCalled();
+    });
   });
 });

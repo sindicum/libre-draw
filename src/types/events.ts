@@ -2,9 +2,30 @@ import type { LibreDrawFeature } from './features';
 import type { ModeName } from './mode';
 
 /**
+ * Where a change came from.
+ *
+ * - `'api'`: a public `LibreDraw` method was running (application code, an
+ *   AI / MCP bridge, a script). Includes everything those methods trigger,
+ *   such as `finishDrawing()` completing a draft.
+ * - `'user'`: pointer, touch, toolbar, or keyboard input on the map.
+ *
+ * Every event payload carries this so a listener that mirrors changes to an
+ * external store can skip the ones it caused itself.
+ */
+export type EventOrigin = 'api' | 'user';
+
+/**
+ * Payload as passed by an emitter: the event without `origin`, which the
+ * event bus attaches on delivery.
+ */
+export type EventInput<K extends keyof LibreDrawEventMap> = Omit<LibreDrawEventMap[K], 'origin'>;
+
+/**
  * Event payload for feature creation.
  */
 export interface CreateEvent {
+  /** Where the change came from. See {@link EventOrigin}. */
+  origin: EventOrigin;
   feature: LibreDrawFeature;
 }
 
@@ -12,6 +33,8 @@ export interface CreateEvent {
  * Event payload for feature update.
  */
 export interface UpdateEvent {
+  /** Where the change came from. See {@link EventOrigin}. */
+  origin: EventOrigin;
   feature: LibreDrawFeature;
   oldFeature: LibreDrawFeature;
 }
@@ -20,6 +43,8 @@ export interface UpdateEvent {
  * Event payload for feature deletion.
  */
 export interface DeleteEvent {
+  /** Where the change came from. See {@link EventOrigin}. */
+  origin: EventOrigin;
   feature: LibreDrawFeature;
 }
 
@@ -27,6 +52,8 @@ export interface DeleteEvent {
  * Event payload for split operation.
  */
 export interface SplitEvent {
+  /** Where the change came from. See {@link EventOrigin}. */
+  origin: EventOrigin;
   originalFeature: LibreDrawFeature;
   features: [LibreDrawFeature, LibreDrawFeature];
 }
@@ -45,6 +72,8 @@ export type SplitFailReason =
  * Event payload for a failed split operation.
  */
 export interface SplitFailedEvent {
+  /** Where the change came from. See {@link EventOrigin}. */
+  origin: EventOrigin;
   reason: SplitFailReason;
   featureId: string;
 }
@@ -55,6 +84,8 @@ export type SetbackFailReason = 'has-holes' | 'invalid-split';
  * Event payload for successful setback operation.
  */
 export interface SetbackEvent {
+  /** Where the change came from. See {@link EventOrigin}. */
+  origin: EventOrigin;
   originalFeature: LibreDrawFeature;
   feature: LibreDrawFeature;
   edgeIndex: number;
@@ -65,6 +96,8 @@ export interface SetbackEvent {
  * Event payload for failed setback operation.
  */
 export interface SetbackFailedEvent {
+  /** Where the change came from. See {@link EventOrigin}. */
+  origin: EventOrigin;
   reason: SetbackFailReason;
   featureId: string;
 }
@@ -86,6 +119,8 @@ export type UnionFailReason = 'not-polygon' | 'has-holes' | 'disjoint' | 'invali
  * result inherits the properties of the first one.
  */
 export interface UnionEvent {
+  /** Where the change came from. See {@link EventOrigin}. */
+  origin: EventOrigin;
   originalFeatures: [LibreDrawFeature, LibreDrawFeature];
   feature: LibreDrawFeature;
 }
@@ -94,6 +129,8 @@ export interface UnionEvent {
  * Event payload for a failed union operation.
  */
 export interface UnionFailedEvent {
+  /** Where the change came from. See {@link EventOrigin}. */
+  origin: EventOrigin;
   reason: UnionFailReason;
   featureIds: [string, string];
 }
@@ -106,6 +143,8 @@ export interface UnionFailedEvent {
  * because the history stores it as a 1 -> 1 feature replacement.
  */
 export interface RotateEvent {
+  /** Where the change came from. See {@link EventOrigin}. */
+  origin: EventOrigin;
   originalFeature: LibreDrawFeature;
   feature: LibreDrawFeature;
   angle: number;
@@ -115,6 +154,8 @@ export interface RotateEvent {
  * Event payload for selection changes.
  */
 export interface SelectionChangeEvent {
+  /** Where the change came from. See {@link EventOrigin}. */
+  origin: EventOrigin;
   selectedIds: string[];
 }
 
@@ -122,6 +163,8 @@ export interface SelectionChangeEvent {
  * Event payload for mode changes.
  */
 export interface ModeChangeEvent {
+  /** Where the change came from. See {@link EventOrigin}. */
+  origin: EventOrigin;
   mode: ModeName;
   previousMode: ModeName;
 }
@@ -134,6 +177,8 @@ export interface ModeChangeEvent {
  * draft finalized, draft cancelled, or mode exited.
  */
 export interface DraftChangeEvent {
+  /** Where the change came from. See {@link EventOrigin}. */
+  origin: EventOrigin;
   vertexCount: number;
 }
 

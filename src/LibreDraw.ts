@@ -10,6 +10,14 @@ import type {
   StyleConfig,
   PartialStyleConfig,
   Messages,
+  EventOrigin,
+  AddFeaturesOptions,
+  AddFeatureResult,
+  FeatureValidationResult,
+  OperationResult,
+  UpdateFeaturePatch,
+  EdgeRef,
+  Position,
 } from './types';
 import { mergeStyleConfig } from './types/style';
 import type { Action } from './types/features';
@@ -29,7 +37,12 @@ import { ModeManager } from './core/ModeManager';
 import type { ModeContext } from './core/ModeContext';
 import type { ModeName } from './types/mode';
 import { LibreDrawError } from './core/errors';
-import { validateGeoJSON, validateFeature } from './validation/geojson';
+import { validateGeoJSON, tryValidateFeature } from './validation/geojson';
+import { updateFeature as updateFeatureOperation } from './operations/updateFeature';
+import { rotate as rotateOperation } from './operations/rotate';
+import { split as splitOperation } from './operations/split';
+import { setback as setbackOperation } from './operations/setback';
+import { union as unionOperation } from './operations/union';
 import { IdleMode } from './modes/IdleMode';
 import { DrawPolygonMode } from './modes/DrawPolygonMode';
 import { DrawRectangleMode } from './modes/DrawRectangleMode';
@@ -48,6 +61,16 @@ import { RenderManager } from './rendering/RenderManager';
 import { Toolbar } from './ui/Toolbar';
 import { getBuiltinMessages, isBuiltinLocale, resolveMessages } from './ui/messages';
 import { cloneFeature } from './utils/featureSnapshot';
+
+/**
+ * The `id` an input object declares, if it is a string. Used to label a
+ * rejected `addFeatures` entry without trusting anything else about it.
+ */
+function readInputId(input: unknown): string | undefined {
+  if (input === null || typeof input !== 'object') return undefined;
+  const id = (input as { id?: unknown }).id;
+  return typeof id === 'string' ? id : undefined;
+}
 
 /**
  * LibreDraw - A MapLibre GL JS polygon drawing and editing library.
@@ -73,6 +96,8 @@ export class LibreDraw {
   private sourceManager: SourceManager;
   private renderManager: RenderManager;
   private toolbar: Toolbar | null = null;
+  /** Dependencies handed to modes; also the OperationContext for operations. */
+  private modeContext: ModeContext;
   private selectMode: SelectMode;
   private setbackMode: SetbackMode;
   private rotateMode: RotateMode;
@@ -80,6 +105,12 @@ export class LibreDraw {
   private messages: Messages;
   private destroyed = false;
   private inputEnabled = false;
+  /**
+   * Origin stamped on every event emitted while a public method runs.
+   * `'user'` at rest; `asApi()` switches it to `'api'` for the duration of
+   * a call so modes and the toolbar never have to know who triggered them.
+   */
+  private eventOrigin: EventOrigin = 'user';
 
   private handleStyleData = (): void => {
     if (this.destroyed || !this.map.isStyleLoaded()) return;
@@ -135,7 +166,7 @@ export class LibreDraw {
     this.map = map;
 
     // Core modules
-    this.eventBus = new EventBus();
+    this.eventBus = new EventBus(() => this.eventOrigin);
     this.featureStore = new FeatureStore();
     this.historyManager = new HistoryManager(options.historyLimit ?? 100);
     this.modeManager = new ModeManager();
@@ -217,6 +248,8 @@ export class LibreDraw {
       },
     };
 
+    this.modeContext = modeContext;
+
     const drawPointMode = new DrawPointMode(modeContext);
     const drawLineMode = new DrawLineMode(modeContext);
     const drawPolygonMode = new DrawPolygonMode(modeContext);
@@ -259,8 +292,9 @@ export class LibreDraw {
       this.applyMapInteractions(initialMode.mapInteractions());
     }
 
-    // Input handling. Shortcuts are a thin adapter over the public
-    // undo() / redo(); they are wired only when enabled so KeyboardInput
+    // Input handling. Shortcuts are a thin adapter over undo / redo; they
+    // call the internal variants so the resulting events are stamped
+    // origin: 'user'. They are wired only when enabled so KeyboardInput
     // never has to consult configuration. The boolean result lets the key
     // event fall through to the host page when there is nothing to undo.
     const keyboard = this.normalizeKeyboardConfig(options.keyboard);
@@ -269,8 +303,8 @@ export class LibreDraw {
       () => this.modeManager.getCurrentMode(),
       keyboard.undoRedo
         ? {
-            onUndo: () => this.undo(),
-            onRedo: () => this.redo(),
+            onUndo: () => this.performUndo(),
+            onRedo: () => this.performRedo(),
           }
         : undefined
     );
@@ -316,7 +350,7 @@ export class LibreDraw {
    */
   setMode(mode: ModeName): void {
     this.assertNotDestroyed();
-    this.modeManager.setMode(mode);
+    this.asApi(() => this.modeManager.setMode(mode));
   }
 
   /**
@@ -410,30 +444,37 @@ export class LibreDraw {
   setFeatures(geojson: unknown): void {
     this.assertNotDestroyed();
     const validated = validateGeoJSON(geojson);
-    this.featureStore.setAll(validated.features);
-    this.resetSelectionState();
-    this.historyManager.clear();
-    this.renderAllFeatures();
-    this.updateToolbarHistoryState();
+    this.asApi(() => {
+      this.featureStore.setAll(validated.features);
+      this.resetSelectionState();
+      this.historyManager.clear();
+      this.renderAllFeatures();
+      this.updateToolbarHistoryState();
+    });
   }
 
   /**
    * Add features to the store from an array of GeoJSON Feature objects.
    *
-   * All features are validated before any of them is added, so an invalid
-   * entry leaves the store untouched. Unlike {@link setFeatures}, this does
-   * not clear existing features or history: the whole call is recorded as
-   * a single undoable step (one `undo()` removes every feature added by
+   * Every feature is validated first. With `strict: true` (the default) one
+   * invalid entry makes the call throw and leaves the store untouched; with
+   * `strict: false` the invalid entries are reported in the returned array
+   * and only the valid ones are added. Either way the added features form a
+   * **single undoable step** (one `undo()` removes every feature added by
    * this call), and a `'create'` event fires for each added feature.
+   * Unlike {@link setFeatures}, existing features and history are kept.
    *
    * @param features - An array of GeoJSON Feature objects with Point,
    *   LineString, or Polygon geometry. Features without an `id` get a
    *   generated UUID.
+   * @param options - `{ strict }`; see {@link AddFeaturesOptions}.
+   * @returns One {@link AddFeatureResult} per input feature, in input order.
+   *   Valid entries carry the id the feature has in the store.
    *
    * @throws {LibreDrawError} If this instance has been destroyed.
-   * @throws {LibreDrawError} If any feature has invalid geometry.
-   * @throws {LibreDrawError} If a feature `id` already exists in the store
-   *   or appears more than once in the array.
+   * @throws {LibreDrawError} In strict mode, if any feature has invalid
+   *   geometry, or if a feature `id` already exists in the store or appears
+   *   more than once in the array.
    *
    * @example
    * ```ts
@@ -446,35 +487,97 @@ export class LibreDraw {
    *   properties: { name: 'Zone A' }
    * }]);
    * draw.undo(); // removes the feature added above
+   *
+   * // Report per-feature problems instead of throwing:
+   * const results = draw.addFeatures(features, { strict: false });
+   * results.forEach((r, i) => {
+   *   if (!r.valid) console.warn(`feature ${i} rejected: ${r.reason}`);
+   * });
    * ```
    */
-  addFeatures(features: unknown[]): void {
+  addFeatures(features: unknown[], options: AddFeaturesOptions = {}): AddFeatureResult[] {
     this.assertNotDestroyed();
-    if (features.length === 0) return;
+    const strict = options.strict ?? true;
 
     // Validate everything first so a bad entry cannot leave a partial add
     // behind (the call must map to exactly one history step or none).
-    const validated = features.map((feature) => validateFeature(feature));
-
+    const results: AddFeatureResult[] = [];
+    const accepted: { index: number; feature: LibreDrawFeature }[] = [];
     // FeatureStore.add() silently overwrites an existing id. Recording that
     // as a CreateAction would make undo remove the pre-existing feature, so
-    // duplicates are rejected up front.
+    // duplicates are rejected up front, in every mode.
     const seenIds = new Set<string>();
-    for (const feature of validated) {
-      if (!feature.id) continue;
-      if (seenIds.has(feature.id) || this.featureStore.getById(feature.id)) {
-        throw new LibreDrawError(`Feature already exists: ${feature.id}`);
+    features.forEach((input, index) => {
+      const validation = tryValidateFeature(input);
+      if (!validation.valid) {
+        results.push({ valid: false, id: readInputId(input), reason: validation.reason });
+        return;
       }
-      seenIds.add(feature.id);
-    }
+      const { feature } = validation;
+      if (feature.id && (seenIds.has(feature.id) || this.featureStore.getById(feature.id))) {
+        results.push({
+          valid: false,
+          id: feature.id,
+          reason: `Feature already exists: ${feature.id}`,
+        });
+        return;
+      }
+      if (feature.id) seenIds.add(feature.id);
+      // Placeholder; the id is filled in once the store has assigned one.
+      results.push({ valid: true, id: feature.id });
+      accepted.push({ index, feature });
+    });
 
-    const added = validated.map((feature) => this.featureStore.add(feature));
-    this.historyManager.push(new BatchAction(added.map((feature) => new CreateAction(feature))));
-    for (const feature of added) {
-      this.eventBus.emit('create', { feature: cloneFeature(feature) });
+    if (strict) {
+      const firstInvalid = results.find((r) => !r.valid);
+      if (firstInvalid && !firstInvalid.valid) {
+        throw new LibreDrawError(firstInvalid.reason);
+      }
     }
-    this.renderAllFeatures();
-    this.updateToolbarHistoryState();
+    if (accepted.length === 0) return results;
+
+    this.asApi(() => {
+      const added = accepted.map(({ index, feature }) => {
+        const stored = this.featureStore.add(feature);
+        results[index] = { valid: true, id: stored.id };
+        return stored;
+      });
+      this.historyManager.push(new BatchAction(added.map((feature) => new CreateAction(feature))));
+      for (const feature of added) {
+        this.eventBus.emit('create', { feature: cloneFeature(feature) });
+      }
+      this.renderAllFeatures();
+      this.updateToolbarHistoryState();
+    });
+    return results;
+  }
+
+  /**
+   * Check whether an object would be accepted by {@link addFeatures} /
+   * {@link setFeatures}, without adding it and without throwing.
+   *
+   * Applies the same rules (Feature envelope, geometry type, coordinate
+   * ranges, ring closure, self-intersection). Duplicate ids are not
+   * checked here because they depend on the store's contents at add time.
+   *
+   * @param feature - The object to validate.
+   * @returns `{ valid: true, feature }` with a normalized copy, or
+   *   `{ valid: false, reason }` with the same message `addFeatures` would
+   *   throw.
+   *
+   * @throws {LibreDrawError} If this instance has been destroyed.
+   *
+   * @example
+   * ```ts
+   * const result = draw.validateFeature(candidate);
+   * if (!result.valid) {
+   *   showError(result.reason);
+   * }
+   * ```
+   */
+  validateFeature(feature: unknown): FeatureValidationResult {
+    this.assertNotDestroyed();
+    return tryValidateFeature(feature);
   }
 
   /**
@@ -548,27 +651,169 @@ export class LibreDraw {
    */
   deleteFeature(id: string): LibreDrawFeature | undefined {
     this.assertNotDestroyed();
+    return this.asApi(() => this.removeFeature(id));
+  }
 
-    const feature = this.featureStore.getById(id);
-    if (!feature) return undefined;
+  /**
+   * Replace a feature's geometry and/or properties.
+   *
+   * The change is validated like {@link addFeatures} input, recorded as
+   * one undoable step, and reported with an `'update'` event
+   * (`origin: 'api'`). `properties` is a full replacement, not a merge.
+   * A feature that is selected keeps its selection; vertex handles and the
+   * rotation base follow the new shape.
+   *
+   * @param id - The feature to change.
+   * @param patch - `{ geometry?, properties? }`; see {@link UpdateFeaturePatch}.
+   * @returns `{ ok: true, updated: [feature] }`, or `{ ok: false, reason }`
+   *   with `'not-found'`, `'geometry-type-mismatch'`, `'empty-patch'`, or the
+   *   validation message. Nothing changes on failure.
+   *
+   * @throws {LibreDrawError} If this instance has been destroyed.
+   *
+   * @example
+   * ```ts
+   * const result = draw.updateFeature('abc-123', { properties: { crop: 'wheat' } });
+   * if (!result.ok) console.warn(result.reason);
+   * ```
+   */
+  updateFeature(id: string, patch: UpdateFeaturePatch): OperationResult {
+    this.assertNotDestroyed();
+    const result = this.asApi(() => updateFeatureOperation(this.modeContext, id, patch));
+    if (result.ok) this.syncAfterExternalChange();
+    return result;
+  }
 
-    // Clear selection if the feature is selected
-    const selectedIds = this.selectMode.getSelectedIds();
-    if (selectedIds.includes(id)) {
-      this.selectMode.clearSelection();
-    }
-    if (this.rotateMode.getSelectedId() === id) {
-      this.rotateMode.clearSelection();
-    }
+  /**
+   * Rotate a Polygon or LineString around its area centroid.
+   *
+   * Same computation as the rotate mode (screen-space rotation in Web
+   * Mercator, positive angles clockwise). Recorded as one undoable step and
+   * reported with a `'rotate'` event (`origin: 'api'`); undo / redo report
+   * `'update'`. If the feature is selected in rotate mode, the next
+   * interactive rotation starts from the new shape.
+   *
+   * @param id - The feature to rotate.
+   * @param angleDeg - Relative angle in degrees, positive clockwise.
+   * @returns `{ ok: true, updated: [feature] }`, or `{ ok: false, reason }`
+   *   with `'not-found'`, `'not-rotatable'` (Point), `'no-rotation'`
+   *   (0, a multiple of 360, or a non-finite angle), or the validation
+   *   message when the rotated shape leaves the coordinate range (near the
+   *   antimeridian or the poles). Nothing changes on failure.
+   *
+   * @throws {LibreDrawError} If this instance has been destroyed.
+   *
+   * @example
+   * ```ts
+   * draw.rotate('abc-123', 90);
+   * draw.undo(); // back to the original orientation
+   * ```
+   */
+  rotate(id: string, angleDeg: number): OperationResult {
+    this.assertNotDestroyed();
+    const result = this.asApi(() => rotateOperation(this.modeContext, id, angleDeg));
+    if (result.ok) this.syncAfterExternalChange();
+    return result;
+  }
 
-    this.featureStore.remove(id);
-    const action = new DeleteAction(feature);
-    this.historyManager.push(action);
-    this.eventBus.emit('delete', { feature: cloneFeature(feature) });
-    this.renderAllFeatures();
-    this.updateToolbarHistoryState();
+  /**
+   * Split a Polygon or LineString along the line through two points.
+   *
+   * Same computation as the [`split` mode]: a Polygon is cut where the
+   * extended line crosses its outer ring exactly twice, a LineString at its
+   * first crossing. The two parts get fresh ids and a copy of the original's
+   * properties. Recorded as one undoable step and reported with a `'split'`
+   * event (`origin: 'api'`); a geometric failure also emits `'splitfailed'`
+   * as the mode does. If the original is selected, the selection is dropped.
+   *
+   * @param id - The feature to split.
+   * @param line - Two positions `[start, end]` defining the split line.
+   * @returns `{ ok: true, created: [a, b], deleted: [original] }`, or
+   *   `{ ok: false, reason }` with `'not-found'`, `'not-splittable'` (a
+   *   Point), a {@link SplitFailReason}, or a validation message. Nothing
+   *   changes on failure.
+   *
+   * @throws {LibreDrawError} If this instance has been destroyed.
+   *
+   * @example
+   * ```ts
+   * const result = draw.split('abc-123', [
+   *   [139.70, 35.65],
+   *   [139.72, 35.67],
+   * ]);
+   * if (result.ok) console.log(result.created.map((f) => f.id)); // two new ids
+   * ```
+   */
+  split(id: string, line: [Position, Position]): OperationResult {
+    this.assertNotDestroyed();
+    const result = this.asApi(() => splitOperation(this.modeContext, id, line));
+    if (result.ok) this.syncAfterExternalChange();
+    return result;
+  }
 
-    return feature;
+  /**
+   * Move one edge of a Polygon inward by a distance in meters.
+   *
+   * Same computation as the [`setback` mode]: the ring is split along the
+   * offset line and the band on the edge's side is discarded. The result
+   * gets a fresh id and a copy of the original's properties. Recorded as
+   * one undoable step and reported with a `'setback'` event
+   * (`origin: 'api'`); a geometric failure also emits `'setbackfailed'` as
+   * the mode does. Works without the toolbar: the distance is a parameter,
+   * not the input field's value.
+   *
+   * @param id - The Polygon to set back.
+   * @param edge - The edge to move; see {@link EdgeRef}. Only the outer
+   *   ring is supported for now.
+   * @param distanceMeters - Offset distance in meters, greater than zero.
+   * @returns `{ ok: true, created: [result], deleted: [original] }`, or
+   *   `{ ok: false, reason }` with `'not-found'`, `'not-polygon'`,
+   *   `'invalid-edge'`, `'invalid-distance'`, `'has-holes'`, or
+   *   `'invalid-split'`. Nothing changes on failure.
+   *
+   * @throws {LibreDrawError} If this instance has been destroyed.
+   *
+   * @example
+   * ```ts
+   * draw.setback('abc-123', { index: 2 }, 10); // edge 2, 10 m inward
+   * draw.undo();
+   * ```
+   */
+  setback(id: string, edge: EdgeRef, distanceMeters: number): OperationResult {
+    this.assertNotDestroyed();
+    const result = this.asApi(() => setbackOperation(this.modeContext, id, edge, distanceMeters));
+    if (result.ok) this.syncAfterExternalChange();
+    return result;
+  }
+
+  /**
+   * Merge two Polygons into one.
+   *
+   * Same computation as the [`union` mode]: the merged polygon gets a fresh
+   * id and a copy of the first polygon's properties, and only a single
+   * Polygon without holes counts as success. Recorded as one undoable step
+   * and reported with a `'union'` event (`origin: 'api'`); a geometric
+   * failure also emits `'unionfailed'` as the mode does.
+   *
+   * @param ids - Exactly two distinct feature ids, in the order that decides
+   *   whose properties survive.
+   * @returns `{ ok: true, created: [merged], deleted: [a, b] }`, or
+   *   `{ ok: false, reason }` with `'unsupported-count'`, `'not-found'`, or a
+   *   {@link UnionFailReason}. Nothing changes on failure.
+   *
+   * @throws {LibreDrawError} If this instance has been destroyed.
+   *
+   * @example
+   * ```ts
+   * const result = draw.union(['a', 'b']);
+   * if (!result.ok) console.warn(result.reason); // e.g. 'disjoint'
+   * ```
+   */
+  union(ids: string[]): OperationResult {
+    this.assertNotDestroyed();
+    const result = this.asApi(() => unionOperation(this.modeContext, ids));
+    if (result.ok) this.syncAfterExternalChange();
+    return result;
   }
 
   /**
@@ -597,11 +842,12 @@ export class LibreDraw {
       throw new LibreDrawError(`Feature not found: ${id}`);
     }
 
-    if (this.modeManager.getMode() !== 'select') {
-      this.modeManager.setMode('select');
-    }
-
-    this.selectMode.selectFeature(id);
+    this.asApi(() => {
+      if (this.modeManager.getMode() !== 'select') {
+        this.modeManager.setMode('select');
+      }
+      this.selectMode.selectFeature(id);
+    });
   }
 
   /**
@@ -622,8 +868,10 @@ export class LibreDraw {
    */
   clearSelection(): void {
     this.assertNotDestroyed();
-    this.selectMode.clearSelection();
-    this.rotateMode.clearSelection();
+    this.asApi(() => {
+      this.selectMode.clearSelection();
+      this.rotateMode.clearSelection();
+    });
   }
 
   /**
@@ -656,7 +904,7 @@ export class LibreDraw {
     this.assertNotDestroyed();
     const mode = this.modeManager.getCurrentMode();
     if (!isDraftCapableMode(mode)) return false;
-    return mode.finishDrawing();
+    return this.asApi(() => mode.finishDrawing());
   }
 
   /**
@@ -678,7 +926,7 @@ export class LibreDraw {
     this.assertNotDestroyed();
     const mode = this.modeManager.getCurrentMode();
     if (!isDraftCapableMode(mode)) return;
-    mode.cancelDrawing();
+    this.asApi(() => mode.cancelDrawing());
   }
 
   /**
@@ -762,15 +1010,7 @@ export class LibreDraw {
    */
   undo(): boolean {
     this.assertNotDestroyed();
-    const action = this.historyManager.undo(this.featureStore);
-    if (action) {
-      this.renderAllFeatures();
-      this.selectMode.refreshVertexHandles();
-      this.rotateMode.refreshFromStore();
-      this.updateToolbarHistoryState();
-      this.emitUndoEvent(action);
-    }
-    return action !== null;
+    return this.asApi(() => this.performUndo());
   }
 
   /**
@@ -791,15 +1031,7 @@ export class LibreDraw {
    */
   redo(): boolean {
     this.assertNotDestroyed();
-    const action = this.historyManager.redo(this.featureStore);
-    if (action) {
-      this.renderAllFeatures();
-      this.selectMode.refreshVertexHandles();
-      this.rotateMode.refreshFromStore();
-      this.updateToolbarHistoryState();
-      this.emitRedoEvent(action);
-    }
-    return action !== null;
+    return this.asApi(() => this.performRedo());
   }
 
   /**
@@ -881,7 +1113,7 @@ export class LibreDraw {
     this.destroyed = true;
 
     this.map.off('styledata', this.handleStyleData);
-    this.modeManager.setMode('idle');
+    this.asApi(() => this.modeManager.setMode('idle'));
     this.inputHandler.destroy();
     this.renderManager.destroy();
     this.eventBus.removeAllListeners();
@@ -892,6 +1124,90 @@ export class LibreDraw {
       this.toolbar.destroy();
       this.toolbar = null;
     }
+  }
+
+  /**
+   * Run `fn` with events stamped `origin: 'api'`.
+   *
+   * The previous value is restored afterwards (also on throw) so the call
+   * is re-entrant: a public method invoked from inside a `'user'` event
+   * listener stamps only its own events, and the remaining user-originated
+   * events keep `'user'` once it returns.
+   */
+  private asApi<T>(fn: () => T): T {
+    const previous = this.eventOrigin;
+    this.eventOrigin = 'api';
+    try {
+      return fn();
+    } finally {
+      this.eventOrigin = previous;
+    }
+  }
+
+  /**
+   * Delete a feature without touching the event origin. The public
+   * {@link deleteFeature} wraps this in `asApi`; the toolbar calls it
+   * directly so its `'delete'` events stay `'user'`.
+   */
+  private removeFeature(id: string): LibreDrawFeature | undefined {
+    const feature = this.featureStore.getById(id);
+    if (!feature) return undefined;
+
+    // Clear selection if the feature is selected
+    const selectedIds = this.selectMode.getSelectedIds();
+    if (selectedIds.includes(id)) {
+      this.selectMode.clearSelection();
+    }
+    if (this.rotateMode.getSelectedId() === id) {
+      this.rotateMode.clearSelection();
+    }
+
+    this.featureStore.remove(id);
+    const action = new DeleteAction(feature);
+    this.historyManager.push(action);
+    this.eventBus.emit('delete', { feature: cloneFeature(feature) });
+    this.renderAllFeatures();
+    this.updateToolbarHistoryState();
+
+    return feature;
+  }
+
+  /**
+   * Undo without touching the event origin (see {@link removeFeature}).
+   * Shared by the public `undo()`, the toolbar button, and the shortcut.
+   */
+  private performUndo(): boolean {
+    const action = this.historyManager.undo(this.featureStore);
+    if (action) {
+      this.syncAfterExternalChange();
+      this.updateToolbarHistoryState();
+      this.emitUndoEvent(action);
+    }
+    return action !== null;
+  }
+
+  /**
+   * Redo without touching the event origin (see {@link removeFeature}).
+   */
+  private performRedo(): boolean {
+    const action = this.historyManager.redo(this.featureStore);
+    if (action) {
+      this.syncAfterExternalChange();
+      this.updateToolbarHistoryState();
+      this.emitRedoEvent(action);
+    }
+    return action !== null;
+  }
+
+  /**
+   * Bring the screen and the active selection in line with the store after
+   * it changed behind the modes' back (undo / redo, an operation called
+   * from the API). Selection bases are re-read, never written back.
+   */
+  private syncAfterExternalChange(): void {
+    this.renderAllFeatures();
+    this.selectMode.refreshVertexHandles();
+    this.rotateMode.refreshFromStore();
   }
 
   /**
@@ -973,19 +1289,21 @@ export class LibreDraw {
         onStyleChange: (style) => {
           this.setStyle(style);
         },
+        // Toolbar buttons call the internal variants (not the public
+        // methods) so their events are stamped origin: 'user'.
         onDeleteClick: () => {
           if (this.modeManager.getMode() === 'select') {
             const selectedIds = this.selectMode.getSelectedIds();
             for (const id of selectedIds) {
-              this.deleteFeature(id);
+              this.removeFeature(id);
             }
           }
         },
         onUndoClick: () => {
-          this.undo();
+          this.performUndo();
         },
         onRedoClick: () => {
-          this.redo();
+          this.performRedo();
         },
       },
       options,
