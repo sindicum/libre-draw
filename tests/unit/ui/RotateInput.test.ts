@@ -1,5 +1,6 @@
 import { describe, expect, it, vi } from 'vitest';
 import { RotateInput } from '../../../src/ui/RotateInput';
+import { MESSAGES_EN, MESSAGES_JA } from '../../../src/ui/messages';
 
 describe('RotateInput', () => {
   function createInput() {
@@ -169,6 +170,26 @@ describe('RotateInput', () => {
       expect(document.body.contains(element)).toBe(false);
       typeValue(input, '10');
       expect(callbacks.onAngleChange).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('messages', () => {
+    it('uses the English strings by default', () => {
+      const { input } = createInput();
+      const button = input.getElement().querySelector('button')!;
+
+      expect(button.textContent).toBe(MESSAGES_EN.rotateExecute);
+      expect(button.getAttribute('aria-label')).toBe(MESSAGES_EN.rotateExecuteLabel);
+      expect(getHTMLInput(input).getAttribute('aria-label')).toBe(MESSAGES_EN.rotateAngleInput);
+    });
+
+    it('renders the injected strings', () => {
+      const input = new RotateInput({ onSubmit: vi.fn(), onAngleChange: vi.fn() }, MESSAGES_JA);
+      const button = input.getElement().querySelector('button')!;
+
+      expect(button.textContent).toBe(MESSAGES_JA.rotateExecute);
+      expect(button.getAttribute('aria-label')).toBe(MESSAGES_JA.rotateExecuteLabel);
+      expect(getHTMLInput(input).getAttribute('aria-label')).toBe(MESSAGES_JA.rotateAngleInput);
     });
   });
 });

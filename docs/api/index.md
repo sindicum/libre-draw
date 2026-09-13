@@ -38,6 +38,8 @@ All types are exported as TypeScript type-only exports:
 | [`ActionType`](/api/types#actiontype)                     | `'create' \| 'update' \| 'delete' \| 'split' \| 'setback' \| 'union' \| 'batch'`                                                         |
 | [`NormalizedInputEvent`](/api/types#normalizedinputevent) | Unified mouse/touch event                                                                                                                |
 | [`InputType`](/api/types#inputtype)                       | `'mouse' \| 'touch'`                                                                                                                     |
+| [`Locale`](/api/types#locale)                             | `'en' \| 'ja'`                                                                                                                           |
+| [`Messages`](/api/types#messages)                         | UI strings of the toolbar and popups                                                                                                     |
 
 ### Events
 

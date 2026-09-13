@@ -1,3 +1,6 @@
+import type { Messages } from '../types/messages';
+import { MESSAGES_EN } from './messages';
+
 export interface RotateInputCallbacks {
   onSubmit(angle: number): void;
   onAngleChange(angle: number): void;
@@ -10,7 +13,6 @@ export interface RotateInputCallbacks {
 const DEFAULT_ANGLE_DEG = 90;
 /** Largest absolute angle accepted: one full turn in either direction. */
 const MAX_ANGLE_DEG = 360;
-const EXECUTE_BUTTON_LABEL = '実行';
 
 /**
  * Inline relative-angle input used by rotate mode.
@@ -26,7 +28,7 @@ export class RotateInput {
   private executeButton: HTMLButtonElement;
   private callbacks: RotateInputCallbacks;
 
-  constructor(callbacks: RotateInputCallbacks) {
+  constructor(callbacks: RotateInputCallbacks, messages: Messages = MESSAGES_EN) {
     this.callbacks = callbacks;
 
     this.container = document.createElement('div');
@@ -39,7 +41,7 @@ export class RotateInput {
     this.input.max = String(MAX_ANGLE_DEG);
     this.input.step = '1';
     this.input.value = String(DEFAULT_ANGLE_DEG);
-    this.input.setAttribute('aria-label', 'Rotation angle in degrees');
+    this.input.setAttribute('aria-label', messages.rotateAngleInput);
     this.applyInputStyles();
 
     const unit = document.createElement('span');
@@ -49,8 +51,8 @@ export class RotateInput {
 
     this.executeButton = document.createElement('button');
     this.executeButton.type = 'button';
-    this.executeButton.textContent = EXECUTE_BUTTON_LABEL;
-    this.executeButton.setAttribute('aria-label', 'Execute rotation');
+    this.executeButton.textContent = messages.rotateExecute;
+    this.executeButton.setAttribute('aria-label', messages.rotateExecuteLabel);
     this.applyButtonStyles();
 
     this.container.appendChild(this.input);

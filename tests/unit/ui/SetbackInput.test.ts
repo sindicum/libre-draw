@@ -1,5 +1,6 @@
 import { describe, it, expect, vi } from 'vitest';
 import { SetbackInput } from '../../../src/ui/SetbackInput';
+import { MESSAGES_EN, MESSAGES_JA } from '../../../src/ui/messages';
 
 describe('SetbackInput', () => {
   function createInput() {
@@ -137,6 +138,26 @@ describe('SetbackInput', () => {
 
       htmlInput.value = '25';
       expect(input.getDistance()).toBe(25);
+    });
+  });
+
+  describe('messages', () => {
+    it('uses the English strings by default', () => {
+      const { input } = createInput();
+      const button = input.getElement().querySelector('button')!;
+
+      expect(button.textContent).toBe(MESSAGES_EN.setbackExecute);
+      expect(button.getAttribute('aria-label')).toBe(MESSAGES_EN.setbackExecuteLabel);
+      expect(getHTMLInput(input).getAttribute('aria-label')).toBe(MESSAGES_EN.setbackDistanceInput);
+    });
+
+    it('renders the injected strings', () => {
+      const input = new SetbackInput({ onSubmit: vi.fn(), onDistanceChange: vi.fn() }, MESSAGES_JA);
+      const button = input.getElement().querySelector('button')!;
+
+      expect(button.textContent).toBe(MESSAGES_JA.setbackExecute);
+      expect(button.getAttribute('aria-label')).toBe(MESSAGES_JA.setbackExecuteLabel);
+      expect(getHTMLInput(input).getAttribute('aria-label')).toBe(MESSAGES_JA.setbackDistanceInput);
     });
   });
 });

@@ -1,5 +1,7 @@
 import type { PartialStyleConfig } from '../types/style';
 import { DEFAULT_STYLE_CONFIG } from '../types/style';
+import type { Messages } from '../types/messages';
+import { MESSAGES_EN } from './messages';
 
 export interface StylePanelCallbacks {
   onStyleChange(style: PartialStyleConfig): void;
@@ -24,7 +26,7 @@ export class StylePanel {
   private inputs: Map<string, HTMLInputElement> = new Map();
   private callbacks: StylePanelCallbacks;
 
-  constructor(callbacks: StylePanelCallbacks) {
+  constructor(callbacks: StylePanelCallbacks, messages: Messages = MESSAGES_EN) {
     this.callbacks = callbacks;
 
     this.container = document.createElement('div');
@@ -32,19 +34,20 @@ export class StylePanel {
     this.applyContainerStyles();
 
     const d = DEFAULT_STYLE_CONFIG;
+    const m = messages;
 
     const sections: { title: string; fields: StyleField[] }[] = [
       {
-        title: '地物スタイル',
+        title: m.styleFeatureSection,
         fields: [
           {
-            label: 'ライン色',
+            label: m.styleOutlineColor,
             type: 'color',
             section: 'outline.color',
             getValue: () => d.outline.color,
           },
           {
-            label: 'ライン太さ',
+            label: m.styleOutlineWidth,
             type: 'number',
             section: 'outline.width',
             getValue: () => String(d.outline.width),
@@ -53,13 +56,13 @@ export class StylePanel {
             step: 1,
           },
           {
-            label: 'ポリゴン色',
+            label: m.styleFillColor,
             type: 'color',
             section: 'fill.color',
             getValue: () => d.fill.color,
           },
           {
-            label: 'ポリゴン透明度',
+            label: m.styleFillOpacity,
             type: 'number',
             section: 'fill.opacity',
             getValue: () => String(d.fill.opacity),
@@ -67,9 +70,14 @@ export class StylePanel {
             max: 1,
             step: 0.1,
           },
-          { label: '点の色', type: 'color', section: 'point.color', getValue: () => d.point.color },
           {
-            label: '点の大きさ',
+            label: m.stylePointColor,
+            type: 'color',
+            section: 'point.color',
+            getValue: () => d.point.color,
+          },
+          {
+            label: m.stylePointRadius,
             type: 'number',
             section: 'point.radius',
             getValue: () => String(d.point.radius),
@@ -78,7 +86,7 @@ export class StylePanel {
             step: 1,
           },
           {
-            label: '点のhover色',
+            label: m.stylePointHoverColor,
             type: 'color',
             section: 'point.hoverColor',
             getValue: () => d.point.hoverColor,
@@ -86,16 +94,16 @@ export class StylePanel {
         ],
       },
       {
-        title: '選択時スタイル',
+        title: m.styleSelectedSection,
         fields: [
           {
-            label: '頂点の色',
+            label: m.styleVertexColor,
             type: 'color',
             section: 'editVertex.color',
             getValue: () => d.editVertex.color,
           },
           {
-            label: '頂点の大きさ',
+            label: m.styleVertexRadius,
             type: 'number',
             section: 'editVertex.radius',
             getValue: () => String(d.editVertex.radius),
@@ -104,13 +112,13 @@ export class StylePanel {
             step: 1,
           },
           {
-            label: '中間点の色',
+            label: m.styleMidpointColor,
             type: 'color',
             section: 'midpoint.color',
             getValue: () => d.midpoint.color,
           },
           {
-            label: '中間点の大きさ',
+            label: m.styleMidpointRadius,
             type: 'number',
             section: 'midpoint.radius',
             getValue: () => String(d.midpoint.radius),
@@ -119,25 +127,25 @@ export class StylePanel {
             step: 1,
           },
           {
-            label: 'hover色',
+            label: m.styleVertexHoverColor,
             type: 'color',
             section: 'editVertex.highlightedColor',
             getValue: () => d.editVertex.highlightedColor,
           },
           {
-            label: 'ライン色',
+            label: m.styleSelectedOutlineColor,
             type: 'color',
             section: 'outline.selectedColor',
             getValue: () => d.outline.selectedColor,
           },
           {
-            label: 'ポリゴン色',
+            label: m.styleSelectedFillColor,
             type: 'color',
             section: 'fill.selectedColor',
             getValue: () => d.fill.selectedColor,
           },
           {
-            label: 'ポリゴン透明度',
+            label: m.styleSelectedFillOpacity,
             type: 'number',
             section: 'fill.selectedOpacity',
             getValue: () => String(d.fill.selectedOpacity),
@@ -148,16 +156,16 @@ export class StylePanel {
         ],
       },
       {
-        title: 'ガイドライン',
+        title: m.styleGuideSection,
         fields: [
           {
-            label: '破線の色',
+            label: m.stylePreviewColor,
             type: 'color',
             section: 'preview.color',
             getValue: () => d.preview.color,
           },
           {
-            label: '破線の太さ',
+            label: m.stylePreviewWidth,
             type: 'number',
             section: 'preview.width',
             getValue: () => String(d.preview.width),

@@ -67,7 +67,12 @@ const draw = new LibreDraw(map, {
 
 // Headless mode (no toolbar)
 const draw = new LibreDraw(map, { toolbar: false });
+
+// Japanese UI strings, with one label overridden
+const draw = new LibreDraw(map, { locale: 'ja', messages: { setbackExecute: '適用' } });
 ```
+
+**Throws:** [`LibreDrawError`](/api/types#libredrawerror) if `options.locale` is not `'en'` or `'ja'`.
 
 ---
 

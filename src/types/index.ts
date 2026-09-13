@@ -43,6 +43,8 @@ export type {
   LibreDrawEventMap,
 } from './events';
 
+export type { Locale, Messages } from './messages';
+
 export type {
   SnapConfig,
   ToolbarPosition,
