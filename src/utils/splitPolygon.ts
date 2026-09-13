@@ -6,6 +6,7 @@ import {
   EPSILON,
 } from '../validation/intersection';
 import { createFeatureId } from './id';
+import type { SplitFailReason } from '../types/events';
 
 /**
  * Intersection of the split line with a polygon edge.
@@ -134,15 +135,9 @@ function findPathIndex(path: Position[], target: Position): number {
   return -1;
 }
 
-/**
- * Reason why a split operation failed.
- */
-export type SplitFailReason =
-  | 'same-points'
-  | 'insufficient-vertices'
-  | 'has-holes'
-  | 'invalid-intersection-count'
-  | 'self-intersecting-result';
+// The failure reason is a public event type; it lives in types/ so that
+// types/ never depends on utils/. Re-exported here for existing importers.
+export type { SplitFailReason };
 
 /**
  * Result of a split operation.

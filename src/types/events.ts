@@ -32,10 +32,20 @@ export interface SplitEvent {
 }
 
 /**
+ * Reason why a split operation failed.
+ */
+export type SplitFailReason =
+  | 'same-points'
+  | 'insufficient-vertices'
+  | 'has-holes'
+  | 'invalid-intersection-count'
+  | 'self-intersecting-result';
+
+/**
  * Event payload for a failed split operation.
  */
 export interface SplitFailedEvent {
-  reason: import('../utils/splitPolygon').SplitFailReason;
+  reason: SplitFailReason;
   featureId: string;
 }
 
@@ -120,7 +130,7 @@ export interface ModeChangeEvent {
  * Event payload for draft (in-progress drawing) vertex count changes.
  *
  * Fires whenever the active drawing mode's draft state mutates:
- * vertex added, vertex removed (long-press / double-click auto-pop),
+ * vertex added, vertex removed (long-press auto-pop),
  * draft finalized, draft cancelled, or mode exited.
  */
 export interface DraftChangeEvent {

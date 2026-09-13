@@ -31,3 +31,50 @@ describe('mergeStyleConfig', () => {
     expect(merged.preview.dasharray).toEqual([8, 2]);
   });
 });
+
+describe('mergeStyleConfig with a base style', () => {
+  const base = mergeStyleConfig({
+    outline: { color: '#ff0000', width: 4 },
+    preview: { dasharray: [6, 3] },
+  });
+
+  it('should apply overrides on top of the base instead of the defaults', () => {
+    const merged = mergeStyleConfig({ fill: { color: '#00ff00' } }, base);
+
+    expect(merged.fill.color).toBe('#00ff00');
+    expect(merged.outline.color).toBe('#ff0000');
+    expect(merged.outline.width).toBe(4);
+    expect(merged.preview.dasharray).toEqual([6, 3]);
+  });
+
+  it('should let overrides win over base values', () => {
+    const merged = mergeStyleConfig({ outline: { color: '#0000ff' } }, base);
+
+    expect(merged.outline.color).toBe('#0000ff');
+    expect(merged.outline.width).toBe(4);
+  });
+
+  it('should not mutate the base and should not share section objects or arrays', () => {
+    const merged = mergeStyleConfig({ fill: { color: '#00ff00' } }, base);
+
+    expect(base.fill.color).toBe(DEFAULT_STYLE_CONFIG.fill.color);
+    expect(merged).not.toBe(base);
+    expect(merged.fill).not.toBe(base.fill);
+    expect(merged.preview.dasharray).not.toBe(base.preview.dasharray);
+    merged.preview.dasharray[0] = 99;
+    expect(base.preview.dasharray).toEqual([6, 3]);
+  });
+
+  it('should return a copy of the base when overrides are omitted', () => {
+    const merged = mergeStyleConfig(undefined, base);
+
+    expect(merged).toEqual(base);
+    expect(merged).not.toBe(base);
+  });
+
+  it('should still merge onto the defaults when base is omitted', () => {
+    const merged = mergeStyleConfig({ fill: { color: '#00ff00' } });
+
+    expect(merged.outline.color).toBe(DEFAULT_STYLE_CONFIG.outline.color);
+  });
+});

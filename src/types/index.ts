@@ -30,6 +30,7 @@ export type {
   DeleteEvent,
   SplitEvent,
   SplitFailedEvent,
+  SplitFailReason,
   SetbackEvent,
   SetbackFailedEvent,
   SetbackFailReason,
