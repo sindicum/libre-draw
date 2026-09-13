@@ -14,6 +14,7 @@ import type {
   FeatureProperties,
   LibreDrawOptions,
   KeyboardOptions,
+  SnapConfig,
   ToolbarOptions,
   ToolbarPosition,
   ToolbarControls,
@@ -29,12 +30,15 @@ import type {
   ModeName,
   Action,
   ActionType,
+  FeatureStoreInterface,
   NormalizedInputEvent,
   InputType,
   Locale,
   Messages,
 } from '@sindicum/libre-draw';
 ```
+
+Event payload types (`CreateEvent`, `LibreDrawEventMap`, the `*FailReason` unions, …) are documented on the [Events](/api/events) page and exported the same way. Runtime values (`LibreDrawError`, `DEFAULT_STYLE_CONFIG`, `mergeStyleConfig`, the `*Action` classes) use a plain `import`.
 
 ---
 
@@ -164,10 +168,10 @@ interface FeatureCollection {
 }
 ```
 
-| Property   | Type                                      | Description                         |
-| ---------- | ----------------------------------------- | ----------------------------------- |
-| `type`     | `'FeatureCollection'`                     | Always `'FeatureCollection'`        |
-| `features` | [`LibreDrawFeature[]`](#libredrawfeature) | Array of point and polygon features |
+| Property   | Type                                      | Description                                |
+| ---------- | ----------------------------------------- | ------------------------------------------ |
+| `type`     | `'FeatureCollection'`                     | Always `'FeatureCollection'`               |
+| `features` | [`LibreDrawFeature[]`](#libredrawfeature) | Array of point, line, and polygon features |
 
 ---
 
@@ -194,10 +198,28 @@ interface LibreDrawOptions {
 | `toolbar`      | `boolean \| ToolbarOptions`  | `true`          | Whether to show the toolbar, or toolbar configuration. Set to `false` for headless mode.                    |
 | `keyboard`     | `boolean \| KeyboardOptions` | `true`          | Whether to enable keyboard shortcuts, or shortcut configuration. See [`KeyboardOptions`](#keyboardoptions). |
 | `historyLimit` | `number`                     | `100`           | Maximum number of undo/redo history entries                                                                 |
-| `style`        | `PartialStyleConfig`         | `default style` | Partial overrides for map layer styling (fill/outline/vertices/preview/edit handles).                       |
-| `snap`         | `boolean \| SnapConfig`      | `true`          | Whether to enable snapping, or snap configuration. Set to `false` to disable.                               |
+| `style`        | `PartialStyleConfig`         | `default style` | Partial overrides for map layer styling (fill / outline / preview / edit handles / midpoints / points).     |
+| `snap`         | `boolean \| SnapConfig`      | `true`          | Whether to enable snapping, or snap configuration ([`SnapConfig`](#snapconfig)). Set to `false` to disable. |
 | `locale`       | [`Locale`](#locale)          | `'en'`          | Language of the toolbar and its popups. Throws `LibreDrawError` for an unknown value.                       |
 | `messages`     | `Partial<Messages>`          | `{}`            | Overrides for individual UI strings, merged onto the selected locale. See [`Messages`](#messages).          |
+
+---
+
+### `SnapConfig`
+
+Configuration for vertex snapping while drawing and editing.
+
+```ts
+interface SnapConfig {
+  enabled?: boolean;
+  threshold?: number;
+}
+```
+
+| Property    | Type      | Default | Description                                                   |
+| ----------- | --------- | ------- | ------------------------------------------------------------- |
+| `enabled`   | `boolean` | `true`  | Whether snapping is enabled                                   |
+| `threshold` | `number`  | `10`    | Snap distance in pixels (values below `1` are clamped to `1`) |
 
 ---
 
@@ -257,8 +279,8 @@ interface ToolbarControls {
   drawRectangle?: boolean;
   select?: boolean;
   split?: boolean;
-  union?: boolean;
   setback?: boolean;
+  union?: boolean;
   rotate?: boolean;
   settings?: boolean;
   delete?: boolean;
@@ -275,8 +297,8 @@ interface ToolbarControls {
 | `drawRectangle` | `boolean` | `true`  | Show draw-rectangle mode toggle button             |
 | `select`        | `boolean` | `true`  | Show select mode toggle button                     |
 | `split`         | `boolean` | `true`  | Show split mode toggle button                      |
-| `union`         | `boolean` | `true`  | Show union mode toggle button                      |
 | `setback`       | `boolean` | `true`  | Show setback mode toggle button and distance input |
+| `union`         | `boolean` | `true`  | Show union mode toggle button                      |
 | `rotate`        | `boolean` | `true`  | Show rotate mode toggle button and angle input     |
 | `settings`      | `boolean` | `true`  | Show style settings button and panel               |
 | `delete`        | `boolean` | `true`  | Show delete button                                 |
@@ -374,8 +396,8 @@ type ModeName =
   | 'draw-rectangle'
   | 'select'
   | 'split'
-  | 'union'
   | 'setback'
+  | 'union'
   | 'rotate';
 ```
 
@@ -442,6 +464,36 @@ class BatchAction implements Action {
 
 ---
 
+### Action classes
+
+The other multi-feature steps are exported as classes too, so a history-aware integration can inspect what an undo or redo will touch. Their fields mirror the corresponding event payloads.
+
+```ts
+class SplitAction implements Action {
+  readonly type: 'split';
+  readonly originalFeature: LibreDrawFeature;
+  readonly featureA: LibreDrawFeature;
+  readonly featureB: LibreDrawFeature;
+}
+
+class SetbackAction implements Action {
+  readonly type: 'setback';
+  readonly originalFeature: LibreDrawFeature;
+  readonly resultFeature: LibreDrawFeature;
+  readonly edgeIndex: number;
+  readonly distance: number;
+}
+
+class UnionAction implements Action {
+  readonly type: 'union';
+  readonly featureA: LibreDrawFeature;
+  readonly featureB: LibreDrawFeature;
+  readonly resultFeature: LibreDrawFeature;
+}
+```
+
+---
+
 ### `FeatureStoreInterface`
 
 Minimal interface for the FeatureStore used by actions. This avoids circular imports between types and core modules.
@@ -501,6 +553,7 @@ Full render style configuration. Returned by [`getStyle()`](/api/libre-draw#gets
 interface StyleConfig {
   fill: FillStyle;
   outline: OutlineStyle;
+  /** @deprecated Has no effect; will be removed in v1.0. */
   vertex: VertexStyle;
   preview: PreviewStyle;
   editVertex: EditVertexStyle;
@@ -529,6 +582,7 @@ Partial style overrides accepted by the constructor `style` option and [`setStyl
 interface PartialStyleConfig {
   fill?: Partial<FillStyle>;
   outline?: Partial<OutlineStyle>;
+  /** @deprecated Has no effect; will be removed in v1.0. */
   vertex?: Partial<VertexStyle>;
   preview?: Partial<PreviewStyle>;
   editVertex?: Partial<EditVertexStyle>;
@@ -701,6 +755,19 @@ interface PointStyle {
 
 ---
 
+### Style defaults and merging
+
+Runtime exports for working with styles outside a `LibreDraw` instance.
+
+```ts
+const DEFAULT_STYLE_CONFIG: StyleConfig;
+function mergeStyleConfig(overrides?: PartialStyleConfig, base?: StyleConfig): StyleConfig;
+```
+
+`DEFAULT_STYLE_CONFIG` is the built-in style whose values are listed in the tables above. `mergeStyleConfig` returns a new `StyleConfig` with `overrides` applied on top of `base` (default: `DEFAULT_STYLE_CONFIG`); neither argument is mutated. The constructor uses it with the defaults for the `style` option, and [`setStyle()`](/api/libre-draw#setstyle-style) passes the current style as `base` so partial updates accumulate.
+
+---
+
 ## Error Class
 
 ### `LibreDrawError`
@@ -718,8 +785,10 @@ Thrown when:
 
 - A method is called on a destroyed instance
 - Invalid GeoJSON is passed to `setFeatures` or `addFeatures`
+- `addFeatures` receives a feature whose `id` already exists in the store
 - `selectFeature` is called with a non-existent feature ID
 - Invalid polygon geometry (self-intersecting, out-of-bounds coordinates, etc.)
+- The constructor receives a `locale` that is not `'en'` or `'ja'`
 
 ```ts
 import { LibreDrawError } from '@sindicum/libre-draw';
