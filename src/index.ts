@@ -52,6 +52,9 @@ export type {
 
 export type { NormalizedInputEvent, InputType } from './types';
 
+// UI strings (i18n)
+export type { Locale, Messages } from './types';
+
 // Mode name type
 export type { ModeName } from './types';
 

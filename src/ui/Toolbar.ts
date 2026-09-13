@@ -1,6 +1,8 @@
 import type { Map as MaplibreMap } from 'maplibre-gl';
 import type { ToolbarOptions, ToolbarControls } from '../types/options';
 import type { PartialStyleConfig } from '../types/style';
+import type { Messages } from '../types/messages';
+import { MESSAGES_EN } from './messages';
 import { ToolbarButton } from './ToolbarButton';
 import { drawPointIcon } from './icons/draw-point';
 import { drawLineIcon } from './icons/draw-line';
@@ -82,11 +84,18 @@ export class Toolbar {
   private handleOutsideClick: ((e: PointerEvent) => void) | null = null;
   private callbacks: ToolbarCallbacks;
   private options: ToolbarOptions;
+  private messages: Messages;
 
-  constructor(map: MaplibreMap, callbacks: ToolbarCallbacks, options: ToolbarOptions = {}) {
+  constructor(
+    map: MaplibreMap,
+    callbacks: ToolbarCallbacks,
+    options: ToolbarOptions = {},
+    messages: Messages = MESSAGES_EN
+  ) {
     this.map = map;
     this.callbacks = callbacks;
     this.options = options;
+    this.messages = messages;
 
     this.container = document.createElement('div');
     this.container.className = 'libre-draw-toolbar';
@@ -222,7 +231,7 @@ export class Toolbar {
       this.addButton(
         'draw-point',
         drawPointIcon,
-        'Draw point',
+        this.messages.toolbarDrawPoint,
         () => {
           this.callbacks.onDrawPointClick();
         },
@@ -234,7 +243,7 @@ export class Toolbar {
       this.addButton(
         'draw-line',
         drawLineIcon,
-        'Draw line',
+        this.messages.toolbarDrawLine,
         () => {
           this.callbacks.onDrawLineClick();
         },
@@ -246,7 +255,7 @@ export class Toolbar {
       this.addButton(
         'draw-polygon',
         drawPolygonIcon,
-        'Draw polygon',
+        this.messages.toolbarDrawPolygon,
         () => {
           this.callbacks.onDrawPolygonClick();
         },
@@ -258,7 +267,7 @@ export class Toolbar {
       this.addButton(
         'draw-rectangle',
         drawRectangleIcon,
-        'Draw rectangle',
+        this.messages.toolbarDrawRectangle,
         () => {
           this.callbacks.onDrawRectangleClick();
         },
@@ -270,7 +279,7 @@ export class Toolbar {
       this.addButton(
         'select',
         selectIcon,
-        'Select feature',
+        this.messages.toolbarSelect,
         () => {
           this.callbacks.onSelectClick();
         },
@@ -282,7 +291,7 @@ export class Toolbar {
       this.addButton(
         'split',
         splitIcon,
-        'Split feature',
+        this.messages.toolbarSplit,
         () => {
           this.callbacks.onSplitClick();
         },
@@ -294,7 +303,7 @@ export class Toolbar {
       this.addButton(
         'union',
         unionIcon,
-        'Union polygons',
+        this.messages.toolbarUnion,
         () => {
           this.callbacks.onUnionClick();
         },
@@ -311,19 +320,19 @@ export class Toolbar {
     }
 
     if (controls.delete) {
-      this.addButton('delete', deleteIcon, 'Delete selected', () => {
+      this.addButton('delete', deleteIcon, this.messages.toolbarDelete, () => {
         this.callbacks.onDeleteClick();
       });
     }
 
     if (controls.undo) {
-      this.addButton('undo', undoIcon, 'Undo', () => {
+      this.addButton('undo', undoIcon, this.messages.toolbarUndo, () => {
         this.callbacks.onUndoClick();
       });
     }
 
     if (controls.redo) {
-      this.addButton('redo', redoIcon, 'Redo', () => {
+      this.addButton('redo', redoIcon, this.messages.toolbarRedo, () => {
         this.callbacks.onRedoClick();
       });
     }
@@ -361,17 +370,20 @@ export class Toolbar {
     const button = new ToolbarButton({
       id: 'setback',
       icon: setbackIcon,
-      title: 'Setback edge',
+      title: this.messages.toolbarSetback,
       onClick: () => this.callbacks.onSetbackClick(),
       isToggle: true,
     });
     this.buttons.set('setback', button);
     row.appendChild(button.getElement());
 
-    this.setbackInput = new SetbackInput({
-      onSubmit: (distance) => this.callbacks.onSetbackExecute(distance),
-      onDistanceChange: (distance) => this.callbacks.onSetbackDistanceChange(distance),
-    });
+    this.setbackInput = new SetbackInput(
+      {
+        onSubmit: (distance) => this.callbacks.onSetbackExecute(distance),
+        onDistanceChange: (distance) => this.callbacks.onSetbackDistanceChange(distance),
+      },
+      this.messages
+    );
 
     const position = this.options.position || 'top-right';
     const isRight = position === 'top-right' || position === 'bottom-right';
@@ -392,17 +404,20 @@ export class Toolbar {
     const button = new ToolbarButton({
       id: 'rotate',
       icon: rotateIcon,
-      title: 'Rotate feature',
+      title: this.messages.toolbarRotate,
       onClick: () => this.callbacks.onRotateClick(),
       isToggle: true,
     });
     this.buttons.set('rotate', button);
     row.appendChild(button.getElement());
 
-    this.rotateInput = new RotateInput({
-      onSubmit: (angle) => this.callbacks.onRotateExecute(angle),
-      onAngleChange: (angle) => this.callbacks.onRotateAngleChange(angle),
-    });
+    this.rotateInput = new RotateInput(
+      {
+        onSubmit: (angle) => this.callbacks.onRotateExecute(angle),
+        onAngleChange: (angle) => this.callbacks.onRotateAngleChange(angle),
+      },
+      this.messages
+    );
 
     const position = this.options.position || 'top-right';
     const isRight = position === 'top-right' || position === 'bottom-right';
@@ -432,7 +447,7 @@ export class Toolbar {
     const button = new ToolbarButton({
       id: 'settings',
       icon: settingsIcon,
-      title: 'Style settings',
+      title: this.messages.toolbarSettings,
       onClick: () => {
         this.stylePanelVisible = !this.stylePanelVisible;
         if (this.stylePanel) {
@@ -444,9 +459,12 @@ export class Toolbar {
     row.appendChild(button.getElement());
     this.container.appendChild(row);
 
-    this.stylePanel = new StylePanel({
-      onStyleChange: (style) => this.callbacks.onStyleChange(style),
-    });
+    this.stylePanel = new StylePanel(
+      {
+        onStyleChange: (style) => this.callbacks.onStyleChange(style),
+      },
+      this.messages
+    );
 
     const position = this.options.position || 'top-right';
     const isRight = position === 'top-right' || position === 'bottom-right';

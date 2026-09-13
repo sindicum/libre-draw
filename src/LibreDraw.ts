@@ -8,6 +8,7 @@ import type {
   SnapConfig,
   StyleConfig,
   PartialStyleConfig,
+  Messages,
 } from './types';
 import { mergeStyleConfig } from './types/style';
 import type { Action } from './types/features';
@@ -44,6 +45,7 @@ import { InputHandler } from './input/InputHandler';
 import { SourceManager } from './rendering/SourceManager';
 import { RenderManager } from './rendering/RenderManager';
 import { Toolbar } from './ui/Toolbar';
+import { getBuiltinMessages, isBuiltinLocale, resolveMessages } from './ui/messages';
 import { cloneFeature } from './utils/featureSnapshot';
 
 /**
@@ -74,6 +76,7 @@ export class LibreDraw {
   private setbackMode: SetbackMode;
   private rotateMode: RotateMode;
   private snapConfig: SnapConfig;
+  private messages: Messages;
   private destroyed = false;
   private inputEnabled = false;
 
@@ -103,7 +106,10 @@ export class LibreDraw {
    *
    * @param map - The MapLibre GL JS map instance to draw on.
    * @param options - Configuration options. Defaults to toolbar enabled,
-   *   100-action history limit, and snap enabled with 10px threshold.
+   *   100-action history limit, snap enabled with 10px threshold, and
+   *   English UI strings.
+   *
+   * @throws {LibreDrawError} If `options.locale` is not a bundled locale.
    *
    * @example
    * ```ts
@@ -116,6 +122,10 @@ export class LibreDraw {
    * });
    * // Disable snapping:
    * const draw = new LibreDraw(map, { snap: false });
+   * // Japanese UI, with one label overridden:
+   * const draw = new LibreDraw(map, { locale: 'ja' });
+   * // Override individual strings (merged onto the selected locale):
+   * const draw = new LibreDraw(map, { messages: { setbackExecute: 'Run' } });
    * ```
    */
   constructor(map: MaplibreMap, options: LibreDrawOptions = {}) {
@@ -129,6 +139,14 @@ export class LibreDraw {
 
     // Snap configuration
     this.snapConfig = this.normalizeSnapConfig(options.snap);
+
+    // UI strings (validated even in headless mode so a typo surfaces early)
+    // Only an omitted locale falls back to English; null and other values are rejected.
+    const locale = options.locale === undefined ? 'en' : options.locale;
+    if (!isBuiltinLocale(locale)) {
+      throw new LibreDrawError(`Unsupported locale: ${String(locale)}. Use 'en' or 'ja'.`);
+    }
+    this.messages = resolveMessages(getBuiltinMessages(locale), options.messages);
 
     // Rendering
     this.sourceManager = new SourceManager(map);
@@ -950,7 +968,8 @@ export class LibreDraw {
           this.redo();
         },
       },
-      options
+      options,
+      this.messages
     );
 
     // Set initial states

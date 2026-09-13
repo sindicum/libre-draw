@@ -896,6 +896,108 @@ describe('LibreDraw lifecycle integration', () => {
     });
   });
 
+  describe('locale and messages', () => {
+    it('renders English strings by default', () => {
+      const map = new FakeMap();
+      const draw = new LibreDraw(map.asMap());
+      const container = map.getContainer();
+
+      expect(container.querySelector('button[title="Draw polygon"]')).not.toBeNull();
+      const execute = container.querySelector('button[aria-label="Execute setback"]');
+      expect(execute).not.toBeNull();
+      expect(execute!.textContent).toBe('Apply');
+      expect(container.querySelector('input[aria-label="Line color"]')).not.toBeNull();
+
+      draw.destroy();
+    });
+
+    it('renders the bundled Japanese strings with locale ja', () => {
+      const map = new FakeMap();
+      const draw = new LibreDraw(map.asMap(), { locale: 'ja' });
+      const container = map.getContainer();
+
+      const polygonButton = container.querySelector(
+        'button[data-libre-draw-button="draw-polygon"]'
+      );
+      expect(polygonButton).not.toBeNull();
+      expect(polygonButton!.getAttribute('title')).toBe('ポリゴンを描く');
+      expect(polygonButton!.getAttribute('aria-label')).toBe('ポリゴンを描く');
+      const execute = container.querySelector('button[aria-label="セットバックを実行"]');
+      expect(execute).not.toBeNull();
+      expect(execute!.textContent).toBe('実行');
+      expect(container.querySelector('input[aria-label="ライン色"]')).not.toBeNull();
+
+      draw.destroy();
+    });
+
+    it('merges messages overrides onto the selected locale', () => {
+      const map = new FakeMap();
+      const draw = new LibreDraw(map.asMap(), {
+        locale: 'ja',
+        messages: { setbackExecute: 'Go', toolbarUndo: 'Back' },
+      });
+      const container = map.getContainer();
+
+      expect(container.querySelector('button[aria-label="セットバックを実行"]')!.textContent).toBe(
+        'Go'
+      );
+      expect(
+        container.querySelector('button[data-libre-draw-button="undo"]')!.getAttribute('title')
+      ).toBe('Back');
+      // Untouched keys keep the locale default.
+      expect(
+        container.querySelector('button[data-libre-draw-button="redo"]')!.getAttribute('title')
+      ).toBe('やり直す');
+
+      draw.destroy();
+    });
+
+    it('keeps button ids and mode names independent of the locale', () => {
+      const map = new FakeMap();
+      const draw = new LibreDraw(map.asMap(), { locale: 'ja' });
+      const container = map.getContainer();
+
+      const ids = Array.from(container.querySelectorAll('button[data-libre-draw-button]')).map(
+        (el) => el.getAttribute('data-libre-draw-button')
+      );
+      expect(ids).toEqual([
+        'draw-point',
+        'draw-line',
+        'draw-polygon',
+        'draw-rectangle',
+        'select',
+        'split',
+        'union',
+        'setback',
+        'rotate',
+        'delete',
+        'undo',
+        'redo',
+        'settings',
+      ]);
+      draw.setMode('union');
+      expect(draw.getMode()).toBe('union');
+
+      draw.destroy();
+    });
+
+    it('throws LibreDrawError for an unknown locale, even in headless mode', () => {
+      const map = new FakeMap();
+      const unknown = 'fr' as unknown as 'en';
+
+      expect(() => new LibreDraw(map.asMap(), { locale: unknown })).toThrow(LibreDrawError);
+      expect(() => new LibreDraw(map.asMap(), { locale: unknown, toolbar: false })).toThrow(
+        /Unsupported locale: fr/
+      );
+
+      // JavaScript callers may pass null; only an omitted locale means "default".
+      const nullLocale = null as unknown as 'en';
+      expect(() => new LibreDraw(map.asMap(), { locale: nullLocale })).toThrow(
+        /Unsupported locale: null/
+      );
+    });
+  });
+
   describe('rotate mode', () => {
     function makeSquare(id: string) {
       return {

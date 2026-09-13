@@ -1,10 +1,12 @@
+import type { Messages } from '../types/messages';
+import { MESSAGES_EN } from './messages';
+
 export interface SetbackInputCallbacks {
   onSubmit(distance: number): void;
   onDistanceChange(distance: number): void;
 }
 
 const DEFAULT_DISTANCE_METERS = 10;
-const EXECUTE_BUTTON_LABEL = '実行';
 
 /**
  * Inline distance input used by setback mode.
@@ -15,7 +17,7 @@ export class SetbackInput {
   private executeButton: HTMLButtonElement;
   private callbacks: SetbackInputCallbacks;
 
-  constructor(callbacks: SetbackInputCallbacks) {
+  constructor(callbacks: SetbackInputCallbacks, messages: Messages = MESSAGES_EN) {
     this.callbacks = callbacks;
 
     this.container = document.createElement('div');
@@ -27,7 +29,7 @@ export class SetbackInput {
     this.input.min = '0.1';
     this.input.step = '0.1';
     this.input.value = String(DEFAULT_DISTANCE_METERS);
-    this.input.setAttribute('aria-label', 'Setback distance in meters');
+    this.input.setAttribute('aria-label', messages.setbackDistanceInput);
     this.applyInputStyles();
 
     const unit = document.createElement('span');
@@ -37,8 +39,8 @@ export class SetbackInput {
 
     this.executeButton = document.createElement('button');
     this.executeButton.type = 'button';
-    this.executeButton.textContent = EXECUTE_BUTTON_LABEL;
-    this.executeButton.setAttribute('aria-label', 'Execute setback');
+    this.executeButton.textContent = messages.setbackExecute;
+    this.executeButton.setAttribute('aria-label', messages.setbackExecuteLabel);
     this.applyButtonStyles();
 
     this.container.appendChild(this.input);

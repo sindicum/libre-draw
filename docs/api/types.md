@@ -30,6 +30,8 @@ import type {
   ActionType,
   NormalizedInputEvent,
   InputType,
+  Locale,
+  Messages,
 } from '@sindicum/libre-draw';
 ```
 
@@ -180,15 +182,19 @@ interface LibreDrawOptions {
   historyLimit?: number;
   style?: PartialStyleConfig;
   snap?: boolean | SnapConfig;
+  locale?: Locale;
+  messages?: Partial<Messages>;
 }
 ```
 
-| Property       | Type                        | Default         | Description                                                                              |
-| -------------- | --------------------------- | --------------- | ---------------------------------------------------------------------------------------- |
-| `toolbar`      | `boolean \| ToolbarOptions` | `true`          | Whether to show the toolbar, or toolbar configuration. Set to `false` for headless mode. |
-| `historyLimit` | `number`                    | `100`           | Maximum number of undo/redo history entries                                              |
-| `style`        | `PartialStyleConfig`        | `default style` | Partial overrides for map layer styling (fill/outline/vertices/preview/edit handles).    |
-| `snap`         | `boolean \| SnapConfig`     | `true`          | Whether to enable snapping, or snap configuration. Set to `false` to disable.            |
+| Property       | Type                        | Default         | Description                                                                                        |
+| -------------- | --------------------------- | --------------- | -------------------------------------------------------------------------------------------------- |
+| `toolbar`      | `boolean \| ToolbarOptions` | `true`          | Whether to show the toolbar, or toolbar configuration. Set to `false` for headless mode.           |
+| `historyLimit` | `number`                    | `100`           | Maximum number of undo/redo history entries                                                        |
+| `style`        | `PartialStyleConfig`        | `default style` | Partial overrides for map layer styling (fill/outline/vertices/preview/edit handles).              |
+| `snap`         | `boolean \| SnapConfig`     | `true`          | Whether to enable snapping, or snap configuration. Set to `false` to disable.                      |
+| `locale`       | [`Locale`](#locale)         | `'en'`          | Language of the toolbar and its popups. Throws `LibreDrawError` for an unknown value.              |
+| `messages`     | `Partial<Messages>`         | `{}`            | Overrides for individual UI strings, merged onto the selected locale. See [`Messages`](#messages). |
 
 ---
 
@@ -257,6 +263,80 @@ interface ToolbarControls {
 | `delete`        | `boolean` | `true`  | Show delete button                                 |
 | `undo`          | `boolean` | `true`  | Show undo button                                   |
 | `redo`          | `boolean` | `true`  | Show redo button                                   |
+
+---
+
+## Localization Types
+
+### `Locale`
+
+Bundled UI languages.
+
+```ts
+type Locale = 'en' | 'ja';
+```
+
+---
+
+### `Messages`
+
+Every user-visible string of the toolbar and its popups. All keys are required in the bundled tables; pass a `Partial<Messages>` as `messages` to override a subset.
+
+```ts
+interface Messages {
+  // Toolbar button titles (also used as aria-label)
+  toolbarDrawPoint: string;
+  toolbarDrawLine: string;
+  toolbarDrawPolygon: string;
+  toolbarDrawRectangle: string;
+  toolbarSelect: string;
+  toolbarSplit: string;
+  toolbarUnion: string;
+  toolbarSetback: string;
+  toolbarRotate: string;
+  toolbarSettings: string;
+  toolbarDelete: string;
+  toolbarUndo: string;
+  toolbarRedo: string;
+  // Setback distance popup
+  setbackDistanceInput: string; // aria-label of the field
+  setbackExecute: string; // visible text of the execute button
+  setbackExecuteLabel: string; // aria-label of the execute button
+  // Rotation angle popup
+  rotateAngleInput: string;
+  rotateExecute: string;
+  rotateExecuteLabel: string;
+  // Style settings panel
+  styleFeatureSection: string;
+  styleSelectedSection: string;
+  styleGuideSection: string;
+  styleOutlineColor: string;
+  styleOutlineWidth: string;
+  styleFillColor: string;
+  styleFillOpacity: string;
+  stylePointColor: string;
+  stylePointRadius: string;
+  stylePointHoverColor: string;
+  styleVertexColor: string;
+  styleVertexRadius: string;
+  styleMidpointColor: string;
+  styleMidpointRadius: string;
+  styleVertexHoverColor: string;
+  styleSelectedOutlineColor: string;
+  styleSelectedFillColor: string;
+  styleSelectedFillOpacity: string;
+  stylePreviewColor: string;
+  stylePreviewWidth: string;
+}
+```
+
+```ts
+// Japanese UI with one label changed
+const draw = new LibreDraw(map, {
+  locale: 'ja',
+  messages: { setbackExecute: '適用' },
+});
+```
 
 ---
 

@@ -1,4 +1,5 @@
 import type { PartialStyleConfig } from './style';
+import type { Locale, Messages } from './messages';
 
 /**
  * Configuration for snap behavior.
@@ -54,4 +55,8 @@ export interface LibreDrawOptions {
   style?: PartialStyleConfig;
   /** Whether to enable snapping, or snap configuration options. Defaults to true. */
   snap?: boolean | SnapConfig;
+  /** Language of the toolbar and its popups. Defaults to `'en'`. */
+  locale?: Locale;
+  /** Overrides for individual UI strings, merged onto the selected locale. */
+  messages?: Partial<Messages>;
 }

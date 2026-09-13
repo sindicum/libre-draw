@@ -128,6 +128,8 @@ interface LibreDrawOptions {
       };
   historyLimit?: number; // Default: 100
   snap?: boolean | { enabled?: boolean; threshold?: number }; // Default: true
+  locale?: 'en' | 'ja'; // UI language. Default: 'en'
+  messages?: Partial<Messages>; // Override individual UI strings
 }
 ```
 

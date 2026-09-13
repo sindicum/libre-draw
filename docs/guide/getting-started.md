@@ -58,6 +58,21 @@ const draw = new LibreDraw(map, {
 });
 ```
 
+## Localization
+
+The toolbar and its popups are in English by default. Pass `locale: 'ja'` for the bundled Japanese strings, and `messages` to override individual strings on top of either locale:
+
+```ts
+const draw = new LibreDraw(map, {
+  locale: 'ja',
+  messages: { setbackExecute: '適用' },
+});
+```
+
+Every string is listed under [`Messages`](/api/types#messages). An unknown `locale` throws a `LibreDrawError`.
+
+> **Upgrading from 0.9.x:** the style settings panel and the distance / angle inputs used to be Japanese. They are English by default since 0.10.0; add `locale: 'ja'` to keep the previous labels.
+
 ## Headless Mode
 
 If you want to control everything programmatically without the toolbar:
