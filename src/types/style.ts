@@ -155,37 +155,48 @@ export const DEFAULT_STYLE_CONFIG: StyleConfig = {
 };
 
 /**
- * Merge user style overrides with defaults.
+ * Merge user style overrides onto a base style.
+ *
+ * Returns a new config: neither `base` nor `overrides` is mutated, and the
+ * preview dasharray is copied so arrays are never shared with the caller.
+ *
+ * @param overrides - Partial overrides to apply.
+ * @param base - The style to apply them to. Defaults to
+ *   {@link DEFAULT_STYLE_CONFIG}; `setStyle()` passes the current style so
+ *   partial updates accumulate instead of resetting other sections.
  */
-export function mergeStyleConfig(overrides?: PartialStyleConfig): StyleConfig {
+export function mergeStyleConfig(
+  overrides?: PartialStyleConfig,
+  base: StyleConfig = DEFAULT_STYLE_CONFIG
+): StyleConfig {
   return {
     fill: {
-      ...DEFAULT_STYLE_CONFIG.fill,
+      ...base.fill,
       ...overrides?.fill,
     },
     outline: {
-      ...DEFAULT_STYLE_CONFIG.outline,
+      ...base.outline,
       ...overrides?.outline,
     },
     vertex: {
-      ...DEFAULT_STYLE_CONFIG.vertex,
+      ...base.vertex,
       ...overrides?.vertex,
     },
     preview: {
-      ...DEFAULT_STYLE_CONFIG.preview,
+      ...base.preview,
       ...overrides?.preview,
-      dasharray: [...(overrides?.preview?.dasharray ?? DEFAULT_STYLE_CONFIG.preview.dasharray)],
+      dasharray: [...(overrides?.preview?.dasharray ?? base.preview.dasharray)],
     },
     editVertex: {
-      ...DEFAULT_STYLE_CONFIG.editVertex,
+      ...base.editVertex,
       ...overrides?.editVertex,
     },
     midpoint: {
-      ...DEFAULT_STYLE_CONFIG.midpoint,
+      ...base.midpoint,
       ...overrides?.midpoint,
     },
     point: {
-      ...DEFAULT_STYLE_CONFIG.point,
+      ...base.point,
       ...overrides?.point,
     },
   };

@@ -718,11 +718,15 @@ export class LibreDraw {
    * @example
    * ```ts
    * draw.setStyle({ fill: { color: '#ff0000', opacity: 0.5 } });
+   * // Later calls accumulate: outline changes, fill keeps '#ff0000'.
+   * draw.setStyle({ outline: { width: 3 } });
    * ```
    */
   setStyle(style: PartialStyleConfig): void {
     this.assertNotDestroyed();
-    const merged = mergeStyleConfig(style);
+    // Merge onto the current style, not the defaults, so a partial update
+    // never silently resets sections the caller did not mention.
+    const merged = mergeStyleConfig(style, this.renderManager.getStyle());
     this.renderManager.updateStyle(merged);
   }
 

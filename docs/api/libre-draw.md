@@ -18,10 +18,10 @@ Initializes all internal modules and sets up map integration. The instance is re
 
 **Parameters:**
 
-| Name      | Type                                              | Required | Description                                                                                                         |
-| --------- | ------------------------------------------------- | -------- | ------------------------------------------------------------------------------------------------------------------- |
-| `map`     | `maplibregl.Map`                                  | Yes      | The MapLibre GL JS map instance to draw on                                                                          |
-| `options` | [`LibreDrawOptions`](/api/types#libredrawoptions) | No       | Configuration options. Defaults to toolbar enabled and 100-action history limit (with built-in default layer style) |
+| Name      | Type                                              | Required | Description                                                                                                                                                                |
+| --------- | ------------------------------------------------- | -------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `map`     | `maplibregl.Map`                                  | Yes      | The MapLibre GL JS map instance to draw on                                                                                                                                 |
+| `options` | [`LibreDrawOptions`](/api/types#libredrawoptions) | No       | Configuration options. Defaults: toolbar enabled, 100-action history limit, built-in layer style, snapping enabled (10 px), keyboard shortcuts enabled, English UI strings |
 
 **Example:**
 
@@ -85,7 +85,7 @@ const draw = new LibreDraw(map, { locale: 'ja', messages: { setbackExecute: '適
 
 Set the active drawing mode.
 
-Switching modes deactivates the current mode (clearing any in-progress state) and activates the new mode. A `modechange` event is emitted on every transition.
+Switching modes deactivates the current mode (clearing any in-progress state) and activates the new mode, emitting a `modechange` event. Passing the mode that is already active is a no-op: nothing is cleared and no event is emitted.
 
 **Parameters:**
 
@@ -179,7 +179,7 @@ fetch('/api/polygons', {
 
 Replace all features in the store with the given GeoJSON FeatureCollection.
 
-Validates the input, clears the current store and history, and re-renders the map. **Undo/redo history is reset** after this call.
+Validates the input, clears the current store, history, and selection (vertex handles and previews are removed; a `selectionchange` event fires if something was selected), and re-renders the map. **Undo/redo history is reset** after this call.
 
 **Parameters:**
 
@@ -457,7 +457,7 @@ console.log('Point radius:', style.point.radius);
 
 Undo the last action.
 
-Reverts the most recent action (`create`, `update`, `delete`, `split`, `setback`, or `union`) and updates the map rendering. If a feature is selected and its geometry changes, vertex handles are refreshed.
+Reverts the most recent action (`create`, `update`, `delete`, `split`, `setback`, `union`, or a `batch` recorded by [`addFeatures`](#addfeatures-features)) and updates the map rendering. If a feature is selected and its geometry changes, vertex handles are refreshed.
 
 **Returns:** `boolean` — `true` if an action was undone, `false` if nothing to undo.
 
@@ -540,7 +540,7 @@ draw.cancelDrawing(); // discard in-progress polygon / line
 
 Get the number of vertices in the current draft.
 
-**Returns:** `number` — The draft vertex count for the active drawing mode, or `0` when no drawing mode is active.
+**Returns:** `number` — The draft vertex count for the active drawing mode, or `0` when no drawing mode is active. In `draw-rectangle` mode the count is `1` while the first corner is placed and `0` otherwise.
 
 **Throws:** [`LibreDrawError`](/api/types#libredrawerror) if this instance has been destroyed.
 
@@ -618,6 +618,8 @@ The listener must be the **same function reference** passed to [`on`](#on-type-l
 **Example:**
 
 ```ts
+import type { CreateEvent } from '@sindicum/libre-draw';
+
 const handler = (e: CreateEvent) => console.log(e.feature);
 draw.on('create', handler);
 draw.off('create', handler);

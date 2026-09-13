@@ -13,6 +13,7 @@ export type {
   FeatureCollection,
   ActionType,
   Action,
+  FeatureStoreInterface,
 } from './types';
 
 export type {
@@ -22,6 +23,7 @@ export type {
   DeleteEvent,
   SplitEvent,
   SplitFailedEvent,
+  SplitFailReason,
   SetbackEvent,
   SetbackFailedEvent,
   SetbackFailReason,
@@ -40,6 +42,7 @@ export type {
   ToolbarPosition,
   ToolbarControls,
   KeyboardOptions,
+  SnapConfig,
   StyleConfig,
   PartialStyleConfig,
   PointStyle,

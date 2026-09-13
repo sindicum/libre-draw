@@ -35,6 +35,10 @@ class FakeMap {
     disable: vi.fn(),
   };
 
+  /** Runtime style updates are applied per layer; record them instead of rendering. */
+  public setPaintProperty = vi.fn();
+  public setLayoutProperty = vi.fn();
+
   constructor() {
     this.canvas = document.createElement('div');
     vi.spyOn(this.canvas, 'getBoundingClientRect').mockReturnValue({
@@ -1222,6 +1226,52 @@ describe('LibreDraw lifecycle integration', () => {
 
       expect(draw.getFeatureById('sq')).toBeUndefined();
       expect(draw.getSelectedFeatureIds()).toEqual([]);
+
+      draw.destroy();
+    });
+  });
+  describe('setStyle accumulation', () => {
+    it('should keep constructor style overrides when setStyle changes another section', () => {
+      const map = new FakeMap();
+      const draw = new LibreDraw(map.asMap(), {
+        toolbar: false,
+        style: { outline: { color: '#ff0000' } },
+      });
+
+      draw.setStyle({ fill: { color: '#00ff00' } });
+
+      expect(draw.getStyle().fill.color).toBe('#00ff00');
+      expect(draw.getStyle().outline.color).toBe('#ff0000');
+
+      draw.destroy();
+    });
+
+    it('should accumulate consecutive partial setStyle calls', () => {
+      const map = new FakeMap();
+      const draw = new LibreDraw(map.asMap(), { toolbar: false });
+
+      draw.setStyle({ fill: { color: '#00ff00' } });
+      draw.setStyle({ outline: { width: 5 } });
+      draw.setStyle({ fill: { opacity: 0.2 } });
+
+      const style = draw.getStyle();
+      expect(style.fill.color).toBe('#00ff00');
+      expect(style.fill.opacity).toBe(0.2);
+      expect(style.outline.width).toBe(5);
+
+      draw.destroy();
+    });
+
+    it('should not share the preview dasharray with the caller', () => {
+      const map = new FakeMap();
+      const draw = new LibreDraw(map.asMap(), { toolbar: false });
+      const dasharray = [7, 2];
+
+      draw.setStyle({ preview: { dasharray } });
+      dasharray[0] = 99;
+
+      expect(draw.getStyle().preview.dasharray).toEqual([7, 2]);
+      expect(draw.getStyle().preview.dasharray).not.toBe(dasharray);
 
       draw.destroy();
     });

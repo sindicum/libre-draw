@@ -29,6 +29,8 @@ interface LibreDrawEventMap {
 Emitted when a new feature is created.
 In `draw-point` mode this happens on each click/tap. In `draw-line` mode it happens when the line is finalized. In `draw-polygon` mode it happens when the polygon is completed. In `draw-rectangle` mode it happens on the second corner click.
 
+It also fires once per feature from [`addFeatures()`](/api/libre-draw#addfeatures-features), and from history: redoing a `create` emits it again, and undoing a `delete`, `split`, `setback`, or `union` emits `create` for every feature that comes back.
+
 ### Payload: `CreateEvent`
 
 ```ts
@@ -58,7 +60,7 @@ draw.on('create', (e) => {
 ## `update`
 
 Emitted when an existing feature is modified.
-This includes polygon vertex edits, polygon dragging, and point dragging in select mode.
+This includes vertex edits and dragging of polygons and lines, and point dragging in select mode. Undo and redo of any `update` (including rotations, see [`rotate`](#rotate)) emit it as well, with `feature` / `oldFeature` describing the direction of the change.
 
 ### Payload: `UpdateEvent`
 
@@ -88,7 +90,7 @@ draw.on('update', (e) => {
 
 ## `delete`
 
-Emitted when a feature is deleted (via toolbar button, Delete key, or `deleteFeature()` API).
+Emitted when a feature is deleted (via toolbar button, Delete key, or `deleteFeature()` API). History emits it too: undoing a `create` (or a batch from `addFeatures()`, children in reverse order), undoing a `split` (two deletes), `setback`, or `union`, and redoing a `delete` or a `split` (the original polygon is deleted before `split` fires again).
 
 ### Payload: `DeleteEvent`
 
@@ -114,7 +116,7 @@ draw.on('delete', (e) => {
 
 ## `split`
 
-Emitted when a polygon is successfully split into two polygons.
+Emitted when a polygon is successfully split into two polygons. Undoing a split emits a [`delete`](#delete) for each half and a [`create`](#create) for the original; redoing it emits a `delete` for the original followed by `split` again.
 
 ### Payload: `SplitEvent`
 
@@ -181,7 +183,7 @@ draw.on('splitfailed', (e) => {
 
 ## `setback`
 
-Emitted when a setback operation succeeds.
+Emitted when a setback operation succeeds. Undoing it emits a [`delete`](#delete) for the result and a [`create`](#create) for the original; redoing it emits `setback` again.
 
 ### Payload: `SetbackEvent`
 
@@ -390,10 +392,10 @@ interface ModeChangeEvent {
 }
 ```
 
-| Property       | Type                              | Description                                                                                                                                            |
-| -------------- | --------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| `mode`         | [`ModeName`](/api/types#modename) | The new active mode (`'idle'`, `'draw-point'`, `'draw-line'`, `'draw-polygon'`, `'draw-rectangle'`, `'select'`, `'split'`, `'setback'`, or `'rotate'`) |
-| `previousMode` | [`ModeName`](/api/types#modename) | The previous mode                                                                                                                                      |
+| Property       | Type                              | Description                                                                                                                                                       |
+| -------------- | --------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `mode`         | [`ModeName`](/api/types#modename) | The new active mode (`'idle'`, `'draw-point'`, `'draw-line'`, `'draw-polygon'`, `'draw-rectangle'`, `'select'`, `'split'`, `'setback'`, `'union'`, or `'rotate'`) |
+| `previousMode` | [`ModeName`](/api/types#modename) | The previous mode                                                                                                                                                 |
 
 ### Example
 
