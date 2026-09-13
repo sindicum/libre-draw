@@ -45,6 +45,9 @@ export type {
   AddFeaturesOptions,
   AddFeatureResult,
   FeatureValidationResult,
+  UpdateFeaturePatch,
+  UpdateFeatureFailReason,
+  RotateFailReason,
 } from './types';
 
 export type {

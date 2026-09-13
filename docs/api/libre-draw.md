@@ -358,6 +358,68 @@ if (deleted) {
 
 ## Selection
 
+### `updateFeature(id, patch)`
+
+Replace a feature's geometry and/or properties.
+
+The change is validated like [`addFeatures`](#addfeatures-features-options) input, recorded as **one undoable step**, and reported with an [`update`](/api/events#update) event (`origin: 'api'`). `properties` is a full replacement, not a merge. A selected feature keeps its selection; vertex handles and the rotation base follow the new shape.
+
+**Parameters:**
+
+| Name    | Type                                                  | Description                                                                          |
+| ------- | ----------------------------------------------------- | ------------------------------------------------------------------------------------ |
+| `id`    | `string`                                              | The feature to change                                                                |
+| `patch` | [`UpdateFeaturePatch`](/api/types#updatefeaturepatch) | `{ geometry?, properties? }`. Omit a field to keep it; `geometry` must keep its type |
+
+**Returns:** [`OperationResult`](/api/types#operationresult) — `{ ok: true, updated: [feature] }`, or `{ ok: false, reason }` with `'not-found'`, `'geometry-type-mismatch'`, `'empty-patch'`, or the validation message (see [`UpdateFeatureFailReason`](/api/types#updatefeaturefailreason)). Nothing changes on failure.
+
+**Throws:** [`LibreDrawError`](/api/types#libredrawerror) if this instance has been destroyed.
+
+**Example:**
+
+```ts
+const result = draw.updateFeature('abc-123', { properties: { crop: 'wheat' } });
+if (!result.ok) console.warn(result.reason);
+
+// Move a polygon by rewriting its ring (same geometry type required):
+const feature = draw.getFeatureById('abc-123');
+if (feature?.geometry.type === 'Polygon') {
+  const shifted = feature.geometry.coordinates.map((ring) =>
+    ring.map(([lng, lat]) => [lng + 0.001, lat] as [number, number])
+  );
+  draw.updateFeature('abc-123', { geometry: { type: 'Polygon', coordinates: shifted } });
+}
+```
+
+---
+
+### `rotate(id, angleDeg)`
+
+Rotate a Polygon or LineString around its area centroid.
+
+Same computation as the [`rotate` mode](/guide/modes#rotate) (screen-space rotation in Web Mercator, positive angles clockwise). Recorded as one undoable step and reported with a [`rotate`](/api/events#rotate) event (`origin: 'api'`); undo and redo report [`update`](/api/events#update). If the feature is selected in rotate mode, the next interactive rotation starts from the new shape.
+
+**Parameters:**
+
+| Name       | Type     | Description                                   |
+| ---------- | -------- | --------------------------------------------- |
+| `id`       | `string` | The feature to rotate                         |
+| `angleDeg` | `number` | Relative angle in degrees, positive clockwise |
+
+**Returns:** [`OperationResult`](/api/types#operationresult) — `{ ok: true, updated: [feature] }`, or `{ ok: false, reason }` with `'not-found'`, `'not-rotatable'` (a Point), `'no-rotation'` (0, a multiple of 360, or a non-finite angle; see [`RotateFailReason`](/api/types#rotatefailreason)), or the validation message when the rotated shape would leave the coordinate range (near the antimeridian or the poles). Nothing changes on failure.
+
+**Throws:** [`LibreDrawError`](/api/types#libredrawerror) if this instance has been destroyed.
+
+**Example:**
+
+```ts
+draw.rotate('abc-123', 90);
+draw.rotate('abc-123', 90); // stacks: now 180° from the original
+draw.undo(); // back to 90°
+```
+
+---
+
 ### `selectFeature(id)`
 
 Programmatically select a feature by its ID.

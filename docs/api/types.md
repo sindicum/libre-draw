@@ -41,6 +41,9 @@ import type {
   AddFeaturesOptions,
   AddFeatureResult,
   FeatureValidationResult,
+  UpdateFeaturePatch,
+  UpdateFeatureFailReason,
+  RotateFailReason,
 } from '@sindicum/libre-draw';
 ```
 
@@ -521,7 +524,7 @@ Structured outcomes returned by the public API. None of them is thrown; narrow o
 
 ### `OperationResult`
 
-The result of an editing operation (used by the operation API introduced in later releases; defined and exported now so integrations can type against it).
+The result of an editing operation ([`updateFeature`](/api/libre-draw#updatefeature-id-patch), [`rotate`](/api/libre-draw#rotate-id-angledeg), and the operations added in later releases).
 
 ```ts
 interface OperationSuccess {
@@ -550,12 +553,12 @@ type OperationResult = OperationSuccess | OperationFailure;
 All three arrays are always present on success, so a caller can read "what appeared, what changed, what disappeared" without knowing which operation ran.
 
 ```ts
-const result = draw.split(id, line); // available from the operation API
+const result = draw.rotate(id, 90);
 if (!result.ok) {
   console.warn(result.reason);
   return;
 }
-result.created.forEach(save);
+result.updated.forEach(save);
 ```
 
 ---
@@ -607,6 +610,56 @@ type FeatureValidationResult =
 | `valid`   | `boolean`                               | Whether the object would be accepted by `addFeatures()`                    |
 | `feature` | [`LibreDrawFeature`](#libredrawfeature) | Valid only: a normalized copy (ids and properties as they would be stored) |
 | `reason`  | `string`                                | Invalid only: the rejection message                                        |
+
+---
+
+### `UpdateFeaturePatch`
+
+What [`updateFeature()`](/api/libre-draw#updatefeature-id-patch) replaces on a feature. Each field is a full replacement; omit a field to keep it.
+
+```ts
+interface UpdateFeaturePatch {
+  geometry?: LibreDrawGeometry;
+  properties?: FeatureProperties;
+}
+```
+
+| Property     | Type                                      | Description                                                     |
+| ------------ | ----------------------------------------- | --------------------------------------------------------------- |
+| `geometry`   | [`LibreDrawGeometry`](#libredrawgeometry) | New geometry. Must have the same `type` as the current geometry |
+| `properties` | [`FeatureProperties`](#featureproperties) | New properties object. Replaces the old one entirely (no merge) |
+
+---
+
+### `UpdateFeatureFailReason`
+
+Failure codes of [`updateFeature()`](/api/libre-draw#updatefeature-id-patch). A geometry that fails validation reports the validation message instead of a code.
+
+```ts
+type UpdateFeatureFailReason = 'not-found' | 'geometry-type-mismatch' | 'empty-patch';
+```
+
+| Value                      | Meaning                                       |
+| -------------------------- | --------------------------------------------- |
+| `'not-found'`              | No feature has that id                        |
+| `'geometry-type-mismatch'` | The patch would change the geometry type      |
+| `'empty-patch'`            | Neither `geometry` nor `properties` was given |
+
+---
+
+### `RotateFailReason`
+
+Failure codes of [`rotate()`](/api/libre-draw#rotate-id-angledeg). A rotated shape that fails validation (it would leave the coordinate range near the antimeridian or the poles) reports the validation message instead of a code.
+
+```ts
+type RotateFailReason = 'not-found' | 'not-rotatable' | 'no-rotation';
+```
+
+| Value             | Meaning                                                                   |
+| ----------------- | ------------------------------------------------------------------------- |
+| `'not-found'`     | No feature has that id                                                    |
+| `'not-rotatable'` | The feature is a Point                                                    |
+| `'no-rotation'`   | The angle is 0, a multiple of 360, or not finite, so nothing would change |
 
 ---
 

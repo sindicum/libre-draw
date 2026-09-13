@@ -1,4 +1,4 @@
-import type { LibreDrawFeature } from './features';
+import type { FeatureProperties, LibreDrawFeature, LibreDrawGeometry } from './features';
 
 /**
  * Result of a successful editing operation.
@@ -77,3 +77,35 @@ export type AddFeatureResult =
 export type FeatureValidationResult =
   | { valid: true; feature: LibreDrawFeature }
   | { valid: false; reason: string };
+
+/**
+ * What {@link LibreDraw.updateFeature} replaces on a feature. Each field is
+ * a full replacement (properties are not merged); omit a field to keep it.
+ */
+export interface UpdateFeaturePatch {
+  /** New geometry. Must be the same geometry type as the current one. */
+  geometry?: LibreDrawGeometry;
+  /** New properties object (replaces the old one entirely). */
+  properties?: FeatureProperties;
+}
+
+/**
+ * Failure codes of {@link LibreDraw.updateFeature}. A geometry that fails
+ * validation reports the validation message instead of a code.
+ *
+ * - `not-found`: no feature has that id
+ * - `geometry-type-mismatch`: the patch changes the geometry type
+ * - `empty-patch`: neither `geometry` nor `properties` was given
+ */
+export type UpdateFeatureFailReason = 'not-found' | 'geometry-type-mismatch' | 'empty-patch';
+
+/**
+ * Failure codes of {@link LibreDraw.rotate}. A rotated shape that fails
+ * validation (it left the coordinate range near the antimeridian or the
+ * poles) reports the validation message instead of a code.
+ *
+ * - `not-found`: no feature has that id
+ * - `not-rotatable`: the feature is a Point
+ * - `no-rotation`: the angle is 0, a multiple of 360, or not finite, so nothing would change
+ */
+export type RotateFailReason = 'not-found' | 'not-rotatable' | 'no-rotation';

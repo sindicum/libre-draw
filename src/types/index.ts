@@ -53,6 +53,9 @@ export type {
   AddFeaturesOptions,
   AddFeatureResult,
   FeatureValidationResult,
+  UpdateFeaturePatch,
+  UpdateFeatureFailReason,
+  RotateFailReason,
 } from './operations';
 
 export type { Locale, Messages } from './messages';

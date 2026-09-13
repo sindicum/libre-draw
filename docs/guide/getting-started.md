@@ -87,6 +87,14 @@ draw.setMode('draw-polygon');
 draw.setMode('draw-rectangle');
 draw.setMode('select');
 draw.setMode('idle');
+
+// Edit without any pointer input. Each call is one undo step and returns a
+// structured result instead of throwing.
+const rotated = draw.rotate(featureId, 90);
+if (!rotated.ok) console.warn(rotated.reason); // e.g. 'not-rotatable' for a Point
+
+draw.updateFeature(featureId, { properties: { crop: 'wheat' } });
+draw.undo(); // properties back, still rotated
 ```
 
 ## Listening to Events

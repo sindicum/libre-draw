@@ -14,6 +14,8 @@ import type {
   AddFeaturesOptions,
   AddFeatureResult,
   FeatureValidationResult,
+  OperationResult,
+  UpdateFeaturePatch,
 } from './types';
 import { mergeStyleConfig } from './types/style';
 import type { Action } from './types/features';
@@ -34,6 +36,8 @@ import type { ModeContext } from './core/ModeContext';
 import type { ModeName } from './types/mode';
 import { LibreDrawError } from './core/errors';
 import { validateGeoJSON, tryValidateFeature } from './validation/geojson';
+import { updateFeature as updateFeatureOperation } from './operations/updateFeature';
+import { rotate as rotateOperation } from './operations/rotate';
 import { IdleMode } from './modes/IdleMode';
 import { DrawPolygonMode } from './modes/DrawPolygonMode';
 import { DrawRectangleMode } from './modes/DrawRectangleMode';
@@ -87,6 +91,8 @@ export class LibreDraw {
   private sourceManager: SourceManager;
   private renderManager: RenderManager;
   private toolbar: Toolbar | null = null;
+  /** Dependencies handed to modes; also the OperationContext for operations. */
+  private modeContext: ModeContext;
   private selectMode: SelectMode;
   private setbackMode: SetbackMode;
   private rotateMode: RotateMode;
@@ -236,6 +242,8 @@ export class LibreDraw {
         };
       },
     };
+
+    this.modeContext = modeContext;
 
     const drawPointMode = new DrawPointMode(modeContext);
     const drawLineMode = new DrawLineMode(modeContext);
@@ -642,6 +650,68 @@ export class LibreDraw {
   }
 
   /**
+   * Replace a feature's geometry and/or properties.
+   *
+   * The change is validated like {@link addFeatures} input, recorded as
+   * one undoable step, and reported with an `'update'` event
+   * (`origin: 'api'`). `properties` is a full replacement, not a merge.
+   * A feature that is selected keeps its selection; vertex handles and the
+   * rotation base follow the new shape.
+   *
+   * @param id - The feature to change.
+   * @param patch - `{ geometry?, properties? }`; see {@link UpdateFeaturePatch}.
+   * @returns `{ ok: true, updated: [feature] }`, or `{ ok: false, reason }`
+   *   with `'not-found'`, `'geometry-type-mismatch'`, `'empty-patch'`, or the
+   *   validation message. Nothing changes on failure.
+   *
+   * @throws {LibreDrawError} If this instance has been destroyed.
+   *
+   * @example
+   * ```ts
+   * const result = draw.updateFeature('abc-123', { properties: { crop: 'wheat' } });
+   * if (!result.ok) console.warn(result.reason);
+   * ```
+   */
+  updateFeature(id: string, patch: UpdateFeaturePatch): OperationResult {
+    this.assertNotDestroyed();
+    const result = this.asApi(() => updateFeatureOperation(this.modeContext, id, patch));
+    if (result.ok) this.syncAfterExternalChange();
+    return result;
+  }
+
+  /**
+   * Rotate a Polygon or LineString around its area centroid.
+   *
+   * Same computation as the rotate mode (screen-space rotation in Web
+   * Mercator, positive angles clockwise). Recorded as one undoable step and
+   * reported with a `'rotate'` event (`origin: 'api'`); undo / redo report
+   * `'update'`. If the feature is selected in rotate mode, the next
+   * interactive rotation starts from the new shape.
+   *
+   * @param id - The feature to rotate.
+   * @param angleDeg - Relative angle in degrees, positive clockwise.
+   * @returns `{ ok: true, updated: [feature] }`, or `{ ok: false, reason }`
+   *   with `'not-found'`, `'not-rotatable'` (Point), `'no-rotation'`
+   *   (0, a multiple of 360, or a non-finite angle), or the validation
+   *   message when the rotated shape leaves the coordinate range (near the
+   *   antimeridian or the poles). Nothing changes on failure.
+   *
+   * @throws {LibreDrawError} If this instance has been destroyed.
+   *
+   * @example
+   * ```ts
+   * draw.rotate('abc-123', 90);
+   * draw.undo(); // back to the original orientation
+   * ```
+   */
+  rotate(id: string, angleDeg: number): OperationResult {
+    this.assertNotDestroyed();
+    const result = this.asApi(() => rotateOperation(this.modeContext, id, angleDeg));
+    if (result.ok) this.syncAfterExternalChange();
+    return result;
+  }
+
+  /**
    * Programmatically select a feature by its ID.
    *
    * Switches to select mode if not already active. The feature
@@ -1004,9 +1074,7 @@ export class LibreDraw {
   private performUndo(): boolean {
     const action = this.historyManager.undo(this.featureStore);
     if (action) {
-      this.renderAllFeatures();
-      this.selectMode.refreshVertexHandles();
-      this.rotateMode.refreshFromStore();
+      this.syncAfterExternalChange();
       this.updateToolbarHistoryState();
       this.emitUndoEvent(action);
     }
@@ -1019,13 +1087,22 @@ export class LibreDraw {
   private performRedo(): boolean {
     const action = this.historyManager.redo(this.featureStore);
     if (action) {
-      this.renderAllFeatures();
-      this.selectMode.refreshVertexHandles();
-      this.rotateMode.refreshFromStore();
+      this.syncAfterExternalChange();
       this.updateToolbarHistoryState();
       this.emitRedoEvent(action);
     }
     return action !== null;
+  }
+
+  /**
+   * Bring the screen and the active selection in line with the store after
+   * it changed behind the modes' back (undo / redo, an operation called
+   * from the API). Selection bases are re-read, never written back.
+   */
+  private syncAfterExternalChange(): void {
+    this.renderAllFeatures();
+    this.selectMode.refreshVertexHandles();
+    this.rotateMode.refreshFromStore();
   }
 
   /**
