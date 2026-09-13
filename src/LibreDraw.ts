@@ -6,6 +6,7 @@ import type {
   LibreDrawOptions,
   ToolbarOptions,
   SnapConfig,
+  KeyboardOptions,
   StyleConfig,
   PartialStyleConfig,
   Messages,
@@ -106,8 +107,8 @@ export class LibreDraw {
    *
    * @param map - The MapLibre GL JS map instance to draw on.
    * @param options - Configuration options. Defaults to toolbar enabled,
-   *   100-action history limit, snap enabled with 10px threshold, and
-   *   English UI strings.
+   *   100-action history limit, snap enabled with 10px threshold,
+   *   keyboard shortcuts enabled, and English UI strings.
    *
    * @throws {LibreDrawError} If `options.locale` is not a bundled locale.
    *
@@ -122,6 +123,8 @@ export class LibreDraw {
    * });
    * // Disable snapping:
    * const draw = new LibreDraw(map, { snap: false });
+   * // Disable the undo / redo keyboard shortcuts:
+   * const draw = new LibreDraw(map, { keyboard: false });
    * // Japanese UI, with one label overridden:
    * const draw = new LibreDraw(map, { locale: 'ja' });
    * // Override individual strings (merged onto the selected locale):
@@ -256,8 +259,21 @@ export class LibreDraw {
       this.applyMapInteractions(initialMode.mapInteractions());
     }
 
-    // Input handling
-    this.inputHandler = new InputHandler(map, () => this.modeManager.getCurrentMode());
+    // Input handling. Shortcuts are a thin adapter over the public
+    // undo() / redo(); they are wired only when enabled so KeyboardInput
+    // never has to consult configuration. The boolean result lets the key
+    // event fall through to the host page when there is nothing to undo.
+    const keyboard = this.normalizeKeyboardConfig(options.keyboard);
+    this.inputHandler = new InputHandler(
+      map,
+      () => this.modeManager.getCurrentMode(),
+      keyboard.undoRedo
+        ? {
+            onUndo: () => this.undo(),
+            onRedo: () => this.redo(),
+          }
+        : undefined
+    );
 
     // Toolbar
     if (options.toolbar !== false) {
@@ -1027,6 +1043,15 @@ export class LibreDraw {
       enabled: snap.enabled ?? true,
       threshold: Math.max(1, snap.threshold ?? 10),
     };
+  }
+
+  /**
+   * Normalize the keyboard option into a fully-resolved configuration.
+   */
+  private normalizeKeyboardConfig(keyboard?: boolean | KeyboardOptions): Required<KeyboardOptions> {
+    if (keyboard === false) return { undoRedo: false };
+    if (keyboard === undefined || keyboard === true) return { undoRedo: true };
+    return { undoRedo: keyboard.undoRedo ?? true };
   }
 
   /**

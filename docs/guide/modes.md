@@ -372,6 +372,37 @@ draw.on('rotate', (e) => console.log(`${e.originalFeature.id} rotated by ${e.ang
 - Vertex snapping is not applied while rotating
 - Map panning stays enabled; only a drag that starts on the selected feature is captured
 
+## Keyboard Shortcuts
+
+Undo / redo shortcuts work in every mode and do not depend on the toolbar (they are available in headless mode too). Like MapLibre's own keyboard navigation, they only fire while the map has focus: clicking the map focuses its canvas, and keys pressed elsewhere on the page are left alone. They are also ignored while an `<input>`, `<textarea>`, `<select>` or `contenteditable` element has focus, so typing into the toolbar's distance / angle fields is never interrupted. The browser default is suppressed only when something was actually undone or redone; with an empty history the key event passes through to your page.
+
+| Shortcut                   | Action                                                                   |
+| -------------------------- | ------------------------------------------------------------------------ |
+| Ctrl+Z / Cmd+Z             | Undo                                                                     |
+| Ctrl+Shift+Z / Cmd+Shift+Z | Redo                                                                     |
+| Ctrl+Y                     | Redo (Windows / Linux convention; Cmd+Y is left to the browser on macOS) |
+
+Disable them with the `keyboard` option:
+
+```ts
+const draw = new LibreDraw(map, { keyboard: false });
+// or, equivalently for the undo / redo pair:
+const draw = new LibreDraw(map, { keyboard: { undoRedo: false } });
+```
+
+The keys below are handled by the active mode, likewise only while the map has focus, and are not affected by the `keyboard` option:
+
+| Key                | Mode                     | Action                                                                                                          |
+| ------------------ | ------------------------ | --------------------------------------------------------------------------------------------------------------- |
+| Escape             | draw-point               | Clear snap indicator                                                                                            |
+| Escape             | draw-line / draw-polygon | Cancel the current drawing                                                                                      |
+| Escape             | draw-rectangle           | Discard the first corner                                                                                        |
+| Escape             | split                    | Cancel current split interaction                                                                                |
+| Escape             | union                    | Clear the selection and stay in union mode                                                                      |
+| Escape             | setback                  | Cancel and reset                                                                                                |
+| Escape             | rotate                   | During a drag: restore the shape and keep the selection. Otherwise: discard the preview and clear the selection |
+| Delete / Backspace | select                   | Delete selected feature                                                                                         |
+
 ## Mode Transitions
 
 ```

@@ -4,6 +4,7 @@ import type { Mode } from '../modes/Mode';
 import { MouseInput } from './MouseInput';
 import { TouchInput } from './TouchInput';
 import { KeyboardInput } from './KeyboardInput';
+import type { KeyboardShortcutCallbacks } from './KeyboardInput';
 
 /**
  * Callback to retrieve the currently active mode.
@@ -36,7 +37,18 @@ export class InputHandler {
   /** Timestamp of the last touch event, used to drop compatibility mouse events. */
   private lastTouchAt = 0;
 
-  constructor(map: MaplibreMap, getActiveMode: GetActiveModeCallback) {
+  /**
+   * @param map - The map whose canvas receives pointer input.
+   * @param getActiveMode - Returns the mode that should receive events.
+   * @param shortcuts - Undo / redo shortcut callbacks (each returns whether
+   *   it acted). Omit to disable shortcut handling (mode key dispatch is
+   *   unaffected).
+   */
+  constructor(
+    map: MaplibreMap,
+    getActiveMode: GetActiveModeCallback,
+    shortcuts?: KeyboardShortcutCallbacks
+  ) {
     this.getActiveMode = getActiveMode;
 
     // Touch wins: every touch event stamps the clock, and mouse events that
@@ -85,11 +97,15 @@ export class InputHandler {
 
     this.mouseInput = new MouseInput(map, mouseCallbacks);
     this.touchInput = new TouchInput(map, touchCallbacks);
-    this.keyboardInput = new KeyboardInput({
-      onKeyDown: (key: string, event: KeyboardEvent) => {
-        this.getActiveMode()?.onKeyDown(key, event);
+    this.keyboardInput = new KeyboardInput(
+      map,
+      {
+        onKeyDown: (key: string, event: KeyboardEvent) => {
+          this.getActiveMode()?.onKeyDown(key, event);
+        },
       },
-    });
+      shortcuts
+    );
   }
 
   /**

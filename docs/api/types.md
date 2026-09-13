@@ -13,6 +13,7 @@ import type {
   Position,
   FeatureProperties,
   LibreDrawOptions,
+  KeyboardOptions,
   ToolbarOptions,
   ToolbarPosition,
   ToolbarControls,
@@ -179,6 +180,7 @@ Options for creating a LibreDraw instance.
 ```ts
 interface LibreDrawOptions {
   toolbar?: boolean | ToolbarOptions;
+  keyboard?: boolean | KeyboardOptions;
   historyLimit?: number;
   style?: PartialStyleConfig;
   snap?: boolean | SnapConfig;
@@ -187,14 +189,31 @@ interface LibreDrawOptions {
 }
 ```
 
-| Property       | Type                        | Default         | Description                                                                                        |
-| -------------- | --------------------------- | --------------- | -------------------------------------------------------------------------------------------------- |
-| `toolbar`      | `boolean \| ToolbarOptions` | `true`          | Whether to show the toolbar, or toolbar configuration. Set to `false` for headless mode.           |
-| `historyLimit` | `number`                    | `100`           | Maximum number of undo/redo history entries                                                        |
-| `style`        | `PartialStyleConfig`        | `default style` | Partial overrides for map layer styling (fill/outline/vertices/preview/edit handles).              |
-| `snap`         | `boolean \| SnapConfig`     | `true`          | Whether to enable snapping, or snap configuration. Set to `false` to disable.                      |
-| `locale`       | [`Locale`](#locale)         | `'en'`          | Language of the toolbar and its popups. Throws `LibreDrawError` for an unknown value.              |
-| `messages`     | `Partial<Messages>`         | `{}`            | Overrides for individual UI strings, merged onto the selected locale. See [`Messages`](#messages). |
+| Property       | Type                         | Default         | Description                                                                                                 |
+| -------------- | ---------------------------- | --------------- | ----------------------------------------------------------------------------------------------------------- |
+| `toolbar`      | `boolean \| ToolbarOptions`  | `true`          | Whether to show the toolbar, or toolbar configuration. Set to `false` for headless mode.                    |
+| `keyboard`     | `boolean \| KeyboardOptions` | `true`          | Whether to enable keyboard shortcuts, or shortcut configuration. See [`KeyboardOptions`](#keyboardoptions). |
+| `historyLimit` | `number`                     | `100`           | Maximum number of undo/redo history entries                                                                 |
+| `style`        | `PartialStyleConfig`         | `default style` | Partial overrides for map layer styling (fill/outline/vertices/preview/edit handles).                       |
+| `snap`         | `boolean \| SnapConfig`      | `true`          | Whether to enable snapping, or snap configuration. Set to `false` to disable.                               |
+| `locale`       | [`Locale`](#locale)          | `'en'`          | Language of the toolbar and its popups. Throws `LibreDrawError` for an unknown value.                       |
+| `messages`     | `Partial<Messages>`          | `{}`            | Overrides for individual UI strings, merged onto the selected locale. See [`Messages`](#messages).          |
+
+---
+
+### `KeyboardOptions`
+
+Configuration for keyboard shortcuts. Shortcuts only fire while the map has focus (clicking the map focuses it). See the [shortcut list](/guide/modes#keyboard-shortcuts) for the keys.
+
+```ts
+interface KeyboardOptions {
+  undoRedo?: boolean;
+}
+```
+
+| Property   | Type      | Default | Description                                                                                                                       |
+| ---------- | --------- | ------- | --------------------------------------------------------------------------------------------------------------------------------- |
+| `undoRedo` | `boolean` | `true`  | Whether Ctrl/Cmd+Z (undo), Ctrl/Cmd+Shift+Z and Ctrl+Y (redo) are handled. Escape / Delete handling inside modes is not affected. |
 
 ---
 

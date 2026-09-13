@@ -44,11 +44,29 @@ export interface ToolbarOptions {
 }
 
 /**
+ * Configuration for keyboard shortcuts.
+ */
+export interface KeyboardOptions {
+  /**
+   * Whether Ctrl/Cmd+Z (undo), Ctrl/Cmd+Shift+Z and Ctrl+Y (redo)
+   * are handled. Defaults to true.
+   */
+  undoRedo?: boolean;
+}
+
+/**
  * Options for creating a LibreDraw instance.
  */
 export interface LibreDrawOptions {
   /** Whether to show the toolbar, or toolbar configuration options. */
   toolbar?: boolean | ToolbarOptions;
+  /**
+   * Whether to enable keyboard shortcuts, or shortcut configuration.
+   * Defaults to true. Shortcuts only fire while the map has focus
+   * (clicking the map focuses it). Escape / Delete / Backspace handling
+   * inside the active mode is not affected by this option.
+   */
+  keyboard?: boolean | KeyboardOptions;
   /** Maximum number of undo/redo history entries. Defaults to 100. */
   historyLimit?: number;
   /** Partial style overrides for map layer rendering. */
