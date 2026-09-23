@@ -1,9 +1,17 @@
 name: Deploy Docs
 
+# Deploy the docs together with the npm release, not on every push to main,
+# so the site never documents API that is not published yet.
+# `release: published` cannot be used directly: it runs on the tag ref, and the
+# github-pages environment only allows deployments from main. workflow_run
+# runs in the default branch context. It fires whenever the publish completes,
+# so the build job below skips unless the publish succeeded.
 on:
-  push:
-    branches:
-      - main
+  workflow_run:
+    workflows: [Publish to npm]
+    types: [completed]
+  # Manual redeploy (e.g. a docs-only fix). Builds the branch it is run on,
+  # which must be main for the github-pages environment to accept it.
   workflow_dispatch:
 
 permissions:
@@ -17,11 +25,14 @@ concurrency:
 
 jobs:
   build:
+    if: github.event_name != 'workflow_run' || github.event.workflow_run.conclusion == 'success'
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
         uses: actions/checkout@v4
         with:
+          # The released commit for workflow_run; the run's own commit otherwise.
+          ref: ${{ github.event.workflow_run.head_sha || github.sha }}
           fetch-depth: 0
 
       - name: Setup Node
