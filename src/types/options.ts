@@ -24,6 +24,7 @@ export interface ToolbarControls {
   drawLine?: boolean;
   drawPolygon?: boolean;
   drawRectangle?: boolean;
+  drawAngledRectangle?: boolean;
   select?: boolean;
   split?: boolean;
   setback?: boolean;

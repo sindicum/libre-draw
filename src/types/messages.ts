@@ -15,6 +15,7 @@ export interface Messages {
   toolbarDrawLine: string;
   toolbarDrawPolygon: string;
   toolbarDrawRectangle: string;
+  toolbarDrawAngledRectangle: string;
   toolbarSelect: string;
   toolbarSplit: string;
   toolbarUnion: string;

@@ -51,7 +51,7 @@ The value is decided by the call path, not by the kind of change: the same `dele
 ## `create`
 
 Emitted when a new feature is created.
-In `draw-point` mode this happens on each click/tap. In `draw-line` mode it happens when the line is finalized. In `draw-polygon` mode it happens when the polygon is completed. In `draw-rectangle` mode it happens on the second corner click.
+In `draw-point` mode this happens on each click/tap. In `draw-line` mode it happens when the line is finalized. In `draw-polygon` mode it happens when the polygon is completed. In `draw-rectangle` mode it happens on the second corner click, and in `draw-angled-rectangle` mode on the third click (the width point).
 
 It also fires once per feature from [`addFeatures()`](/api/libre-draw#addfeatures-features), and from history: redoing a `create` emits it again, and undoing a `delete`, `split`, `setback`, or `union` emits `create` for every feature that comes back.
 
@@ -440,11 +440,11 @@ interface ModeChangeEvent {
 }
 ```
 
-| Property       | Type                              | Description                                                                                                                                                       |
-| -------------- | --------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `origin`       | [`EventOrigin`](#event-origin)    | Who caused the change: `'api'` or `'user'`                                                                                                                        |
-| `mode`         | [`ModeName`](/api/types#modename) | The new active mode (`'idle'`, `'draw-point'`, `'draw-line'`, `'draw-polygon'`, `'draw-rectangle'`, `'select'`, `'split'`, `'setback'`, `'union'`, or `'rotate'`) |
-| `previousMode` | [`ModeName`](/api/types#modename) | The previous mode                                                                                                                                                 |
+| Property       | Type                              | Description                                                                                                                                                                                  |
+| -------------- | --------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `origin`       | [`EventOrigin`](#event-origin)    | Who caused the change: `'api'` or `'user'`                                                                                                                                                   |
+| `mode`         | [`ModeName`](/api/types#modename) | The new active mode (`'idle'`, `'draw-point'`, `'draw-line'`, `'draw-polygon'`, `'draw-rectangle'`, `'draw-angled-rectangle'`, `'select'`, `'split'`, `'setback'`, `'union'`, or `'rotate'`) |
+| `previousMode` | [`ModeName`](/api/types#modename) | The previous mode                                                                                                                                                                            |
 
 ### Example
 
@@ -464,7 +464,7 @@ draw.on('modechange', (e) => {
 
 ## `draftchange`
 
-Emitted whenever the in-progress draft of a drawing mode (`'draw-polygon'`, `'draw-line'`, or `'draw-rectangle'`) changes.
+Emitted whenever the in-progress draft of a drawing mode (`'draw-polygon'`, `'draw-line'`, `'draw-rectangle'`, or `'draw-angled-rectangle'`) changes.
 
 Fires when:
 
@@ -475,6 +475,8 @@ Fires when:
 5. The active mode transitions away from a drawing mode (deactivation), with `vertexCount: 0`
 
 In `'draw-rectangle'` mode the draft holds at most the first corner: `vertexCount` is `1` after the first click and returns to `0` when the second corner creates the polygon or the corner is discarded.
+
+In `'draw-angled-rectangle'` mode the draft holds the base edge: `vertexCount` is `1` and then `2` as its two points are placed, drops by one on a long press, and returns to `0` when the third click creates the polygon or the draft is discarded.
 
 ### Payload: `DraftChangeEvent`
 

@@ -27,7 +27,7 @@ const map = new maplibregl.Map({
 const draw = new LibreDraw(map);
 ```
 
-That's it! A toolbar with draw-point, draw-line, draw, draw-rectangle, select, split, union, setback, rotate, delete, undo, and redo buttons appears on the map. Use draw-point to place points, draw-line to draw lines, draw to create polygons, or draw-rectangle to drop a rectangle with two clicks.
+That's it! A toolbar with draw-point, draw-line, draw, draw-rectangle, draw-angled-rectangle, select, split, union, setback, rotate, delete, undo, and redo buttons appears on the map. Use draw-point to place points, draw-line to draw lines, draw to create polygons, draw-rectangle to drop a rectangle with two clicks, or draw-angled-rectangle to draw one at any angle with three clicks.
 
 > **Note:** LibreDraw does not require a separate CSS import. All styles (toolbar, map layers) are applied programmatically via JavaScript. Only `maplibre-gl.css` is needed for the base map.
 
@@ -83,6 +83,7 @@ draw.setMode('draw-point');
 draw.setMode('draw-line');
 draw.setMode('draw-polygon');
 draw.setMode('draw-rectangle');
+draw.setMode('draw-angled-rectangle');
 draw.setMode('select');
 draw.setMode('idle');
 

@@ -7,6 +7,7 @@ export type ModeName =
   | 'draw-line'
   | 'draw-polygon'
   | 'draw-rectangle'
+  | 'draw-angled-rectangle'
   | 'select'
   | 'split'
   | 'setback'

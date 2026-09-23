@@ -89,9 +89,9 @@ Switching modes deactivates the current mode (clearing any in-progress state) an
 
 **Parameters:**
 
-| Name   | Type                              | Description                                                                                                                                 |
-| ------ | --------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------- |
-| `mode` | [`ModeName`](/api/types#modename) | `'idle'`, `'draw-point'`, `'draw-line'`, `'draw-polygon'`, `'draw-rectangle'`, `'select'`, `'split'`, `'union'`, `'setback'`, or `'rotate'` |
+| Name   | Type                              | Description                                                                                                                                                            |
+| ------ | --------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `mode` | [`ModeName`](/api/types#modename) | `'idle'`, `'draw-point'`, `'draw-line'`, `'draw-polygon'`, `'draw-rectangle'`, `'draw-angled-rectangle'`, `'select'`, `'split'`, `'union'`, `'setback'`, or `'rotate'` |
 
 **Returns:** `void`
 
@@ -116,7 +116,7 @@ draw.on('modechange', (e) => {
 
 Get the current drawing mode.
 
-**Returns:** [`ModeName`](/api/types#modename) — `'idle'`, `'draw-point'`, `'draw-line'`, `'draw-polygon'`, `'draw-rectangle'`, `'select'`, `'split'`, `'union'`, `'setback'`, or `'rotate'`.
+**Returns:** [`ModeName`](/api/types#modename) — `'idle'`, `'draw-point'`, `'draw-line'`, `'draw-polygon'`, `'draw-rectangle'`, `'draw-angled-rectangle'`, `'select'`, `'split'`, `'union'`, `'setback'`, or `'rotate'`.
 
 **Throws:** [`LibreDrawError`](/api/types#libredrawerror) if this instance has been destroyed.
 
@@ -669,7 +669,7 @@ draw.redo(); // re-applies the undone action
 
 ## Draft Control
 
-Programmatically control the in-progress draft of the `'draw-polygon'` (polygon), `'draw-line'` (linestring), and `'draw-rectangle'` modes. Useful for implementing custom finish/cancel buttons or showing the current vertex count in a UI.
+Programmatically control the in-progress draft of the `'draw-polygon'` (polygon), `'draw-line'` (linestring), `'draw-rectangle'`, and `'draw-angled-rectangle'` modes. Useful for implementing custom finish/cancel buttons or showing the current vertex count in a UI.
 
 ### `finishDrawing()`
 
@@ -677,7 +677,7 @@ Finalize the in-progress draft of the active drawing mode.
 
 On success, a feature is added to the store, a [`create`](/api/events#create) event fires, and a [`draftchange`](/api/events#draftchange) event with `vertexCount: 0` is emitted. The mode remains active so the user can start a new draft.
 
-**Returns:** `boolean` — `true` if the draft was finalized, `false` if it could not be (non-drawing mode, insufficient vertices, or a polygon whose closing would produce a self-intersection). In `'draw-rectangle'` mode this always returns `false`: the rectangle is only defined once the second corner is clicked.
+**Returns:** `boolean` — `true` if the draft was finalized, `false` if it could not be (non-drawing mode, insufficient vertices, or a polygon whose closing would produce a self-intersection). In `'draw-rectangle'` and `'draw-angled-rectangle'` modes this always returns `false`: the rectangle is only defined once its last point (the second corner, or the third point that sets the width) is clicked.
 
 **Throws:** [`LibreDrawError`](/api/types#libredrawerror) if this instance has been destroyed.
 
@@ -715,7 +715,7 @@ draw.cancelDrawing(); // discard in-progress polygon / line
 
 Get the number of vertices in the current draft.
 
-**Returns:** `number` — The draft vertex count for the active drawing mode, or `0` when no drawing mode is active. In `draw-rectangle` mode the count is `1` while the first corner is placed and `0` otherwise.
+**Returns:** `number` — The draft vertex count for the active drawing mode, or `0` when no drawing mode is active. In `draw-rectangle` mode the count is `1` while the first corner is placed and `0` otherwise. In `draw-angled-rectangle` mode it is the number of placed base-edge points (`0`, `1`, or `2`).
 
 **Throws:** [`LibreDrawError`](/api/types#libredrawerror) if this instance has been destroyed.
 

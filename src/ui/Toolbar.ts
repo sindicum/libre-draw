@@ -8,6 +8,7 @@ import { drawPointIcon } from './icons/draw-point';
 import { drawLineIcon } from './icons/draw-line';
 import { drawPolygonIcon } from './icons/draw-polygon';
 import { drawRectangleIcon } from './icons/draw-rectangle';
+import { drawAngledRectangleIcon } from './icons/draw-angled-rectangle';
 import { selectIcon } from './icons/select';
 import { splitIcon } from './icons/split';
 import { unionIcon } from './icons/union';
@@ -29,6 +30,7 @@ const DEFAULT_CONTROLS: Required<ToolbarControls> = {
   drawLine: true,
   drawPolygon: true,
   drawRectangle: true,
+  drawAngledRectangle: true,
   select: true,
   split: true,
   union: true,
@@ -48,6 +50,7 @@ export interface ToolbarCallbacks {
   onDrawLineClick(): void;
   onDrawPolygonClick(): void;
   onDrawRectangleClick(): void;
+  onDrawAngledRectangleClick(): void;
   onSelectClick(): void;
   onSplitClick(): void;
   onUnionClick(): void;
@@ -108,7 +111,7 @@ export class Toolbar {
   /**
    * Update the active mode displayed in the toolbar.
    * @param mode - The active mode name ('idle', 'draw-point', 'draw-line', 'draw-polygon',
-   *   'draw-rectangle', 'select', 'split', 'union', 'setback', 'rotate').
+   *   'draw-rectangle', 'draw-angled-rectangle', 'select', 'split', 'union', 'setback', 'rotate').
    */
   setActiveMode(mode: string): void {
     this.activeMode = mode;
@@ -116,6 +119,7 @@ export class Toolbar {
     const drawLineBtn = this.buttons.get('draw-line');
     const drawPolygonBtn = this.buttons.get('draw-polygon');
     const drawRectangleBtn = this.buttons.get('draw-rectangle');
+    const drawAngledRectangleBtn = this.buttons.get('draw-angled-rectangle');
     const selectBtn = this.buttons.get('select');
     const splitBtn = this.buttons.get('split');
     const unionBtn = this.buttons.get('union');
@@ -133,6 +137,9 @@ export class Toolbar {
     }
     if (drawRectangleBtn) {
       drawRectangleBtn.setActive(mode === 'draw-rectangle');
+    }
+    if (drawAngledRectangleBtn) {
+      drawAngledRectangleBtn.setActive(mode === 'draw-angled-rectangle');
     }
     if (selectBtn) {
       selectBtn.setActive(mode === 'select');
@@ -270,6 +277,18 @@ export class Toolbar {
         this.messages.toolbarDrawRectangle,
         () => {
           this.callbacks.onDrawRectangleClick();
+        },
+        true
+      );
+    }
+
+    if (controls.drawAngledRectangle) {
+      this.addButton(
+        'draw-angled-rectangle',
+        drawAngledRectangleIcon,
+        this.messages.toolbarDrawAngledRectangle,
+        () => {
+          this.callbacks.onDrawAngledRectangleClick();
         },
         true
       );
