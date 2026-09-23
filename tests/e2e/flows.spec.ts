@@ -65,6 +65,33 @@ test('draw-polygon: a long press removes the last vertex', async ({ page, hasTou
   expect(await featureCount(page)).toBe(0);
 });
 
+test('draw-angled-rectangle: three taps create a tilted rectangle', async ({ page, hasTouch }) => {
+  const pointer = new Pointer(page, hasTouch);
+  await recordEvents(page, ['create', 'draftchange']);
+  await setMode(page, 'draw-angled-rectangle');
+
+  // A diagonal base edge, then a width point off to one side. The count
+  // must step 1 → 2 so a doubled tap cannot finish the rectangle early.
+  await pointer.tap(100, 250);
+  await expect.poll(() => lastDraftVertexCount(page)).toBe(1);
+  await pointer.tap(250, 150);
+  await expect.poll(() => lastDraftVertexCount(page)).toBe(2);
+  await pointer.tap(250, 300);
+
+  await expect.poll(() => featureCount(page)).toBe(1);
+  expect(await lastDraftVertexCount(page)).toBe(0);
+  const [create] = await getEvents<{
+    feature: { geometry: { type: string; coordinates: number[][][] } };
+  }>(page, 'create');
+  expect(create.feature.geometry.type).toBe('Polygon');
+  expect(create.feature.geometry.coordinates[0]).toHaveLength(5);
+
+  // The base edge is tilted, so the rectangle is not aligned to lng / lat.
+  const ring = create.feature.geometry.coordinates[0];
+  const lngs = new Set(ring.slice(0, 4).map((p) => p[0].toFixed(9)));
+  expect(lngs.size).toBe(4);
+});
+
 test('rotate: dragging on the selected rectangle rotates it', async ({ page, hasTouch }) => {
   const pointer = new Pointer(page, hasTouch);
   await addPolygonFromScreen(page, [

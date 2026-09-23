@@ -289,6 +289,7 @@ interface ToolbarControls {
   drawLine?: boolean;
   drawPolygon?: boolean;
   drawRectangle?: boolean;
+  drawAngledRectangle?: boolean;
   select?: boolean;
   split?: boolean;
   setback?: boolean;
@@ -301,21 +302,22 @@ interface ToolbarControls {
 }
 ```
 
-| Property        | Type      | Default | Description                                        |
-| --------------- | --------- | ------- | -------------------------------------------------- |
-| `drawPoint`     | `boolean` | `true`  | Show draw-point mode toggle button                 |
-| `drawLine`      | `boolean` | `true`  | Show draw-line mode toggle button                  |
-| `drawPolygon`   | `boolean` | `true`  | Show draw-polygon mode toggle button               |
-| `drawRectangle` | `boolean` | `true`  | Show draw-rectangle mode toggle button             |
-| `select`        | `boolean` | `true`  | Show select mode toggle button                     |
-| `split`         | `boolean` | `true`  | Show split mode toggle button                      |
-| `setback`       | `boolean` | `true`  | Show setback mode toggle button and distance input |
-| `union`         | `boolean` | `true`  | Show union mode toggle button                      |
-| `rotate`        | `boolean` | `true`  | Show rotate mode toggle button and angle input     |
-| `settings`      | `boolean` | `true`  | Show style settings button and panel               |
-| `delete`        | `boolean` | `true`  | Show delete button                                 |
-| `undo`          | `boolean` | `true`  | Show undo button                                   |
-| `redo`          | `boolean` | `true`  | Show redo button                                   |
+| Property              | Type      | Default | Description                                        |
+| --------------------- | --------- | ------- | -------------------------------------------------- |
+| `drawPoint`           | `boolean` | `true`  | Show draw-point mode toggle button                 |
+| `drawLine`            | `boolean` | `true`  | Show draw-line mode toggle button                  |
+| `drawPolygon`         | `boolean` | `true`  | Show draw-polygon mode toggle button               |
+| `drawRectangle`       | `boolean` | `true`  | Show draw-rectangle mode toggle button             |
+| `drawAngledRectangle` | `boolean` | `true`  | Show draw-angled-rectangle mode toggle button      |
+| `select`              | `boolean` | `true`  | Show select mode toggle button                     |
+| `split`               | `boolean` | `true`  | Show split mode toggle button                      |
+| `setback`             | `boolean` | `true`  | Show setback mode toggle button and distance input |
+| `union`               | `boolean` | `true`  | Show union mode toggle button                      |
+| `rotate`              | `boolean` | `true`  | Show rotate mode toggle button and angle input     |
+| `settings`            | `boolean` | `true`  | Show style settings button and panel               |
+| `delete`              | `boolean` | `true`  | Show delete button                                 |
+| `undo`                | `boolean` | `true`  | Show undo button                                   |
+| `redo`                | `boolean` | `true`  | Show redo button                                   |
 
 ---
 
@@ -342,6 +344,7 @@ interface Messages {
   toolbarDrawLine: string;
   toolbarDrawPolygon: string;
   toolbarDrawRectangle: string;
+  toolbarDrawAngledRectangle: string;
   toolbarSelect: string;
   toolbarSplit: string;
   toolbarUnion: string;
@@ -406,6 +409,7 @@ type ModeName =
   | 'draw-line'
   | 'draw-polygon'
   | 'draw-rectangle'
+  | 'draw-angled-rectangle'
   | 'select'
   | 'split'
   | 'setback'
@@ -413,18 +417,19 @@ type ModeName =
   | 'rotate';
 ```
 
-| Value              | Description                                                                   |
-| ------------------ | ----------------------------------------------------------------------------- |
-| `'idle'`           | No drawing interaction. Map behaves normally.                                 |
-| `'draw-point'`     | Place point features by clicking/tapping.                                     |
-| `'draw-line'`      | Create lines by clicking/tapping vertices, click the last one to finalize.    |
-| `'draw-polygon'`   | Create polygons by clicking/tapping vertices, click the first or last one.    |
-| `'draw-rectangle'` | Create an axis-aligned rectangle by clicking/tapping two opposite corners.    |
-| `'select'`         | Select and edit existing features (points, lines, and polygons).              |
-| `'split'`          | Split a polygon into two polygons with a two-point line.                      |
-| `'union'`          | Merge two touching or overlapping polygons into one by clicking them in turn. |
-| `'setback'`        | Apply inward edge setback with distance input and preview.                    |
-| `'rotate'`         | Rotate a polygon or line around its center by dragging or angle input.        |
+| Value                     | Description                                                                                             |
+| ------------------------- | ------------------------------------------------------------------------------------------------------- |
+| `'idle'`                  | No drawing interaction. Map behaves normally.                                                           |
+| `'draw-point'`            | Place point features by clicking/tapping.                                                               |
+| `'draw-line'`             | Create lines by clicking/tapping vertices, click the last one to finalize.                              |
+| `'draw-polygon'`          | Create polygons by clicking/tapping vertices, click the first or last one.                              |
+| `'draw-rectangle'`        | Create an axis-aligned rectangle by clicking/tapping two opposite corners.                              |
+| `'draw-angled-rectangle'` | Create a rectangle at any angle: click/tap two points of a base edge, then a point that sets the width. |
+| `'select'`                | Select and edit existing features (points, lines, and polygons).                                        |
+| `'split'`                 | Split a polygon into two polygons with a two-point line.                                                |
+| `'union'`                 | Merge two touching or overlapping polygons into one by clicking them in turn.                           |
+| `'setback'`               | Apply inward edge setback with distance input and preview.                                              |
+| `'rotate'`                | Rotate a polygon or line around its center by dragging or angle input.                                  |
 
 ---
 

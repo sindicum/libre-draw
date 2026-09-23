@@ -8,6 +8,7 @@ import { IdleMode } from '../../src/modes/IdleMode';
 import { DrawPolygonMode } from '../../src/modes/DrawPolygonMode';
 import { DrawLineMode } from '../../src/modes/DrawLineMode';
 import { DrawRectangleMode } from '../../src/modes/DrawRectangleMode';
+import { DrawAngledRectangleMode } from '../../src/modes/DrawAngledRectangleMode';
 import { DrawPointMode } from '../../src/modes/DrawPointMode';
 import { SelectMode } from '../../src/modes/SelectMode';
 import type { NormalizedInputEvent } from '../../src/types/input';
@@ -114,6 +115,7 @@ describe('Draw Flow Integration', () => {
     const drawPolygonMode = new DrawPolygonMode(modeContext);
     const drawLineMode = new DrawLineMode(modeContext);
     const drawRectangleMode = new DrawRectangleMode(modeContext);
+    const drawAngledRectangleMode = new DrawAngledRectangleMode(modeContext);
     const drawPointMode = new DrawPointMode(modeContext);
     const selectMode = new SelectMode(modeContext, vi.fn());
 
@@ -121,6 +123,7 @@ describe('Draw Flow Integration', () => {
     modeManager.registerMode('draw-polygon', drawPolygonMode);
     modeManager.registerMode('draw-line', drawLineMode);
     modeManager.registerMode('draw-rectangle', drawRectangleMode);
+    modeManager.registerMode('draw-angled-rectangle', drawAngledRectangleMode);
     modeManager.registerMode('draw-point', drawPointMode);
     modeManager.registerMode('select', selectMode);
 
@@ -132,6 +135,7 @@ describe('Draw Flow Integration', () => {
       drawPolygonMode,
       drawLineMode,
       drawRectangleMode,
+      drawAngledRectangleMode,
       drawPointMode,
       selectMode,
     };
@@ -482,6 +486,53 @@ describe('Draw Flow Integration', () => {
       expect(drawLineMode.getDraftVertexCount()).toBe(0);
       expect(modeManager.getMode()).toBe('draw-line');
       expect(draftListener).toHaveBeenCalledWith({ vertexCount: 0, origin: 'user' });
+    });
+  });
+
+  describe('draw-angled-rectangle flow', () => {
+    it('should create a rectangle with three clicks, then undo and redo it', () => {
+      const { eventBus, store, history, modeManager, drawAngledRectangleMode } =
+        createDrawingSystem();
+      const events: string[] = [];
+      eventBus.on('create', () => events.push('create'));
+      eventBus.on('draftchange', (e: DraftChangeEvent) => events.push(`draft:${e.vertexCount}`));
+
+      modeManager.setMode('draw-angled-rectangle');
+      clickAt(drawAngledRectangleMode, 0, 0);
+      clickAt(drawAngledRectangleMode, 10, 10);
+      drawAngledRectangleMode.onPointerMove(createPointerEvent(0, 10));
+      clickAt(drawAngledRectangleMode, 0, 10);
+
+      expect(store.getAll()).toHaveLength(1);
+      const feature = store.getAll()[0];
+      expect(feature.geometry.type).toBe('Polygon');
+      const ring = feature.geometry.coordinates[0] as number[][];
+      expect(ring).toHaveLength(5);
+      expect(ring[0]).toEqual([0, 0]);
+      expect(ring[4]).toEqual([0, 0]);
+      expect(ring.slice(0, 4)).toContainEqual([10, 10]);
+      expect(events).toEqual(['draft:1', 'draft:2', 'create', 'draft:0']);
+      expect(modeManager.getMode()).toBe('draw-angled-rectangle');
+
+      history.undo(store);
+      expect(store.getAll()).toHaveLength(0);
+
+      history.redo(store);
+      expect(store.getAll()).toHaveLength(1);
+      expect(store.getAll()[0].id).toBe(feature.id);
+    });
+
+    it('should discard the draft when switching modes', () => {
+      const { store, modeManager, drawAngledRectangleMode } = createDrawingSystem();
+
+      modeManager.setMode('draw-angled-rectangle');
+      clickAt(drawAngledRectangleMode, 0, 0, 'touch');
+      clickAt(drawAngledRectangleMode, 10, 10, 'touch');
+      modeManager.setMode('draw-rectangle');
+      modeManager.setMode('draw-angled-rectangle');
+
+      expect(drawAngledRectangleMode.getDraftVertexCount()).toBe(0);
+      expect(store.getAll()).toHaveLength(0);
     });
   });
 

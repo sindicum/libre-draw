@@ -45,6 +45,7 @@ import { union as unionOperation } from './operations/union';
 import { IdleMode } from './modes/IdleMode';
 import { DrawPolygonMode } from './modes/DrawPolygonMode';
 import { DrawRectangleMode } from './modes/DrawRectangleMode';
+import { DrawAngledRectangleMode } from './modes/DrawAngledRectangleMode';
 import { DrawPointMode } from './modes/DrawPointMode';
 import { DrawLineMode } from './modes/DrawLineMode';
 import { SelectMode } from './modes/SelectMode';
@@ -253,6 +254,7 @@ export class LibreDraw {
     const drawLineMode = new DrawLineMode(modeContext);
     const drawPolygonMode = new DrawPolygonMode(modeContext);
     const drawRectangleMode = new DrawRectangleMode(modeContext);
+    const drawAngledRectangleMode = new DrawAngledRectangleMode(modeContext);
     this.selectMode = new SelectMode(modeContext);
     const splitMode = new SplitMode(modeContext);
     const unionMode = new UnionMode(modeContext);
@@ -267,6 +269,7 @@ export class LibreDraw {
     this.modeManager.registerMode('draw-line', drawLineMode);
     this.modeManager.registerMode('draw-polygon', drawPolygonMode);
     this.modeManager.registerMode('draw-rectangle', drawRectangleMode);
+    this.modeManager.registerMode('draw-angled-rectangle', drawAngledRectangleMode);
     this.modeManager.registerMode('select', this.selectMode);
     this.modeManager.registerMode('split', splitMode);
     this.modeManager.registerMode('union', unionMode);
@@ -334,8 +337,9 @@ export class LibreDraw {
    * event is emitted on every transition.
    *
    * @param mode - `'idle'` (no interaction), `'draw-point'` / `'draw-line'` /
-   *   `'draw-polygon'` / `'draw-rectangle'` (create features), `'select'` (select/edit
-   *   existing features), `'split'`, `'union'`, `'setback'`, or `'rotate'`.
+   *   `'draw-polygon'` / `'draw-rectangle'` / `'draw-angled-rectangle'` (create features),
+   *   `'select'` (select/edit existing features), `'split'`, `'union'`,
+   *   `'setback'`, or `'rotate'`.
    *
    * @throws {LibreDrawError} If this instance has been destroyed.
    * @throws {LibreDrawError} If `mode` is not one of the names above
@@ -892,8 +896,9 @@ export class LibreDraw {
    * and a `'draftchange'` event with `vertexCount: 0` is emitted. The mode
    * remains active so the user can start a new draft.
    *
-   * In `'draw-rectangle'` mode this always returns `false`: the rectangle
-   * is only defined once the second corner is clicked.
+   * In `'draw-rectangle'` and `'draw-angled-rectangle'` modes this always
+   * returns `false`: the rectangle is only defined once its last point
+   * (the second corner, or the third point that sets the width) is clicked.
    *
    * @returns `true` if the draft was finalized, `false` if it could not be
    *   (non-drawing mode, insufficient vertices, or a polygon whose closing
@@ -920,7 +925,8 @@ export class LibreDraw {
   /**
    * Discard the in-progress draft of the active drawing mode.
    *
-   * Applies to `'draw-polygon'`, `'draw-line'`, and `'draw-rectangle'` modes.
+   * Applies to `'draw-polygon'`, `'draw-line'`, `'draw-rectangle'`, and
+   * `'draw-angled-rectangle'` modes.
    * Clears the preview, resets the vertex list, and emits a `'draftchange'` event with
    * `vertexCount: 0`. The mode remains active; to exit drawing use
    * {@link setMode} afterwards.
@@ -1263,6 +1269,12 @@ export class LibreDraw {
         onDrawRectangleClick: () => {
           const current = this.modeManager.getMode();
           this.modeManager.setMode(current === 'draw-rectangle' ? 'idle' : 'draw-rectangle');
+        },
+        onDrawAngledRectangleClick: () => {
+          const current = this.modeManager.getMode();
+          this.modeManager.setMode(
+            current === 'draw-angled-rectangle' ? 'idle' : 'draw-angled-rectangle'
+          );
         },
         onSelectClick: () => {
           const current = this.modeManager.getMode();

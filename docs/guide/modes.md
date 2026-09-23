@@ -4,22 +4,23 @@ LibreDraw uses a mode-based architecture. Only one mode is active at a time, and
 
 ## Overview
 
-| Mode             | Description                                                        | Activated by                                            |
-| ---------------- | ------------------------------------------------------------------ | ------------------------------------------------------- |
-| `idle`           | No drawing interaction. Map behaves normally.                      | Default / toolbar                                       |
-| `draw-point`     | Click to place a point feature.                                    | Toolbar draw-point button / `setMode('draw-point')`     |
-| `draw-line`      | Click to add vertices, click the last vertex to finalize line.     | Toolbar draw-line button / `setMode('draw-line')`       |
-| `draw-polygon`   | Click to add vertices, click the first or last vertex to close.    | Toolbar draw-polygon button / `setMode('draw-polygon')` |
-| `draw-rectangle` | Click two opposite corners to create a rectangle.                  | Toolbar rectangle button / `setMode('draw-rectangle')`  |
-| `select`         | Click to select, drag to edit vertices or move point/line/polygon. | Toolbar select button / `setMode('select')`             |
-| `split`          | Split a polygon with a two-point line.                             | Toolbar split button / `setMode('split')`               |
-| `union`          | Merge two touching or overlapping polygons into one.               | Toolbar union button / `setMode('union')`               |
-| `setback`        | Apply inward edge setback with distance input.                     | Toolbar setback button / `setMode('setback')`           |
-| `rotate`         | Rotate a polygon or line by dragging or by entering an angle.      | Toolbar rotate button / `setMode('rotate')`             |
+| Mode                    | Description                                                                | Activated by                                                         |
+| ----------------------- | -------------------------------------------------------------------------- | -------------------------------------------------------------------- |
+| `idle`                  | No drawing interaction. Map behaves normally.                              | Default / toolbar                                                    |
+| `draw-point`            | Click to place a point feature.                                            | Toolbar draw-point button / `setMode('draw-point')`                  |
+| `draw-line`             | Click to add vertices, click the last vertex to finalize line.             | Toolbar draw-line button / `setMode('draw-line')`                    |
+| `draw-polygon`          | Click to add vertices, click the first or last vertex to close.            | Toolbar draw-polygon button / `setMode('draw-polygon')`              |
+| `draw-rectangle`        | Click two opposite corners to create a rectangle.                          | Toolbar rectangle button / `setMode('draw-rectangle')`               |
+| `draw-angled-rectangle` | Click a base edge, then a width point, to create a rectangle at any angle. | Toolbar angled rectangle button / `setMode('draw-angled-rectangle')` |
+| `select`                | Click to select, drag to edit vertices or move point/line/polygon.         | Toolbar select button / `setMode('select')`                          |
+| `split`                 | Split a polygon with a two-point line.                                     | Toolbar split button / `setMode('split')`                            |
+| `union`                 | Merge two touching or overlapping polygons into one.                       | Toolbar union button / `setMode('union')`                            |
+| `setback`               | Apply inward edge setback with distance input.                             | Toolbar setback button / `setMode('setback')`                        |
+| `rotate`                | Rotate a polygon or line by dragging or by entering an angle.              | Toolbar rotate button / `setMode('rotate')`                          |
 
 ### Try it
 
-Use the buttons below to switch between modes. Place points in **draw-point** mode, draw lines in **draw-line** mode, draw polygons in **draw-polygon** mode, drop rectangles in **draw-rectangle** mode, then switch to **select** mode to edit them or **rotate** mode to turn them.
+Use the buttons below to switch between modes. Place points in **draw-point** mode, draw lines in **draw-line** mode, draw polygons in **draw-polygon** mode, drop rectangles in **draw-rectangle** or **draw-angled-rectangle** mode, then switch to **select** mode to edit them or **rotate** mode to turn them.
 
 <ModesDemo />
 
@@ -199,6 +200,54 @@ draw.setMode('draw-rectangle');
 draw.on('create', (e) => {
   console.log('New rectangle:', e.feature);
   // Remains in draw-rectangle mode for continuous drawing
+});
+```
+
+## Draw Angled Rectangle Mode
+
+In draw-angled-rectangle mode, you create a rectangle at any angle from three points: two along one side (the base edge), then one that sets the width. Use it to draw a plot along a road or an existing boundary in one go, without rotating an axis-aligned rectangle afterwards.
+
+### Mouse Interaction
+
+| Action     | Effect                                                                     |
+| ---------- | -------------------------------------------------------------------------- |
+| Click      | Place the first point of the base edge                                     |
+| Move       | Preview the base edge to the cursor                                        |
+| Click      | Place the second point of the base edge                                    |
+| Move       | Preview the rectangle; its width follows the cursor's distance to the edge |
+| Click      | Create the polygon                                                         |
+| Drag       | Pan the map — never places a point                                         |
+| Escape key | Discard the whole draft                                                    |
+
+### Touch Interaction
+
+| Action            | Effect                                                     |
+| ----------------- | ---------------------------------------------------------- |
+| Tap               | Place the first point of the base edge (marked with a dot) |
+| Tap               | Place the second point; the base edge is drawn             |
+| Tap               | Set the width and create the polygon                       |
+| Drag (one finger) | Pan the map — never places a point                         |
+| Long-press        | Remove the last placed point                               |
+
+Touch has no hover, so the rectangle is not previewed before the third tap.
+
+### Behavior
+
+- The first two points are one side of the rectangle, at any angle. The third point only sets the width: the rectangle extends from the base edge towards it by its perpendicular distance to the base line, so its far corners are generally not at the third point
+- Right angles are computed in Web Mercator, so the rectangle looks rectangular on the map at any latitude and bearing
+- The result is a regular 4-vertex Polygon feature (no special properties), so it can be edited like any other polygon
+- A second point on top of the first, or a third point on the base line (zero width), is ignored and the draft is kept
+- Snap to existing vertices and edges applies to the first two points when enabled. The third point is never snapped, because it does not become a corner
+- The mode stays active after creation for continuous drawing
+- Double-click zoom is disabled during draw-angled-rectangle mode; map panning stays enabled
+- `finishDrawing()` always returns `false` in this mode — only the third click creates the rectangle. `cancelDrawing()` discards the whole draft and `getDraftVertexCount()` returns the number of placed base-edge points (`0`, `1`, or `2`)
+
+```ts
+draw.setMode('draw-angled-rectangle');
+
+draw.on('create', (e) => {
+  console.log('New angled rectangle:', e.feature);
+  // Remains in draw-angled-rectangle mode for continuous drawing
 });
 ```
 
@@ -397,6 +446,7 @@ The keys below are handled by the active mode, likewise only while the map has f
 | Escape             | draw-point               | Clear snap indicator                                                                                            |
 | Escape             | draw-line / draw-polygon | Cancel the current drawing                                                                                      |
 | Escape             | draw-rectangle           | Discard the first corner                                                                                        |
+| Escape             | draw-angled-rectangle    | Discard the whole draft                                                                                         |
 | Escape             | split                    | Cancel current split interaction                                                                                |
 | Escape             | union                    | Clear the selection and stay in union mode                                                                      |
 | Escape             | setback                  | Cancel and reset                                                                                                |

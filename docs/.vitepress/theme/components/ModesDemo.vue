@@ -49,6 +49,7 @@ const modes = [
   'draw-line',
   'draw-polygon',
   'draw-rectangle',
+  'draw-angled-rectangle',
   'select',
   'split',
   'setback',

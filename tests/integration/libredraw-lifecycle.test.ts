@@ -137,6 +137,51 @@ describe('LibreDraw lifecycle integration', () => {
     draw.destroy();
   });
 
+  it('should toggle draw-angled-rectangle from its toolbar button', () => {
+    const map = new FakeMap();
+    const container = map.getContainer();
+    const draw = new LibreDraw(map.asMap());
+
+    const button = container.querySelector<HTMLButtonElement>(
+      'button[aria-label="Draw angled rectangle"]'
+    );
+    expect(button).not.toBeNull();
+
+    expect(button!.getAttribute('aria-pressed')).toBe('false');
+
+    button!.click();
+    expect(draw.getMode()).toBe('draw-angled-rectangle');
+    expect(button!.getAttribute('aria-pressed')).toBe('true');
+
+    // Switching to the axis-aligned rectangle hands the active state over.
+    draw.setMode('draw-rectangle');
+    expect(button!.getAttribute('aria-pressed')).toBe('false');
+    expect(
+      container.querySelector('button[aria-label="Draw rectangle"]')!.getAttribute('aria-pressed')
+    ).toBe('true');
+
+    button!.click();
+    expect(draw.getMode()).toBe('draw-angled-rectangle');
+    button!.click();
+    expect(draw.getMode()).toBe('idle');
+    expect(button!.getAttribute('aria-pressed')).toBe('false');
+
+    draw.destroy();
+  });
+
+  it('should hide the draw-angled-rectangle button with controls.drawAngledRectangle: false', () => {
+    const map = new FakeMap();
+    const container = map.getContainer();
+    const draw = new LibreDraw(map.asMap(), {
+      toolbar: { controls: { drawAngledRectangle: false } },
+    });
+
+    expect(container.querySelector('button[aria-label="Draw angled rectangle"]')).toBeNull();
+    expect(container.querySelector('button[aria-label="Draw rectangle"]')).not.toBeNull();
+
+    draw.destroy();
+  });
+
   it('should not create toolbar when toolbar option is false', () => {
     const map = new FakeMap();
     const container = map.getContainer();
@@ -827,6 +872,7 @@ describe('LibreDraw lifecycle integration', () => {
         'draw-line',
         'draw-polygon',
         'draw-rectangle',
+        'draw-angled-rectangle',
         'select',
         'split',
         'union',
