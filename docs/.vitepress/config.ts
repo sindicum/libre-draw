@@ -1,7 +1,8 @@
 import { defineConfig } from 'vitepress';
+import { withMermaid } from 'vitepress-plugin-mermaid';
 import { resolve } from 'path';
 
-export default defineConfig({
+const config = defineConfig({
   title: 'LibreDraw',
   description: 'MapLibre GL JS polygon drawing and editing library for TypeScript',
 
@@ -21,6 +22,7 @@ export default defineConfig({
           items: [
             { text: 'Getting Started', link: '/guide/getting-started' },
             { text: 'Modes', link: '/guide/modes' },
+            { text: 'AI', link: '/guide/ai' },
           ],
         },
       ],
@@ -59,3 +61,6 @@ export default defineConfig({
     },
   },
 });
+
+// Adds the `mermaid` fence renderer (docs/guide/ai.md) on top of the site config.
+export default withMermaid(config);

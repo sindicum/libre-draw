@@ -150,6 +150,8 @@ Full documentation with interactive demos is available at:
 
 **https://sindicum.github.io/libre-draw/**
 
+The operation API (`updateFeature` / `rotate` / `split` / `setback` / `union`) works without the toolbar and returns structured results, so it can be called from your own code or an AI agent. See [Using LibreDraw from AI](https://sindicum.github.io/libre-draw/guide/ai). A reference MCP server for local use is available in [`examples/mcp`](./examples/mcp).
+
 ## Development
 
 ```bash
