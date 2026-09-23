@@ -1,5 +1,6 @@
 import type { Mode } from '../modes/Mode';
 import type { ModeName } from '../types/mode';
+import { LibreDrawError } from './errors';
 export type { ModeName } from '../types/mode';
 
 /**
@@ -34,9 +35,15 @@ export class ModeManager {
   /**
    * Switch to a new mode.
    * Deactivates the current mode and activates the new one.
-   * @param name - The mode to switch to.
+   * @param name - The mode to switch to. Must have been registered.
+   * @throws {LibreDrawError} If no mode is registered under `name`. The
+   *   check runs before anything else, so a wrong name leaves the current
+   *   mode active and emits no change.
    */
   setMode(name: ModeName): void {
+    if (!this.modes.has(name)) {
+      throw new LibreDrawError(`Unknown mode: ${String(name)}`);
+    }
     if (name === this.currentModeName) {
       return;
     }

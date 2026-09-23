@@ -20,7 +20,7 @@ LibreDraw, in the browser.
 | ---------------- | ----------------------------------------------- | ---------------------------------- |
 | `get_features`   | `toGeoJSON()`                                   | FeatureCollection                  |
 | `get_feature`    | `getFeatureById(id)`                            | Feature or `null`                  |
-| `add_features`   | `addFeatures(features, { strict })`             | `AddFeatureResult[]`               |
+| `add_features`   | `addFeatures(features)`                         | `AddFeatureResult[]`               |
 | `update_feature` | `updateFeature(id, { geometry, properties })`   | `OperationResult`                  |
 | `delete_feature` | `deleteFeature(id)`                             | deleted Feature or `null`          |
 | `split`          | `split(id, [start, end])`                       | `OperationResult`                  |
@@ -31,10 +31,13 @@ LibreDraw, in the browser.
 | `undo` / `redo`  | `undo()` / `redo()`                             | `boolean`                          |
 
 Failures are never exceptions. A geometric failure comes back as
-`{ ok: false, reason: 'invalid-intersection-count' }` and so on; a thrown
-`LibreDrawError` (for example `select_feature` with an unknown id) becomes
-`{ ok: false, reason: <message> }`; and while no page is connected every tool returns
-`{ ok: false, reason: 'no-client' }` right away instead of waiting.
+`{ ok: false, reason: 'invalid-intersection-count' }` and so on, an unknown id in
+`select_feature` as `{ ok: false, reason: 'not-found' }`, an invalid feature in
+`add_features` as `{ valid: false, reason }` in its entry of the array; and while no page
+is connected every tool returns `{ ok: false, reason: 'no-client' }` right away instead
+of waiting. LibreDraw itself only throws for misuse of the instance (see
+[Programmatic API](https://sindicum.github.io/libre-draw/guide/programmatic-api)), which the page's
+dispatch turns into `{ ok: false, reason: <message> }` as a safety net.
 
 ## Setup
 

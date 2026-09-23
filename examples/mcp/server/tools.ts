@@ -21,8 +21,8 @@ export const TOOLS = {
   },
   add_features: {
     description:
-      'Add GeoJSON features as one undo step. Returns one { valid, id, reason? } per feature. With strict: false, invalid features are reported instead of rejecting the whole call.',
-    inputSchema: z.object({ features: z.array(feature), strict: z.boolean().optional() }),
+      'Add GeoJSON features as one undo step. Returns one { valid, id, reason? } per feature; invalid features are reported there and the valid ones are still added.',
+    inputSchema: z.object({ features: z.array(feature) }),
   },
   update_feature: {
     description:
@@ -62,7 +62,8 @@ export const TOOLS = {
     inputSchema: z.object({ ids: z.array(z.string()) }),
   },
   select_feature: {
-    description: 'Select a feature on the map (switches to select mode).',
+    description:
+      'Select a feature on the map (switches to select mode). Returns { ok: true }, or { ok: false, reason: "not-found" } when no feature has that id.',
     inputSchema: z.object({ id: z.string() }),
   },
   undo: {

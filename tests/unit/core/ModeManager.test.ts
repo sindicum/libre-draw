@@ -1,6 +1,8 @@
 import { describe, it, expect, vi } from 'vitest';
 import { ModeManager } from '../../../src/core/ModeManager';
+import { LibreDrawError } from '../../../src/core/errors';
 import type { Mode } from '../../../src/modes/Mode';
+import type { ModeName } from '../../../src/types/mode';
 
 function createMockMode(): Mode {
   return {
@@ -79,5 +81,29 @@ describe('ModeManager', () => {
     const manager = new ModeManager();
     // idle is the default mode but not registered
     expect(manager.getCurrentMode()).toBeUndefined();
+  });
+
+  describe('setMode with an unregistered name', () => {
+    it('throws LibreDrawError and leaves the current mode untouched', () => {
+      const manager = new ModeManager();
+      const idle = createMockMode();
+      const callback = vi.fn();
+      manager.registerMode('idle', idle);
+      manager.setOnModeChange(callback);
+
+      expect(() => manager.setMode('nope' as ModeName)).toThrow(LibreDrawError);
+      expect(() => manager.setMode('nope' as ModeName)).toThrow('Unknown mode: nope');
+
+      expect(manager.getMode()).toBe('idle');
+      expect(manager.getCurrentMode()).toBe(idle);
+      expect(idle.deactivate).not.toHaveBeenCalled();
+      expect(callback).not.toHaveBeenCalled();
+    });
+
+    it('checks the name before the same-mode shortcut', () => {
+      // Nothing registered: even the default name is unknown.
+      const manager = new ModeManager();
+      expect(() => manager.setMode('idle')).toThrow(LibreDrawError);
+    });
   });
 });

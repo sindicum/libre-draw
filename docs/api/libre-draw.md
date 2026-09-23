@@ -95,7 +95,10 @@ Switching modes deactivates the current mode (clearing any in-progress state) an
 
 **Returns:** `void`
 
-**Throws:** [`LibreDrawError`](/api/types#libredrawerror) if this instance has been destroyed.
+**Throws:**
+
+- [`LibreDrawError`](/api/types#libredrawerror) if this instance has been destroyed.
+- [`LibreDrawError`](/api/types#libredrawerror) if `mode` is not one of the names above (`Unknown mode: <name>`). The current mode stays active and no `modechange` is emitted.
 
 **Example:**
 
@@ -179,7 +182,7 @@ fetch('/api/polygons', {
 
 Replace all features in the store with the given GeoJSON FeatureCollection.
 
-Validates the input, clears the current store, history, and selection (vertex handles and previews are removed; a `selectionchange` event fires if something was selected), and re-renders the map. **Undo/redo history is reset** after this call.
+Validates the whole input first (all or nothing), then clears the current store, history, and selection (vertex handles and previews are removed; a `selectionchange` event fires if something was selected), and re-renders the map. **Undo/redo history is reset** after this call. No `create` / `delete` events are emitted for the replaced features: this is a reload, not an edit.
 
 **Parameters:**
 
@@ -187,17 +190,14 @@ Validates the input, clears the current store, history, and selection (vertex ha
 | --------- | --------- | --------------------------------------------------------------------------------- |
 | `geojson` | `unknown` | A GeoJSON FeatureCollection containing Point, LineString, and/or Polygon features |
 
-**Returns:** `void`
+**Returns:** [`OperationResult`](/api/types#operationresult) — `{ ok: true, created, updated: [], deleted }` with the new features in `created` and the previous ones in `deleted`, or `{ ok: false, reason }` when the input is not a FeatureCollection or one of its features fails validation (`Invalid feature at index i: …`). Nothing changes on failure.
 
-**Throws:**
-
-- [`LibreDrawError`](/api/types#libredrawerror) if this instance has been destroyed.
-- [`LibreDrawError`](/api/types#libredrawerror) if the input is not a valid FeatureCollection or contains invalid Point, LineString, or Polygon geometries.
+**Throws:** [`LibreDrawError`](/api/types#libredrawerror) if this instance has been destroyed.
 
 **Example:**
 
 ```ts
-draw.setFeatures({
+const result = draw.setFeatures({
   type: 'FeatureCollection',
   features: [
     {
@@ -218,30 +218,26 @@ draw.setFeatures({
     },
   ],
 });
+if (!result.ok) console.warn(result.reason);
 ```
 
 ---
 
-### `addFeatures(features, options?)`
+### `addFeatures(features)`
 
 Add features to the store from an array of GeoJSON Feature objects.
 
-Every feature is validated first. With `strict: true` (the default) one invalid entry makes the call throw and leaves the store untouched; with `strict: false` the invalid entries are reported in the returned array and only the valid ones are added. Either way the added features form a **single undoable step** (one [`undo()`](#undo) removes every feature added by the call), and a `'create'` event fires for each added feature. Unlike [`setFeatures`](#setfeatures-geojson), existing features and history are kept.
+Every feature is validated first and reported individually: invalid entries come back as `{ valid: false, reason }` and only the valid ones are added. Nothing is thrown for the input. The added features form a **single undoable step** (one [`undo()`](#undo) removes every feature added by the call), and a `'create'` event fires for each added feature. Unlike [`setFeatures`](#setfeatures-geojson), existing features and history are kept. There is no all-or-nothing option: to get one, check each input with [`validateFeature`](#validatefeature-feature) (geometry) and [`getFeatureById`](#getfeaturebyid-id) (a duplicate id, also against the other inputs) before calling.
 
 **Parameters:**
 
-| Name       | Type                                                  | Description                                                                                                                         |
-| ---------- | ----------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------- |
-| `features` | `unknown[]`                                           | An array of GeoJSON Feature objects with Point, LineString, and/or Polygon geometry. Features without an `id` get a generated UUID. |
-| `options`  | [`AddFeaturesOptions`](/api/types#addfeaturesoptions) | Optional. `{ strict }`, default `{ strict: true }`.                                                                                 |
+| Name       | Type        | Description                                                                                                                         |
+| ---------- | ----------- | ----------------------------------------------------------------------------------------------------------------------------------- |
+| `features` | `unknown[]` | An array of GeoJSON Feature objects with Point, LineString, and/or Polygon geometry. Features without an `id` get a generated UUID. |
 
-**Returns:** [`AddFeatureResult[]`](/api/types#addfeatureresult) — one entry per input feature, in input order. Valid entries carry the id the feature has in the store; invalid entries carry the rejection `reason` (and the input `id`, if it had one). A duplicate id (already in the store, or repeated within the array) counts as invalid in both modes.
+**Returns:** [`AddFeatureResult[]`](/api/types#addfeatureresult) — one entry per input feature, in input order. Valid entries carry the id the feature has in the store; invalid entries carry the rejection `reason` (and the input `id`, if it had one). A duplicate id (already in the store, or repeated earlier in the array) counts as invalid; the first occurrence within the array is the one that gets added.
 
-**Throws:**
-
-- [`LibreDrawError`](/api/types#libredrawerror) if this instance has been destroyed.
-- [`LibreDrawError`](/api/types#libredrawerror) in strict mode, if any feature has invalid geometry.
-- [`LibreDrawError`](/api/types#libredrawerror) in strict mode, if a feature `id` already exists in the store or appears more than once in the array.
+**Throws:** [`LibreDrawError`](/api/types#libredrawerror) if this instance has been destroyed.
 
 **Example:**
 
@@ -267,8 +263,8 @@ draw.addFeatures([
 
 draw.undo(); // removes the feature added above
 
-// Report per-feature problems instead of throwing:
-const results = draw.addFeatures(features, { strict: false });
+// Per-feature outcomes:
+const results = draw.addFeatures(features);
 results.forEach((r, i) => {
   if (!r.valid) console.warn(`feature ${i} rejected: ${r.reason}`);
 });
@@ -278,7 +274,7 @@ results.forEach((r, i) => {
 
 ### `validateFeature(feature)`
 
-Check whether an object would be accepted by [`addFeatures`](#addfeatures-features-options) / [`setFeatures`](#setfeatures-geojson), without adding it and without throwing.
+Check whether an object would be accepted by [`addFeatures`](#addfeatures-features) / [`setFeatures`](#setfeatures-geojson), without adding it and without throwing.
 
 Applies the same rules (Feature envelope, geometry type, coordinate ranges, ring closure, self-intersection). Duplicate ids are not checked here because they depend on the store's contents at add time.
 
@@ -362,7 +358,7 @@ if (deleted) {
 
 Replace a feature's geometry and/or properties.
 
-The change is validated like [`addFeatures`](#addfeatures-features-options) input, recorded as **one undoable step**, and reported with an [`update`](/api/events#update) event (`origin: 'api'`). `properties` is a full replacement, not a merge. A selected feature keeps its selection; vertex handles and the rotation base follow the new shape.
+The change is validated like [`addFeatures`](#addfeatures-features) input, recorded as **one undoable step**, and reported with an [`update`](/api/events#update) event (`origin: 'api'`). `properties` is a full replacement, not a merge. A selected feature keeps its selection; vertex handles and the rotation base follow the new shape.
 
 **Parameters:**
 
@@ -509,7 +505,7 @@ if (!result.ok) console.warn(result.reason); // e.g. 'disjoint'
 
 Programmatically select a feature by its ID.
 
-Switches to select mode if not already active. The feature must exist in the store.
+Switches to select mode if not already active. When no feature has that id nothing happens: the mode and the selection stay as they are and no event is emitted.
 
 **Parameters:**
 
@@ -517,19 +513,17 @@ Switches to select mode if not already active. The feature must exist in the sto
 | ---- | -------- | ---------------------------------------------- |
 | `id` | `string` | The unique identifier of the feature to select |
 
-**Returns:** `void`
+**Returns:** `boolean` — `true` if the feature was selected, `false` if no feature has that id.
 
-**Throws:**
-
-- [`LibreDrawError`](/api/types#libredrawerror) if this instance has been destroyed.
-- [`LibreDrawError`](/api/types#libredrawerror) if no feature with the given ID exists.
+**Throws:** [`LibreDrawError`](/api/types#libredrawerror) if this instance has been destroyed.
 
 **Example:**
 
 ```ts
-draw.selectFeature('abc-123');
-console.log(draw.getSelectedFeatureIds()); // ['abc-123']
-console.log(draw.getMode()); // 'select'
+if (draw.selectFeature('abc-123')) {
+  console.log(draw.getSelectedFeatureIds()); // ['abc-123']
+  console.log(draw.getMode()); // 'select'
+}
 ```
 
 ---
@@ -638,7 +632,7 @@ console.log('Point radius:', style.point.radius);
 
 Undo the last action.
 
-Reverts the most recent action (`create`, `update`, `delete`, `split`, `setback`, `union`, or a `batch` recorded by [`addFeatures`](#addfeatures-features-options)) and updates the map rendering. If a feature is selected and its geometry changes, vertex handles are refreshed.
+Reverts the most recent action (`create`, `update`, `delete`, `split`, `setback`, `union`, or a `batch` recorded by [`addFeatures`](#addfeatures-features)) and updates the map rendering. If a feature is selected and its geometry changes, vertex handles are refreshed.
 
 **Returns:** `boolean` — `true` if an action was undone, `false` if nothing to undo.
 

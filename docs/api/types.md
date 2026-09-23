@@ -38,7 +38,6 @@ import type {
   OperationResult,
   OperationSuccess,
   OperationFailure,
-  AddFeaturesOptions,
   AddFeatureResult,
   FeatureValidationResult,
   UpdateFeaturePatch,
@@ -439,7 +438,7 @@ The type of history action.
 type ActionType = 'create' | 'update' | 'delete' | 'split' | 'setback' | 'union' | 'batch';
 ```
 
-`'batch'` is used by [`BatchAction`](#batchaction), which groups several actions into one history step (for example, one [`addFeatures()`](/api/libre-draw#addfeatures-features-options) call).
+`'batch'` is used by [`BatchAction`](#batchaction), which groups several actions into one history step (for example, one [`addFeatures()`](/api/libre-draw#addfeatures-features) call).
 
 ---
 
@@ -524,11 +523,11 @@ interface FeatureStoreInterface {
 
 ## Operation Result Types
 
-Structured outcomes returned by the public API. None of them is thrown; narrow on the discriminant (`ok` / `valid`) to read the rest.
+Structured outcomes returned by the public API. None of them is thrown; narrow on the discriminant (`ok` / `valid`) to read the rest. `LibreDraw` throws only for misuse of the instance (a call after `destroy()`, an unknown mode name, an unsupported locale); see [Programmatic API](/guide/programmatic-api#return-values-and-exceptions) for the full table.
 
 ### `OperationResult`
 
-The result of an editing operation ([`updateFeature`](/api/libre-draw#updatefeature-id-patch), [`rotate`](/api/libre-draw#rotate-id-angledeg), [`split`](/api/libre-draw#split-id-line), [`setback`](/api/libre-draw#setback-id-edge-distancemeters), and [`union`](/api/libre-draw#union-ids)).
+The result of an operation that changes the store ([`setFeatures`](/api/libre-draw#setfeatures-geojson), [`updateFeature`](/api/libre-draw#updatefeature-id-patch), [`rotate`](/api/libre-draw#rotate-id-angledeg), [`split`](/api/libre-draw#split-id-line), [`setback`](/api/libre-draw#setback-id-edge-distancemeters), and [`union`](/api/libre-draw#union-ids)).
 
 ```ts
 interface OperationSuccess {
@@ -567,25 +566,9 @@ result.updated.forEach(save);
 
 ---
 
-### `AddFeaturesOptions`
-
-Options for [`addFeatures()`](/api/libre-draw#addfeatures-features-options).
-
-```ts
-interface AddFeaturesOptions {
-  strict?: boolean;
-}
-```
-
-| Property | Type      | Default | Description                                                                                                                                                    |
-| -------- | --------- | ------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `strict` | `boolean` | `true`  | `true`: one invalid feature makes the call throw and nothing is added. `false`: invalid features are reported in the result and only the valid ones are added. |
-
----
-
 ### `AddFeatureResult`
 
-One entry per input feature of [`addFeatures()`](/api/libre-draw#addfeatures-features-options), in input order.
+One entry per input feature of [`addFeatures()`](/api/libre-draw#addfeatures-features), in input order.
 
 ```ts
 type AddFeatureResult = { valid: true; id: string } | { valid: false; id?: string; reason: string };
@@ -595,7 +578,7 @@ type AddFeatureResult = { valid: true; id: string } | { valid: false; id?: strin
 | -------- | --------- | -------------------------------------------------------------------------------------------------------------------- |
 | `valid`  | `boolean` | Whether the feature was added                                                                                        |
 | `id`     | `string`  | Valid: the id the feature has in the store (generated when the input had none). Invalid: the input id, if it had one |
-| `reason` | `string`  | Invalid only: the same message the strict mode would have thrown                                                     |
+| `reason` | `string`  | Invalid only: the rejection message (the same wording `validateFeature` reports)                                     |
 
 ---
 
@@ -687,7 +670,7 @@ interface EdgeRef {
 
 ### `SplitOperationFailReason`
 
-Failure codes of [`split()`](/api/libre-draw#split-id-line). The geometric codes are the [`SplitFailReason`](/api/events#payload-splitfailedevent) values of the `splitfailed` event, which is emitted alongside; the argument errors below emit no event. A result that fails validation reports the validation message instead of a code.
+Failure codes of [`split()`](/api/libre-draw#split-id-line). The geometric codes are the [`SplitFailReason`](/api/events#payload-splitfailedevent) values of the `splitfailed` event, which is emitted alongside (a part that fails validation is `'invalid-result'`); the argument errors below emit no event.
 
 ```ts
 type SplitOperationFailReason = 'not-found' | 'not-splittable' | SplitFailReason;

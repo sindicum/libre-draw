@@ -208,6 +208,6 @@ draw.destroy();
 ## Next Steps
 
 - Learn about [Modes](/guide/modes) (Idle, Draw Point, Draw Line, Draw, Draw Rectangle, Select, Split, Union, Setback, Rotate)
-- Call the API from an AI agent: [Using LibreDraw from AI](/guide/ai)
+- Drive it from your own code or an AI agent: [Programmatic API](/guide/programmatic-api)
 - See the full [API Reference](/api/)
 - Try the [Live Demo](/examples/)

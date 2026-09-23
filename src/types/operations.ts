@@ -42,22 +42,11 @@ export interface OperationFailure {
  * result.created.forEach(save);
  * ```
  *
- * Operations never throw for a geometric failure; they return this instead.
+ * Operations never throw for a geometric or validation failure; they
+ * return this instead. Returned by `setFeatures`, `updateFeature`,
+ * `rotate`, `split`, `setback`, and `union`.
  */
 export type OperationResult = OperationSuccess | OperationFailure;
-
-/**
- * Options for {@link LibreDraw.addFeatures}.
- */
-export interface AddFeaturesOptions {
-  /**
-   * When `true` (the default), one invalid feature makes the whole call
-   * throw a `LibreDrawError` and nothing is added. When `false`, invalid
-   * features are reported in the returned array and only the valid ones
-   * are added, still as a single undo step.
-   */
-  strict?: boolean;
-}
 
 /**
  * Per-feature outcome of {@link LibreDraw.addFeatures}, in input order.

@@ -67,30 +67,30 @@ new LibreDraw(map: maplibregl.Map, options?: LibreDrawOptions)
 
 ### Methods
 
-| Method                              | Description                                                                                                                                                                       |
-| ----------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `setMode(mode)`                     | Set active mode: `'idle'`, `'draw-point'`, `'draw-line'`, `'draw-polygon'`, `'draw-rectangle'`, `'select'`, `'split'`, `'union'`, `'setback'`, or `'rotate'`                      |
-| `getMode()`                         | Get the current mode                                                                                                                                                              |
-| `getFeatures()`                     | Get all features as an array                                                                                                                                                      |
-| `toGeoJSON()`                       | Export all features as a GeoJSON FeatureCollection                                                                                                                                |
-| `getFeatureById(id)`                | Get a single feature by ID                                                                                                                                                        |
-| `setFeatures(geojson)`              | Replace all features with a GeoJSON FeatureCollection                                                                                                                             |
-| `addFeatures(features, options?)`   | Add an array of GeoJSON Feature objects (undoable as one step). Returns one `{ valid, id, reason? }` per feature; `{ strict: false }` reports invalid entries instead of throwing |
-| `validateFeature(feature)`          | Check an object against the same rules as `addFeatures` without adding it and without throwing                                                                                    |
-| `deleteFeature(id)`                 | Delete a feature by ID (undoable)                                                                                                                                                 |
-| `updateFeature(id, patch)`          | Replace a feature's geometry and/or properties (undoable, returns `{ ok, ... }`)                                                                                                  |
-| `rotate(id, angleDeg)`              | Rotate a polygon or line around its centroid (undoable, returns `{ ok, ... }`)                                                                                                    |
-| `split(id, line)`                   | Split a polygon or line along the line through two points (undoable, returns `{ ok, ... }`)                                                                                       |
-| `setback(id, edge, distanceMeters)` | Move one edge of a polygon inward by a distance in meters (undoable, returns `{ ok, ... }`)                                                                                       |
-| `union(ids)`                        | Merge two polygons into one (undoable, returns `{ ok, ... }`)                                                                                                                     |
-| `selectFeature(id)`                 | Programmatically select a feature                                                                                                                                                 |
-| `clearSelection()`                  | Clear the current selection                                                                                                                                                       |
-| `getSelectedFeatureIds()`           | Get IDs of selected features                                                                                                                                                      |
-| `undo()`                            | Undo the last action                                                                                                                                                              |
-| `redo()`                            | Redo the last undone action                                                                                                                                                       |
-| `on(event, callback)`               | Register an event listener                                                                                                                                                        |
-| `off(event, callback)`              | Remove an event listener                                                                                                                                                          |
-| `destroy()`                         | Clean up all resources                                                                                                                                                            |
+| Method                              | Description                                                                                                                                                        |
+| ----------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `setMode(mode)`                     | Set active mode: `'idle'`, `'draw-point'`, `'draw-line'`, `'draw-polygon'`, `'draw-rectangle'`, `'select'`, `'split'`, `'union'`, `'setback'`, or `'rotate'`       |
+| `getMode()`                         | Get the current mode                                                                                                                                               |
+| `getFeatures()`                     | Get all features as an array                                                                                                                                       |
+| `toGeoJSON()`                       | Export all features as a GeoJSON FeatureCollection                                                                                                                 |
+| `getFeatureById(id)`                | Get a single feature by ID                                                                                                                                         |
+| `setFeatures(geojson)`              | Replace all features with a GeoJSON FeatureCollection (all or nothing, returns `{ ok, ... }`)                                                                      |
+| `addFeatures(features)`             | Add an array of GeoJSON Feature objects (undoable as one step). Returns one `{ valid, id, reason? }` per feature; invalid entries are reported there, never thrown |
+| `validateFeature(feature)`          | Check an object against the same rules as `addFeatures` without adding it and without throwing                                                                     |
+| `deleteFeature(id)`                 | Delete a feature by ID (undoable)                                                                                                                                  |
+| `updateFeature(id, patch)`          | Replace a feature's geometry and/or properties (undoable, returns `{ ok, ... }`)                                                                                   |
+| `rotate(id, angleDeg)`              | Rotate a polygon or line around its centroid (undoable, returns `{ ok, ... }`)                                                                                     |
+| `split(id, line)`                   | Split a polygon or line along the line through two points (undoable, returns `{ ok, ... }`)                                                                        |
+| `setback(id, edge, distanceMeters)` | Move one edge of a polygon inward by a distance in meters (undoable, returns `{ ok, ... }`)                                                                        |
+| `union(ids)`                        | Merge two polygons into one (undoable, returns `{ ok, ... }`)                                                                                                      |
+| `selectFeature(id)`                 | Programmatically select a feature (returns `false` for an unknown id)                                                                                              |
+| `clearSelection()`                  | Clear the current selection                                                                                                                                        |
+| `getSelectedFeatureIds()`           | Get IDs of selected features                                                                                                                                       |
+| `undo()`                            | Undo the last action                                                                                                                                               |
+| `redo()`                            | Redo the last undone action                                                                                                                                        |
+| `on(event, callback)`               | Register an event listener                                                                                                                                         |
+| `off(event, callback)`              | Remove an event listener                                                                                                                                           |
+| `destroy()`                         | Clean up all resources                                                                                                                                             |
 
 ### Events
 
@@ -150,7 +150,7 @@ Full documentation with interactive demos is available at:
 
 **https://sindicum.github.io/libre-draw/**
 
-The operation API (`updateFeature` / `rotate` / `split` / `setback` / `union`) works without the toolbar and returns structured results, so it can be called from your own code or an AI agent. See [Using LibreDraw from AI](https://sindicum.github.io/libre-draw/guide/ai). A reference MCP server for local use is available in [`examples/mcp`](./examples/mcp).
+Every method answers with a return value (`{ ok, ... }`, per-feature results, or a boolean) and throws only for misuse of the instance, so the same API serves your own code and an AI agent. See [Programmatic API](https://sindicum.github.io/libre-draw/guide/programmatic-api) for the return value / exception table and the `origin` rules. A reference MCP server for local use is available in [`examples/mcp`](./examples/mcp).
 
 ## Development
 

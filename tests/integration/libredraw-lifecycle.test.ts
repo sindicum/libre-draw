@@ -407,43 +407,51 @@ describe('LibreDraw lifecycle integration', () => {
     draw.destroy();
   });
 
-  it('should add nothing and record nothing when addFeatures receives an invalid feature', () => {
+  it('should report an invalid feature in its entry and still add the valid ones as one step', () => {
     const map = new FakeMap();
     const draw = new LibreDraw(map.asMap(), { toolbar: false });
 
     const createListener = vi.fn();
     draw.on('create', createListener);
 
-    expect(() =>
-      draw.addFeatures([makeFeature('b'), { type: 'Feature', geometry: null, properties: {} }])
-    ).toThrow(LibreDrawError);
+    const results = draw.addFeatures([
+      makeFeature('b'),
+      { type: 'Feature', geometry: null, properties: {} },
+    ]);
 
+    expect(results[0]).toEqual({ valid: true, id: 'b' });
+    expect(results[1]).toEqual({
+      valid: false,
+      reason: 'Feature.geometry must be a non-null object.',
+    });
+    expect(draw.getFeatures().map((f) => f.id)).toEqual(['b']);
+    expect(createListener).toHaveBeenCalledTimes(1);
+    expect(draw.undo()).toBe(true);
     expect(draw.getFeatures()).toHaveLength(0);
-    expect(createListener).not.toHaveBeenCalled();
     expect(draw.undo()).toBe(false);
 
     draw.destroy();
   });
 
-  it('should reject addFeatures when an id already exists or repeats within the call', () => {
+  it('should reject an id that already exists or repeats within the call, per entry', () => {
     const map = new FakeMap();
     const draw = new LibreDraw(map.asMap(), { toolbar: false });
 
     draw.addFeatures([makeFeature('a')]);
 
-    expect(() => draw.addFeatures([makeFeature('b'), makeFeature('a')])).toThrow(
-      /already exists: a/
-    );
-    expect(draw.getFeatures().map((f) => f.id)).toEqual(['a']);
+    expect(draw.addFeatures([makeFeature('a'), makeFeature('b'), makeFeature('b')])).toEqual([
+      { valid: false, id: 'a', reason: 'Feature already exists: a' },
+      { valid: true, id: 'b' },
+      { valid: false, id: 'b', reason: 'Feature already exists: b' },
+    ]);
+    expect(draw.getFeatures().map((f) => f.id)).toEqual(['a', 'b']);
 
-    expect(() => draw.addFeatures([makeFeature('b'), makeFeature('b')])).toThrow(
-      /already exists: b/
-    );
-    expect(draw.getFeatures().map((f) => f.id)).toEqual(['a']);
-
-    // Only the original addFeatures step is in the history.
-    expect(draw.undo()).toBe(true);
-    expect(draw.getFeatures()).toHaveLength(0);
+    // A call whose entries are all rejected records no history step.
+    expect(draw.addFeatures([makeFeature('a')])).toEqual([
+      { valid: false, id: 'a', reason: 'Feature already exists: a' },
+    ]);
+    expect(draw.undo()).toBe(true); // removes 'b'
+    expect(draw.undo()).toBe(true); // removes 'a'
     expect(draw.undo()).toBe(false);
 
     draw.destroy();

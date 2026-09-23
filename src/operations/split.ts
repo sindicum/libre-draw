@@ -20,12 +20,11 @@ import { tryValidateFeature } from '../validation/geojson';
  * The two parts are validated like `addFeatures` input before anything is
  * written. Their vertices are the original vertices plus points on the
  * original edges, so this only fails on rounding at the coordinate limits;
- * that failure reports the validation message and emits no event, because
- * `SplitFailReason` has no code for it.
+ * that failure is `invalid-result`, reported like the other geometric
+ * failures (with a `splitfailed` event), as union and setback do.
  *
  * @returns `created: [a, b], deleted: [original]` on success; otherwise
- *   `not-found`, `not-splittable`, a `SplitFailReason`, or the validation
- *   message.
+ *   `not-found`, `not-splittable`, or a `SplitFailReason`.
  */
 export function split(
   context: OperationContext,
@@ -50,12 +49,10 @@ export function split(
   }
 
   const validatedA = tryValidateFeature(splitResult.features[0]);
-  if (!validatedA.valid) {
-    return { ok: false, reason: validatedA.reason };
-  }
   const validatedB = tryValidateFeature(splitResult.features[1]);
-  if (!validatedB.valid) {
-    return { ok: false, reason: validatedB.reason };
+  if (!validatedA.valid || !validatedB.valid) {
+    context.events.emit('splitfailed', { reason: 'invalid-result', featureId: current.id });
+    return { ok: false, reason: 'invalid-result' };
   }
   const featureA = validatedA.feature;
   const featureB = validatedB.feature;

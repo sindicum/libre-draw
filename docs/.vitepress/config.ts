@@ -22,7 +22,7 @@ const config = defineConfig({
           items: [
             { text: 'Getting Started', link: '/guide/getting-started' },
             { text: 'Modes', link: '/guide/modes' },
-            { text: 'AI', link: '/guide/ai' },
+            { text: 'Programmatic API', link: '/guide/programmatic-api' },
           ],
         },
       ],
@@ -62,5 +62,5 @@ const config = defineConfig({
   },
 });
 
-// Adds the `mermaid` fence renderer (docs/guide/ai.md) on top of the site config.
+// Adds the `mermaid` fence renderer (docs/guide/programmatic-api.md) on top of the site config.
 export default withMermaid(config);

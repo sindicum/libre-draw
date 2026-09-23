@@ -1,9 +1,25 @@
-import { describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import { split } from '../../../src/operations/split';
 import { SplitAction } from '../../../src/types/features';
 import type { LibreDrawFeature, Position } from '../../../src/types/features';
 import { splitLine, splitPolygon } from '../../../src/utils/splitPolygon';
 import { createContext, makeLine, makePoint, makeSquare, ringArea } from './helpers';
+
+// The parts of a split are the original vertices plus points on its edges,
+// so real input cannot make them fail validation except by rounding at the
+// coordinate limits. The rejection path is exercised by failing validation
+// on demand instead.
+const validation = vi.hoisted(() => ({ rejectWith: null as string | null }));
+vi.mock('../../../src/validation/geojson', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('../../../src/validation/geojson')>();
+  return {
+    ...actual,
+    tryValidateFeature: (feature: unknown) =>
+      validation.rejectWith === null
+        ? actual.tryValidateFeature(feature)
+        : { valid: false, reason: validation.rejectWith },
+  };
+});
 
 const VERTICAL_LINE: [Position, Position] = [
   [5, -1],
@@ -80,6 +96,31 @@ describe('split', () => {
   });
 
   describe('failures leave the store, history and listeners untouched', () => {
+    afterEach(() => {
+      validation.rejectWith = null;
+    });
+
+    it('reports a part that fails validation as invalid-result with a splitfailed event', () => {
+      const { context, features, push, emit } = createContext([makeSquare('sq')]);
+      const before = features.get('sq');
+      validation.rejectWith =
+        'Invalid longitude: 180.00000000000003. Must be between -180 and 180.';
+
+      const result = split(context, 'sq', VERTICAL_LINE);
+
+      // The validation message is not surfaced: the code is the contract, as
+      // for union's invalid-result.
+      expect(result).toEqual({ ok: false, reason: 'invalid-result' });
+      expect(features.get('sq')).toBe(before);
+      expect(features.size).toBe(1);
+      expect(push).not.toHaveBeenCalled();
+      expect(emit).toHaveBeenCalledTimes(1);
+      expect(emit).toHaveBeenCalledWith('splitfailed', {
+        reason: 'invalid-result',
+        featureId: 'sq',
+      });
+    });
+
     it('rejects an unknown id as not-found without an event', () => {
       const { context, features, push, emit } = createContext([makeSquare('sq')]);
       expect(split(context, 'missing', VERTICAL_LINE)).toEqual({

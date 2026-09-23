@@ -44,10 +44,11 @@ type Args = Record<string, unknown>;
 /**
  * Run one tool against LibreDraw and return a JSON-serializable result.
  *
- * Operation tools return the `OperationResult` untouched. Methods that throw
- * for a programming error (`selectFeature` with an unknown id, `addFeatures`
- * in strict mode) are turned into `{ ok: false, reason }` so the caller on
- * the other side of the wire never sees an exception.
+ * Operation tools return the `OperationResult` untouched, and `select_feature`
+ * maps its boolean onto the same `{ ok, reason }` shape. LibreDraw only
+ * throws for misuse of the instance (a call after `destroy()`), never for
+ * the data a tool passes; the catch below is the safety net for that case
+ * so the caller on the other side of the wire never sees an exception.
  */
 export function dispatch(draw: DrawApi, tool: string, args: unknown): unknown {
   const a = (args ?? {}) as Args;
@@ -58,9 +59,7 @@ export function dispatch(draw: DrawApi, tool: string, args: unknown): unknown {
       case 'get_feature':
         return draw.getFeatureById(String(a.id)) ?? null;
       case 'add_features':
-        return draw.addFeatures(a.features as Parameters<DrawApi['addFeatures']>[0], {
-          strict: a.strict as boolean | undefined,
-        });
+        return draw.addFeatures(a.features as Parameters<DrawApi['addFeatures']>[0]);
       case 'update_feature':
         return draw.updateFeature(String(a.id), {
           geometry: a.geometry as LibreDrawGeometry | undefined,
@@ -77,8 +76,7 @@ export function dispatch(draw: DrawApi, tool: string, args: unknown): unknown {
       case 'union':
         return draw.union(a.ids as string[]);
       case 'select_feature':
-        draw.selectFeature(String(a.id));
-        return { ok: true };
+        return draw.selectFeature(String(a.id)) ? { ok: true } : { ok: false, reason: 'not-found' };
       case 'undo':
         return draw.undo();
       case 'redo':

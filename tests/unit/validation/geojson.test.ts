@@ -3,6 +3,7 @@ import {
   validateFeature,
   validateGeoJSON,
   tryValidateFeature,
+  tryValidateGeoJSON,
 } from '../../../src/validation/geojson';
 import { LibreDrawError } from '../../../src/core/errors';
 
@@ -371,5 +372,62 @@ describe('tryValidateFeature', () => {
       properties: {},
     };
     expect(() => tryValidateFeature(hostile)).toThrow(TypeError);
+  });
+});
+
+describe('tryValidateGeoJSON', () => {
+  it('should return the normalized features for a valid FeatureCollection', () => {
+    const fc = { type: 'FeatureCollection', features: [makeFeature(), makeFeature({ id: 'b' })] };
+    const result = tryValidateGeoJSON(fc);
+
+    expect(result.valid).toBe(true);
+    if (!result.valid) throw new Error('expected valid');
+    expect(result.features.map((f) => f.id)).toEqual(['test-1', 'b']);
+    expect(result.features[0]).not.toBe(fc.features[0]);
+  });
+
+  it('should report the same message validateGeoJSON throws, with the index prefix', () => {
+    const fc = {
+      type: 'FeatureCollection',
+      features: [
+        makeFeature(),
+        makeFeature({ geometry: { type: 'Point', coordinates: [200, 0] } }),
+      ],
+    };
+
+    let thrown = '';
+    try {
+      validateGeoJSON(fc);
+    } catch (err) {
+      thrown = (err as Error).message;
+    }
+
+    expect(thrown).toMatch(/^Invalid feature at index 1: /);
+    expect(tryValidateGeoJSON(fc)).toEqual({ valid: false, reason: thrown });
+  });
+
+  it('should reject a value that is not a FeatureCollection without throwing', () => {
+    expect(tryValidateGeoJSON(null)).toEqual({
+      valid: false,
+      reason: 'GeoJSON must be a non-null object.',
+    });
+    expect(tryValidateGeoJSON({ type: 'Feature' })).toEqual({
+      valid: false,
+      reason: 'GeoJSON.type must be "FeatureCollection", got "Feature".',
+    });
+    expect(tryValidateGeoJSON({ type: 'FeatureCollection', features: 'x' })).toEqual({
+      valid: false,
+      reason: 'GeoJSON.features must be an array.',
+    });
+  });
+
+  it('should let non-LibreDrawError exceptions propagate', () => {
+    const hostile = {
+      type: 'FeatureCollection',
+      get features(): never {
+        throw new TypeError('boom');
+      },
+    };
+    expect(() => tryValidateGeoJSON(hostile)).toThrow(TypeError);
   });
 });
