@@ -22,9 +22,7 @@ function fakeDraw(): DrawApi & Record<keyof DrawApi, ReturnType<typeof vi.fn>> {
     setback: vi.fn(() => ({ ok: false as const, reason: 'invalid-distance' })),
     rotate: vi.fn(() => success),
     union: vi.fn(() => success),
-    selectFeature: vi.fn((id: string) => {
-      if (id !== 'a') throw new LibreDrawError(`Feature not found: ${id}`);
-    }),
+    selectFeature: vi.fn((id: string) => id === 'a'),
     undo: vi.fn(() => true),
     redo: vi.fn(() => false),
   } as unknown as DrawApi & Record<keyof DrawApi, ReturnType<typeof vi.fn>>;
@@ -76,8 +74,10 @@ describe('dispatch', () => {
       properties: { crop: 'wheat' },
     });
 
-    dispatch(draw, 'add_features', { features: [feature], strict: false });
-    expect(draw.addFeatures).toHaveBeenCalledWith([feature], { strict: false });
+    expect(dispatch(draw, 'add_features', { features: [feature] })).toEqual([
+      { valid: true, id: 'a' },
+    ]);
+    expect(draw.addFeatures).toHaveBeenCalledWith([feature]);
   });
 
   it('returns null for a delete that found nothing and booleans for undo / redo', () => {
@@ -88,12 +88,23 @@ describe('dispatch', () => {
     expect(dispatch(draw, 'redo', {})).toBe(false);
   });
 
-  it('turns a thrown LibreDrawError into { ok: false, reason }', () => {
+  it('maps the boolean of select_feature onto { ok, reason }', () => {
     const draw = fakeDraw();
     expect(dispatch(draw, 'select_feature', { id: 'a' })).toEqual({ ok: true });
     expect(dispatch(draw, 'select_feature', { id: 'missing' })).toEqual({
       ok: false,
-      reason: 'Feature not found: missing',
+      reason: 'not-found',
+    });
+  });
+
+  it('turns a thrown LibreDrawError (instance misuse) into { ok: false, reason }', () => {
+    const draw = fakeDraw();
+    draw.undo.mockImplementation(() => {
+      throw new LibreDrawError('This LibreDraw instance has been destroyed.');
+    });
+    expect(dispatch(draw, 'undo', {})).toEqual({
+      ok: false,
+      reason: 'This LibreDraw instance has been destroyed.',
     });
   });
 

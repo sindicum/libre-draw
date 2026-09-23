@@ -60,13 +60,21 @@ export interface SplitEvent {
 
 /**
  * Reason why a split operation failed.
+ *
+ * - `same-points`: the two points of the split line coincide
+ * - `insufficient-vertices`: the target has too few vertices to split
+ * - `has-holes`: the target Polygon has an inner ring
+ * - `invalid-intersection-count`: the line does not cross the outer ring exactly twice
+ * - `self-intersecting-result`: a part would be self-intersecting
+ * - `invalid-result`: a part failed validation (rounding at the coordinate limits)
  */
 export type SplitFailReason =
   | 'same-points'
   | 'insufficient-vertices'
   | 'has-holes'
   | 'invalid-intersection-count'
-  | 'self-intersecting-result';
+  | 'self-intersecting-result'
+  | 'invalid-result';
 
 /**
  * Event payload for a failed split operation.

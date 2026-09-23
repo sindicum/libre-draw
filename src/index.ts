@@ -42,7 +42,6 @@ export type {
   OperationSuccess,
   OperationFailure,
   OperationResult,
-  AddFeaturesOptions,
   AddFeatureResult,
   FeatureValidationResult,
   UpdateFeaturePatch,

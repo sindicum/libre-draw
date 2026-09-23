@@ -11,7 +11,6 @@ import type {
   PartialStyleConfig,
   Messages,
   EventOrigin,
-  AddFeaturesOptions,
   AddFeatureResult,
   FeatureValidationResult,
   OperationResult,
@@ -37,7 +36,7 @@ import { ModeManager } from './core/ModeManager';
 import type { ModeContext } from './core/ModeContext';
 import type { ModeName } from './types/mode';
 import { LibreDrawError } from './core/errors';
-import { validateGeoJSON, tryValidateFeature } from './validation/geojson';
+import { tryValidateFeature, tryValidateGeoJSON } from './validation/geojson';
 import { updateFeature as updateFeatureOperation } from './operations/updateFeature';
 import { rotate as rotateOperation } from './operations/rotate';
 import { split as splitOperation } from './operations/split';
@@ -339,6 +338,9 @@ export class LibreDraw {
    *   existing features), `'split'`, `'union'`, `'setback'`, or `'rotate'`.
    *
    * @throws {LibreDrawError} If this instance has been destroyed.
+   * @throws {LibreDrawError} If `mode` is not one of the names above
+   *   (`Unknown mode: <name>`). The current mode stays active and no
+   *   `'modechange'` is emitted.
    *
    * @example
    * ```ts
@@ -417,18 +419,25 @@ export class LibreDraw {
   /**
    * Replace all features in the store with the given GeoJSON FeatureCollection.
    *
-   * Validates the input, clears the current store and history, and
-   * re-renders the map. Undo/redo history is reset after this call.
+   * Validates the whole input first (all or nothing), then clears the
+   * store, the selection, and the history, and re-renders the map. No
+   * `'create'` / `'delete'` events are emitted for the replaced features:
+   * this is a reload, not an edit. Undo/redo history is reset after this
+   * call.
    *
-   * @param geojson - A GeoJSON FeatureCollection containing Polygon features.
+   * @param geojson - A GeoJSON FeatureCollection containing Point,
+   *   LineString, or Polygon features.
+   * @returns `{ ok: true, created, deleted }` with the new features in
+   *   `created` and the previous ones in `deleted`, or `{ ok: false, reason }`
+   *   when the input is not a FeatureCollection or one of its features
+   *   fails validation (`Invalid feature at index i: …`). Nothing changes
+   *   on failure.
    *
    * @throws {LibreDrawError} If this instance has been destroyed.
-   * @throws {LibreDrawError} If the input is not a valid FeatureCollection
-   *   or contains invalid polygon geometries.
    *
    * @example
    * ```ts
-   * draw.setFeatures({
+   * const result = draw.setFeatures({
    *   type: 'FeatureCollection',
    *   features: [{
    *     type: 'Feature',
@@ -439,46 +448,53 @@ export class LibreDraw {
    *     properties: {}
    *   }]
    * });
+   * if (!result.ok) console.warn(result.reason);
    * ```
    */
-  setFeatures(geojson: unknown): void {
+  setFeatures(geojson: unknown): OperationResult {
     this.assertNotDestroyed();
-    const validated = validateGeoJSON(geojson);
-    this.asApi(() => {
+    const validated = tryValidateGeoJSON(geojson);
+    if (!validated.valid) {
+      return { ok: false, reason: validated.reason };
+    }
+    // getAll() already returns clones, so the result cannot alias the store.
+    const previous = this.featureStore.getAll();
+    const created = this.asApi(() => {
       this.featureStore.setAll(validated.features);
       this.resetSelectionState();
       this.historyManager.clear();
       this.renderAllFeatures();
       this.updateToolbarHistoryState();
+      return this.featureStore.getAll();
     });
+    return { ok: true, created, updated: [], deleted: previous };
   }
 
   /**
    * Add features to the store from an array of GeoJSON Feature objects.
    *
-   * Every feature is validated first. With `strict: true` (the default) one
-   * invalid entry makes the call throw and leaves the store untouched; with
-   * `strict: false` the invalid entries are reported in the returned array
-   * and only the valid ones are added. Either way the added features form a
-   * **single undoable step** (one `undo()` removes every feature added by
-   * this call), and a `'create'` event fires for each added feature.
-   * Unlike {@link setFeatures}, existing features and history are kept.
+   * Every feature is validated first and reported individually: invalid
+   * entries (bad geometry, or an `id` that already exists in the store or
+   * appears earlier in the array) come back as `{ valid: false, reason }`
+   * and only the valid ones are added. Nothing is thrown for the input.
+   * The added features form a **single undoable step** (one `undo()`
+   * removes every feature added by this call), and a `'create'` event
+   * fires for each added feature. Unlike {@link setFeatures}, existing
+   * features and history are kept. There is no all-or-nothing option: to
+   * get one, check each input with {@link validateFeature} and its id with
+   * {@link getFeatureById} (and against the other inputs) before calling.
    *
    * @param features - An array of GeoJSON Feature objects with Point,
    *   LineString, or Polygon geometry. Features without an `id` get a
    *   generated UUID.
-   * @param options - `{ strict }`; see {@link AddFeaturesOptions}.
    * @returns One {@link AddFeatureResult} per input feature, in input order.
    *   Valid entries carry the id the feature has in the store.
    *
    * @throws {LibreDrawError} If this instance has been destroyed.
-   * @throws {LibreDrawError} In strict mode, if any feature has invalid
-   *   geometry, or if a feature `id` already exists in the store or appears
-   *   more than once in the array.
    *
    * @example
    * ```ts
-   * draw.addFeatures([{
+   * const results = draw.addFeatures([{
    *   type: 'Feature',
    *   geometry: {
    *     type: 'Polygon',
@@ -486,21 +502,17 @@ export class LibreDraw {
    *   },
    *   properties: { name: 'Zone A' }
    * }]);
-   * draw.undo(); // removes the feature added above
-   *
-   * // Report per-feature problems instead of throwing:
-   * const results = draw.addFeatures(features, { strict: false });
    * results.forEach((r, i) => {
    *   if (!r.valid) console.warn(`feature ${i} rejected: ${r.reason}`);
    * });
+   * draw.undo(); // removes every feature added above
    * ```
    */
-  addFeatures(features: unknown[], options: AddFeaturesOptions = {}): AddFeatureResult[] {
+  addFeatures(features: unknown[]): AddFeatureResult[] {
     this.assertNotDestroyed();
-    const strict = options.strict ?? true;
 
-    // Validate everything first so a bad entry cannot leave a partial add
-    // behind (the call must map to exactly one history step or none).
+    // Validate everything first so the valid entries can be added as
+    // exactly one history step (or none when nothing passed).
     const results: AddFeatureResult[] = [];
     const accepted: { index: number; feature: LibreDrawFeature }[] = [];
     // FeatureStore.add() silently overwrites an existing id. Recording that
@@ -528,12 +540,6 @@ export class LibreDraw {
       accepted.push({ index, feature });
     });
 
-    if (strict) {
-      const firstInvalid = results.find((r) => !r.valid);
-      if (firstInvalid && !firstInvalid.valid) {
-        throw new LibreDrawError(firstInvalid.reason);
-      }
-    }
     if (accepted.length === 0) return results;
 
     this.asApi(() => {
@@ -563,7 +569,7 @@ export class LibreDraw {
    * @param feature - The object to validate.
    * @returns `{ valid: true, feature }` with a normalized copy, or
    *   `{ valid: false, reason }` with the same message `addFeatures` would
-   *   throw.
+   *   report for it.
    *
    * @throws {LibreDrawError} If this instance has been destroyed.
    *
@@ -819,27 +825,30 @@ export class LibreDraw {
   /**
    * Programmatically select a feature by its ID.
    *
-   * Switches to select mode if not already active. The feature
-   * must exist in the store.
+   * Switches to select mode if not already active. When no feature has
+   * that id nothing happens: the mode and the selection stay as they are
+   * and no event is emitted.
    *
    * @param id - The unique identifier of the feature to select.
+   * @returns `true` if the feature was selected, `false` if no feature
+   *   has that id.
    *
    * @throws {LibreDrawError} If this instance has been destroyed.
-   * @throws {LibreDrawError} If no feature with the given ID exists.
    *
    * @example
    * ```ts
-   * draw.selectFeature('abc-123');
-   * console.log(draw.getSelectedFeatureIds()); // ['abc-123']
-   * console.log(draw.getMode()); // 'select'
+   * if (draw.selectFeature('abc-123')) {
+   *   console.log(draw.getSelectedFeatureIds()); // ['abc-123']
+   *   console.log(draw.getMode()); // 'select'
+   * }
    * ```
    */
-  selectFeature(id: string): void {
+  selectFeature(id: string): boolean {
     this.assertNotDestroyed();
 
-    const feature = this.featureStore.getById(id);
-    if (!feature) {
-      throw new LibreDrawError(`Feature not found: ${id}`);
+    // Checked before entering select mode so an unknown id changes nothing.
+    if (!this.featureStore.getById(id)) {
+      return false;
     }
 
     this.asApi(() => {
@@ -848,6 +857,7 @@ export class LibreDraw {
       }
       this.selectMode.selectFeature(id);
     });
+    return true;
   }
 
   /**

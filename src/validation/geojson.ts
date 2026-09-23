@@ -253,9 +253,9 @@ export function validateFeature(feature: unknown): LibreDrawFeature {
  *
  * Wraps {@link validateFeature}: a `LibreDrawError` becomes
  * `{ valid: false, reason }` carrying the same message, so callers that
- * report per-feature outcomes (`addFeatures` with `strict: false`, the
- * public `validateFeature`) share one wording with the throwing path.
- * Any other exception is a bug and propagates.
+ * report per-feature outcomes (`addFeatures`, the public `validateFeature`)
+ * share one wording with the throwing path. Any other exception is a bug
+ * and propagates.
  * @param feature - The object to validate.
  * @returns The normalized feature, or the rejection reason.
  */
@@ -315,4 +315,32 @@ export function validateGeoJSON(geojson: unknown): {
     type: 'FeatureCollection',
     features: validatedFeatures,
   };
+}
+
+/**
+ * Outcome of {@link tryValidateGeoJSON}.
+ */
+export type GeoJSONValidationResult =
+  | { valid: true; features: LibreDrawFeature[] }
+  | { valid: false; reason: string };
+
+/**
+ * Validate a FeatureCollection without throwing.
+ *
+ * Wraps {@link validateGeoJSON} the way {@link tryValidateFeature} wraps
+ * `validateFeature`: a `LibreDrawError` becomes `{ valid: false, reason }`
+ * with the same message (including the `Invalid feature at index i:`
+ * prefix), and any other exception propagates.
+ * @param geojson - The value to validate.
+ * @returns The normalized features, or the rejection reason.
+ */
+export function tryValidateGeoJSON(geojson: unknown): GeoJSONValidationResult {
+  try {
+    return { valid: true, features: validateGeoJSON(geojson).features };
+  } catch (err) {
+    if (err instanceof LibreDrawError) {
+      return { valid: false, reason: err.message };
+    }
+    throw err;
+  }
 }

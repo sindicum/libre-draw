@@ -53,7 +53,7 @@ The value is decided by the call path, not by the kind of change: the same `dele
 Emitted when a new feature is created.
 In `draw-point` mode this happens on each click/tap. In `draw-line` mode it happens when the line is finalized. In `draw-polygon` mode it happens when the polygon is completed. In `draw-rectangle` mode it happens on the second corner click.
 
-It also fires once per feature from [`addFeatures()`](/api/libre-draw#addfeatures-features-options), and from history: redoing a `create` emits it again, and undoing a `delete`, `split`, `setback`, or `union` emits `create` for every feature that comes back.
+It also fires once per feature from [`addFeatures()`](/api/libre-draw#addfeatures-features), and from history: redoing a `create` emits it again, and undoing a `delete`, `split`, `setback`, or `union` emits `create` for every feature that comes back.
 
 ### Payload: `CreateEvent`
 
@@ -180,7 +180,7 @@ draw.on('split', (e) => {
 
 ## `splitfailed`
 
-Emitted when a split fails for a geometric reason, in `split` mode or through [`split()`](/api/libre-draw#split-id-line). Argument errors of the API (`'not-found'`, `'not-splittable'`) are only returned, not emitted.
+Emitted when a split fails for a geometric reason, in `split` mode or through [`split()`](/api/libre-draw#split-id-line). Argument errors of the API (`'not-found'`, `'not-splittable'`) are only returned, not emitted. `'invalid-result'` means a part failed validation, which only happens by rounding at the coordinate limits.
 
 ### Payload: `SplitFailedEvent`
 
@@ -190,7 +190,8 @@ type SplitFailReason =
   | 'insufficient-vertices'
   | 'has-holes'
   | 'invalid-intersection-count'
-  | 'self-intersecting-result';
+  | 'self-intersecting-result'
+  | 'invalid-result';
 
 interface SplitFailedEvent {
   origin: EventOrigin;

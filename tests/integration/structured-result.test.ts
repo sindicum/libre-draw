@@ -2,6 +2,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { LibreDraw } from '../../src/LibreDraw';
 import { LibreDrawError } from '../../src/core/errors';
 import type { CreateEvent, DeleteEvent, EventOrigin } from '../../src/types/events';
+import type { ModeName } from '../../src/types/mode';
 import { FakeMap } from './helpers/fakeMap';
 
 function makeSquare(id: string | undefined, x = 10, y = 10, size = 20) {
@@ -77,7 +78,7 @@ describe('structured results and event origin', () => {
     vi.unstubAllGlobals();
   });
 
-  describe('addFeatures() in strict mode (default)', () => {
+  describe('addFeatures()', () => {
     it('returns one valid result per feature and fills in generated ids', () => {
       const draw = new LibreDraw(new FakeMap().asMap(), { toolbar: false });
 
@@ -97,39 +98,17 @@ describe('structured results and event origin', () => {
       expect(draw.undo()).toBe(false);
     });
 
-    it('throws on the first invalid feature and adds nothing', () => {
-      const draw = new LibreDraw(new FakeMap().asMap(), { toolbar: false });
-      const createListener = vi.fn();
-      draw.on('create', createListener);
-
-      expect(() => draw.addFeatures([makeSquare('a'), makeBroken('b')])).toThrow(LibreDrawError);
-      expect(draw.getFeatures()).toHaveLength(0);
-      expect(draw.undo()).toBe(false);
-      expect(createListener).not.toHaveBeenCalled();
-    });
-
-    it('throws on a duplicate id, whether in the store or within the array', () => {
-      const draw = new LibreDraw(new FakeMap().asMap(), { toolbar: false });
-      draw.addFeatures([makeSquare('a')]);
-
-      expect(() => draw.addFeatures([makeSquare('a')])).toThrow('Feature already exists: a');
-      expect(() => draw.addFeatures([makeSquare('b'), makeSquare('b')])).toThrow(
-        'Feature already exists: b'
-      );
-      expect(draw.getFeatures().map((f) => f.id)).toEqual(['a']);
-    });
-  });
-
-  describe('addFeatures() with strict: false', () => {
     it('reports invalid entries in input order and adds only the valid ones as one step', () => {
       const draw = new LibreDraw(new FakeMap().asMap(), { toolbar: false });
       const createListener = vi.fn();
       draw.on('create', createListener);
 
-      const results = draw.addFeatures(
-        [makeBroken('bad'), makeSquare('a'), null, makeSquare('b', 50, 50)],
-        { strict: false }
-      );
+      const results = draw.addFeatures([
+        makeBroken('bad'),
+        makeSquare('a'),
+        null,
+        makeSquare('b', 50, 50),
+      ]);
 
       expect(results).toHaveLength(4);
       expect(results[0]).toEqual({
@@ -150,29 +129,22 @@ describe('structured results and event origin', () => {
       expect(draw.undo()).toBe(false);
     });
 
-    it('uses the same reason wording as the strict-mode exception', () => {
+    it('uses the same reason wording as validateFeature()', () => {
       const draw = new LibreDraw(new FakeMap().asMap(), { toolbar: false });
 
-      let thrown = '';
-      try {
-        draw.addFeatures([makeBroken('x')]);
-      } catch (err) {
-        thrown = (err as Error).message;
-      }
-      const [result] = draw.addFeatures([makeBroken('x')], { strict: false });
+      const validation = draw.validateFeature(makeBroken('x'));
+      const [result] = draw.addFeatures([makeBroken('x')]);
 
-      expect(thrown).not.toBe('');
-      expect(result).toEqual({ valid: false, id: 'x', reason: thrown });
+      expect(validation.valid).toBe(false);
+      if (validation.valid) throw new Error('expected invalid');
+      expect(result).toEqual({ valid: false, id: 'x', reason: validation.reason });
     });
 
-    it('rejects duplicate ids per feature instead of throwing', () => {
+    it('rejects duplicate ids per feature, whether in the store or within the array', () => {
       const draw = new LibreDraw(new FakeMap().asMap(), { toolbar: false });
       draw.addFeatures([makeSquare('a')]);
 
-      const results = draw.addFeatures(
-        [makeSquare('a'), makeSquare('b'), makeSquare('b', 50, 50)],
-        { strict: false }
-      );
+      const results = draw.addFeatures([makeSquare('a'), makeSquare('b'), makeSquare('b', 50, 50)]);
 
       expect(results).toEqual([
         { valid: false, id: 'a', reason: 'Feature already exists: a' },
@@ -187,7 +159,7 @@ describe('structured results and event origin', () => {
       const createListener = vi.fn();
       draw.on('create', createListener);
 
-      const results = draw.addFeatures([makeBroken('a'), 42], { strict: false });
+      const results = draw.addFeatures([makeBroken('a'), 42]);
 
       expect(results.every((r) => !r.valid)).toBe(true);
       expect(draw.getFeatures()).toHaveLength(0);
@@ -361,7 +333,7 @@ describe('structured results and event origin', () => {
       const createListener = vi.fn();
       draw.on('create', createListener);
 
-      expect(() => draw.selectFeature('missing')).toThrow(LibreDrawError);
+      expect(() => draw.setMode('nope' as ModeName)).toThrow(LibreDrawError);
 
       draw.setMode('draw-point');
       clickAt(map, 30, 30);
