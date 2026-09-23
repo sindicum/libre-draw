@@ -1,0 +1,76 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>LibreDraw - MCP Bridge Example</title>
+    <style>
+      body {
+        margin: 0;
+        display: grid;
+        grid-template-columns: 1fr 360px;
+        height: 100vh;
+        font-family: system-ui, sans-serif;
+        font-size: 13px;
+      }
+      #map {
+        height: 100vh;
+      }
+      #log-panel {
+        border-left: 1px solid #ddd;
+        overflow: auto;
+        background: #fafafa;
+      }
+      #log-panel h1 {
+        font-size: 14px;
+        margin: 0;
+        padding: 10px 12px;
+        border-bottom: 1px solid #ddd;
+        background: #fff;
+      }
+      #log {
+        list-style: none;
+        margin: 0;
+        padding: 6px 0;
+      }
+      .log-row {
+        padding: 3px 12px;
+        border-bottom: 1px solid #eee;
+        word-break: break-all;
+      }
+      .log-badge {
+        display: inline-block;
+        min-width: 44px;
+        margin-right: 8px;
+        padding: 0 6px;
+        border-radius: 3px;
+        text-align: center;
+        font-size: 11px;
+        color: #fff;
+      }
+      .log-api .log-badge {
+        background: #1d6fd6;
+      }
+      .log-user .log-badge {
+        background: #6b7280;
+      }
+      .log-tool .log-badge {
+        background: #0f766e;
+      }
+      .log-bridge .log-badge {
+        background: #b45309;
+      }
+      .log-api {
+        background: #eef4fc;
+      }
+    </style>
+  </head>
+  <body>
+    <div id="map"></div>
+    <aside id="log-panel">
+      <h1>Events (api / user) and tool calls</h1>
+      <ul id="log"></ul>
+    </aside>
+    <script type="module" src="./page/main.ts"></script>
+  </body>
+</html>

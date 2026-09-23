@@ -71,8 +71,6 @@ const draw = new LibreDraw(map, {
 
 Every string is listed under [`Messages`](/api/types#messages). An unknown `locale` throws a `LibreDrawError`.
 
-> **Upgrading from 0.9.x:** the style settings panel and the distance / angle inputs used to be Japanese. They are English by default since 0.10.0; add `locale: 'ja'` to keep the previous labels.
-
 ## Headless Mode
 
 If you want to control everything programmatically without the toolbar:
@@ -210,5 +208,6 @@ draw.destroy();
 ## Next Steps
 
 - Learn about [Modes](/guide/modes) (Idle, Draw Point, Draw Line, Draw, Draw Rectangle, Select, Split, Union, Setback, Rotate)
+- Call the API from an AI agent: [Using LibreDraw from AI](/guide/ai)
 - See the full [API Reference](/api/)
 - Try the [Live Demo](/examples/)

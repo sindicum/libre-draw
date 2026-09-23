@@ -1,0 +1,22 @@
+{
+  "name": "libre-draw-mcp-example",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "description": "Reference MCP server that drives LibreDraw in a browser page over WebSocket",
+  "scripts": {
+    "server": "tsx server/index.ts",
+    "typecheck": "tsc --noEmit -p ."
+  },
+  "dependencies": {
+    "@modelcontextprotocol/server": "^2.0.0",
+    "ws": "^8.21.3",
+    "zod": "^4.2.0"
+  },
+  "devDependencies": {
+    "@types/node": "^24.0.0",
+    "@types/ws": "^8.18.0",
+    "tsx": "^4.20.0",
+    "typescript": "^5.9.0"
+  }
+}
