@@ -24,6 +24,7 @@ class FakeMap {
 
   public dragPan = { enable: vi.fn(), disable: vi.fn() };
   public doubleClickZoom = { enable: vi.fn(), disable: vi.fn() };
+  public boxZoom = { enable: vi.fn(), disable: vi.fn(), isEnabled: vi.fn(() => true) };
 
   constructor() {
     this.canvas = document.createElement('div');

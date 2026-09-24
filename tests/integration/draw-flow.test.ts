@@ -18,6 +18,7 @@ import type {
   DraftChangeEvent,
   UpdateEvent,
 } from '../../src/types/events';
+import { attachSelection } from '../helpers/selection';
 
 function createPointerEvent(
   lng: number,
@@ -74,7 +75,7 @@ describe('Draw Flow Integration', () => {
     const store = new FeatureStore();
     const history = new HistoryManager();
     const modeManager = new ModeManager();
-    const modeContext: ModeContext = {
+    const modeContext: ModeContext = attachSelection({
       store: {
         add: (feature) => store.add(feature),
         update: (id, feature) => store.update(id, feature),
@@ -110,7 +111,7 @@ describe('Draw Flow Integration', () => {
       getSetbackDistance: () => 10,
       getSnapConfig: () => ({ enabled: false, threshold: 10 }),
       getViewportBounds: () => ({ west: -180, south: -90, east: 180, north: 90 }),
-    };
+    });
 
     const drawPolygonMode = new DrawPolygonMode(modeContext);
     const drawLineMode = new DrawLineMode(modeContext);

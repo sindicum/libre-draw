@@ -30,10 +30,10 @@ Every payload carries an `origin` telling you who caused the change:
 type EventOrigin = 'api' | 'user';
 ```
 
-| Value    | Meaning                                                                                                                                                                                                                 |
-| -------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `'api'`  | A public `LibreDraw` method was running: `addFeatures()`, `deleteFeature()`, `setMode()`, `selectFeature()`, `clearSelection()`, `finishDrawing()`, `cancelDrawing()`, `undo()`, `redo()`, … and anything they trigger. |
-| `'user'` | Pointer or touch input on the map, a toolbar button (including its Undo / Redo / Delete buttons), or a keyboard shortcut.                                                                                               |
+| Value    | Meaning                                                                                                                                                                                                                                     |
+| -------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `'api'`  | A public `LibreDraw` method was running: `addFeatures()`, `deleteFeature()`, `setMode()`, `selectFeature()`, `selectFeatures()`, `clearSelection()`, `finishDrawing()`, `cancelDrawing()`, `undo()`, `redo()`, … and anything they trigger. |
+| `'user'` | Pointer or touch input on the map, a toolbar button (including its Undo / Redo / Delete buttons), or a keyboard shortcut.                                                                                                                   |
 
 Use it to keep a sync loop from reacting to its own changes:
 
@@ -86,7 +86,7 @@ draw.on('create', (e) => {
 ## `update`
 
 Emitted when an existing feature is modified.
-This includes vertex edits and dragging of polygons and lines, and point dragging in select mode. Undo and redo of any `update` (including rotations, see [`rotate`](#rotate)) emit it as well, with `feature` / `oldFeature` describing the direction of the change.
+This includes vertex edits and dragging of polygons and lines, and point dragging in select mode. Dragging several selected features together emits one `update` per feature (and records a single undo step). Undo and redo of any `update` (including rotations, see [`rotate`](#rotate)) emit it as well, with `feature` / `oldFeature` describing the direction of the change.
 
 ### Payload: `UpdateEvent`
 
@@ -118,7 +118,7 @@ draw.on('update', (e) => {
 
 ## `delete`
 
-Emitted when a feature is deleted (via toolbar button, Delete key, or `deleteFeature()` API). History emits it too: undoing a `create` (or a batch from `addFeatures()`, children in reverse order), undoing a `split` (two deletes), `setback`, or `union`, and redoing a `delete` or a `split` (the original polygon is deleted before `split` fires again).
+Emitted when a feature is deleted (via toolbar button, Delete key, or `deleteFeature()` API). Deleting a multi-selection emits one `delete` per feature (and records a single undo step). History emits it too: undoing a `create` (or a batch from `addFeatures()`, children in reverse order), undoing a `split` (two deletes), `setback`, or `union`, and redoing a `delete` or a `split` (the original polygon is deleted before `split` fires again).
 
 ### Payload: `DeleteEvent`
 
@@ -404,10 +404,12 @@ interface SelectionChangeEvent {
 }
 ```
 
-| Property      | Type                           | Description                                                                    |
-| ------------- | ------------------------------ | ------------------------------------------------------------------------------ |
-| `origin`      | [`EventOrigin`](#event-origin) | Who caused the change: `'api'` or `'user'`                                     |
-| `selectedIds` | `string[]`                     | Array of currently selected feature IDs. Empty array when nothing is selected. |
+| Property      | Type                           | Description                                                                                                     |
+| ------------- | ------------------------------ | --------------------------------------------------------------------------------------------------------------- |
+| `origin`      | [`EventOrigin`](#event-origin) | Who caused the change: `'api'` or `'user'`                                                                      |
+| `selectedIds` | `string[]`                     | Array of currently selected feature IDs, in the order they were selected. Empty array when nothing is selected. |
+
+Fired once per change, in every mode (the selection is shared). A change that leaves the set as it was fires nothing. In select mode the array can hold several IDs (Shift / Ctrl / Cmd + click, or `selectFeatures()`); in rotate, split, setback and union mode it holds at most one.
 
 ### Example
 

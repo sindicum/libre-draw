@@ -23,11 +23,24 @@ export class SetbackMode implements Mode {
   private context: ModeContext;
   private isActive = false;
   private state: SetbackState = 'idle';
-  private selectedFeatureId: string | null = null;
   private selectedEdgeIndex = -1;
 
   constructor(context: ModeContext) {
     this.context = context;
+  }
+
+  private get selectedFeatureId(): string | null {
+    return this.context.selection.getSingleId() ?? null;
+  }
+
+  /**
+   * The shared selection was cleared from outside (public API, a deleted
+   * feature): abandon the half-finished operation on the old target.
+   */
+  onSelectionChange(selectedIds: string[]): void {
+    if (selectedIds.length === 0 && this.state !== 'idle') {
+      this.resetInteractionState(false);
+    }
   }
 
   mapInteractions(): { dragPan: boolean; doubleClickZoom: boolean } {
@@ -257,19 +270,12 @@ export class SetbackMode implements Mode {
 
   /** Mark a feature as selected and notify render/event layers. */
   private selectFeature(id: string): void {
-    this.selectedFeatureId = id;
-    this.context.render.setSelectedIds([id]);
-    this.context.events.emit('selectionchange', { selectedIds: [id] });
-    this.context.render.renderFeatures();
+    this.context.selection.set([id]);
   }
 
   /** Clear current feature selection and notify render/event layers. */
   private clearSelection(): void {
-    if (!this.selectedFeatureId) return;
-    this.selectedFeatureId = null;
-    this.context.render.setSelectedIds([]);
-    this.context.events.emit('selectionchange', { selectedIds: [] });
-    this.context.render.renderFeatures();
+    this.context.selection.clear();
   }
 
   /** Get the currently selected feature from the store. */

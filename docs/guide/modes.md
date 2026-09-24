@@ -257,13 +257,26 @@ In select mode, you can select existing features (points, lines, and polygons) a
 
 ### Selecting
 
-| Action           | Effect                                                  |
-| ---------------- | ------------------------------------------------------- |
-| Click on polygon | Select it (shows vertex handles)                        |
-| Click near line  | Select it (within 20px threshold, shows vertex handles) |
-| Click near point | Select it (within 20px threshold)                       |
-| Click outside    | Deselect                                                |
-| Delete key       | Delete selected feature                                 |
+| Action                                  | Effect                                                    |
+| --------------------------------------- | --------------------------------------------------------- |
+| Click on polygon                        | Select it (shows vertex handles)                          |
+| Click near line                         | Select it (within 20px threshold, shows vertex handles)   |
+| Click near point                        | Select it (within 20px threshold)                         |
+| Shift / Ctrl / Cmd + click on a feature | Add it to the selection, or remove it if already selected |
+| Click outside                           | Deselect                                                  |
+| Delete key                              | Delete every selected feature                             |
+
+### Multiple Selection
+
+Shift, Ctrl, or Cmd + click builds a selection of several features; points, lines, and polygons can be mixed. `selectFeatures(ids)` does the same from code. While more than one feature is selected:
+
+| Action                      | Effect                                                                 |
+| --------------------------- | ---------------------------------------------------------------------- |
+| Drag any selected feature   | Move all of them by the same offset (one undo step, one `update` each) |
+| Delete key / toolbar delete | Delete all of them (one undo step, one `delete` each)                  |
+| Click an unselected feature | Select only that feature                                               |
+
+Vertex and midpoint handles are shown only while exactly one feature is selected. On touch devices there is no modifier key, so a tap always selects a single feature; use `selectFeatures(ids)` to select several.
 
 ### Point Editing
 
@@ -303,6 +316,7 @@ When a polygon is selected, vertex handles appear:
 ### Behavior
 
 - Double-click zoom is disabled during select mode
+- MapLibre's box zoom (Shift + drag) is disabled during select mode, so a Shift + click never zooms the map. It is restored to the map's own setting when you leave the mode
 - Map panning is temporarily disabled during vertex/polygon/line/point drag
 - Self-intersection is prevented during polygon editing (not enforced for lines)
 - Undo/redo works for all edit operations
@@ -310,8 +324,9 @@ When a polygon is selected, vertex handles appear:
 ```ts
 draw.setMode('select');
 
-// Or programmatically select a feature
+// Or programmatically select one feature, or several
 draw.selectFeature('feature-id');
+draw.selectFeatures(['feature-a', 'feature-b']);
 
 draw.on('update', (e) => {
   console.log('Polygon edited:', e.feature);
@@ -420,6 +435,7 @@ draw.on('rotate', (e) => console.log(`${e.originalFeature.id} rotated by ${e.ang
 - While a target is selected, a crosshair marks the pivot (the centroid). The pivot does not move when the shape turns, so repeated rotations spin around the same point; the marker is hidden when the selection is cleared
 - Vertex snapping is not applied while rotating
 - Map panning stays enabled; only a drag that starts on the selected feature is captured
+- MapLibre's box zoom (Shift + drag) is disabled during rotate mode so that Shift + drag only snaps the angle
 
 ## Keyboard Shortcuts
 

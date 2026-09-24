@@ -4,6 +4,7 @@ import { UnionMode } from '../../../src/modes/UnionMode';
 import { UnionAction } from '../../../src/types/features';
 import type { LibreDrawFeature } from '../../../src/types/features';
 import type { NormalizedInputEvent, InputType } from '../../../src/types/input';
+import { attachSelection } from '../../helpers/selection';
 
 function makeSquare(id: string, x: number, y: number, size = 10): LibreDrawFeature {
   return {
@@ -75,7 +76,7 @@ function createHarness(initial: LibreDrawFeature[]): TestHarness {
   const renderFeatures = vi.fn();
   const setSelectedIds = vi.fn();
 
-  const context: ModeContext = {
+  const context: ModeContext = attachSelection({
     store: { add, update, remove, getById, getAll },
     history: { push },
     events: { emit },
@@ -98,7 +99,7 @@ function createHarness(initial: LibreDrawFeature[]): TestHarness {
     getSetbackDistance: () => 10,
     getSnapConfig: () => ({ enabled: false, threshold: 10 }),
     getViewportBounds: () => ({ west: -180, south: -90, east: 180, north: 90 }),
-  };
+  });
 
   return { context, features, mocks: { add, remove, push, emit, renderFeatures, setSelectedIds } };
 }

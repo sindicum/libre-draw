@@ -528,11 +528,37 @@ if (draw.selectFeature('abc-123')) {
 
 ---
 
+### `selectFeatures(ids)`
+
+Programmatically select several features at once.
+
+Switches to select mode if not already active and replaces the selection with `ids` (duplicates are ignored). Point, LineString and Polygon features can be mixed. With more than one feature selected no vertex handles are shown; a drag moves them all and Delete removes them all, each as one undo step. When `ids` is empty or any id is unknown nothing happens: the mode and the selection stay as they are and no event is emitted.
+
+**Parameters:**
+
+| Name  | Type       | Description                                      |
+| ----- | ---------- | ------------------------------------------------ |
+| `ids` | `string[]` | The unique identifiers of the features to select |
+
+**Returns:** `boolean` — `true` if the features were selected, `false` if `ids` is empty or contains an id with no feature.
+
+**Throws:** [`LibreDrawError`](/api/types#libredrawerror) if this instance has been destroyed.
+
+**Example:**
+
+```ts
+if (draw.selectFeatures(['a', 'b'])) {
+  console.log(draw.getSelectedFeatureIds()); // ['a', 'b']
+}
+```
+
+---
+
 ### `getSelectedFeatureIds()`
 
 Get the IDs of currently selected features.
 
-Returns selected IDs in select mode, and the rotation target in rotate mode. In other modes, returns an empty array since selection is cleared on mode transition.
+Every mode shares one selection: select mode may hold several features, rotate / split / setback / union at most their one target, and drawing modes none (switching modes clears the selection). IDs are returned in the order they were selected.
 
 **Returns:** `string[]`
 
@@ -553,7 +579,7 @@ draw.on('selectionchange', (e) => {
 
 Clear the current feature selection.
 
-Deselects all features, removes vertex handles, and emits a `selectionchange` event. In rotate mode this also discards any uncommitted rotation preview. No-op if nothing is selected.
+Deselects all features, removes vertex handles, and emits a `selectionchange` event. In rotate mode this also discards any uncommitted rotation preview, and in split / setback mode the half-finished operation on the target. No-op if nothing is selected.
 
 **Returns:** `void`
 

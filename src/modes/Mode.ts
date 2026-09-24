@@ -6,6 +6,12 @@ import type { NormalizedInputEvent } from '../types/input';
 export interface MapInteractionConfig {
   dragPan: boolean;
   doubleClickZoom: boolean;
+  /**
+   * `false` turns MapLibre's Shift + drag box zoom off while the mode is
+   * active. Omit it to leave the map's own setting (as it was when LibreDraw
+   * was created) in place.
+   */
+  boxZoom?: boolean;
 }
 
 /**
@@ -42,6 +48,20 @@ export interface Mode {
 
   /** Handle a key down event. */
   onKeyDown(key: string, event: KeyboardEvent): void;
+
+  /**
+   * Called on the active mode after the shared selection changed, whoever
+   * changed it (this mode, the public API, a deleted feature). The mode
+   * brings its own transient state (handles, previews, bases) in line.
+   */
+  onSelectionChange?(selectedIds: string[]): void;
+
+  /**
+   * Called on the active mode after the store changed behind its back
+   * (undo / redo, an operation called from the API). The mode re-reads
+   * whatever it derived from the selected features.
+   */
+  refreshFromStore?(): void;
 }
 
 /**

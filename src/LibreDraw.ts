@@ -33,6 +33,7 @@ import { EventBus } from './core/EventBus';
 import { FeatureStore } from './core/FeatureStore';
 import { HistoryManager } from './core/HistoryManager';
 import { ModeManager } from './core/ModeManager';
+import { SelectionManager } from './core/SelectionManager';
 import type { ModeContext } from './core/ModeContext';
 import type { ModeName } from './types/mode';
 import { LibreDrawError } from './core/errors';
@@ -98,6 +99,7 @@ export class LibreDraw {
   private toolbar: Toolbar | null = null;
   /** Dependencies handed to modes; also the OperationContext for operations. */
   private modeContext: ModeContext;
+  private selection: SelectionManager;
   private selectMode: SelectMode;
   private setbackMode: SetbackMode;
   private rotateMode: RotateMode;
@@ -105,6 +107,8 @@ export class LibreDraw {
   private messages: Messages;
   private destroyed = false;
   private inputEnabled = false;
+  /** Box zoom state of the map when LibreDraw was created; restored by modes that do not use Shift. */
+  private mapBoxZoomEnabled: boolean;
   /**
    * Origin stamped on every event emitted while a public method runs.
    * `'user'` at rest; `asApi()` switches it to `'api'` for the duration of
@@ -119,15 +123,10 @@ export class LibreDraw {
     this.renderManager.initialize();
     this.renderAllFeatures();
 
-    if (this.modeManager.getMode() === 'select') {
-      this.selectMode.refreshVertexHandles();
-    } else {
-      this.renderManager.clearVertices();
-    }
-    if (this.modeManager.getMode() === 'rotate') {
-      // The style swap rebuilt the sources empty: redraw the pivot marker.
-      this.rotateMode.refreshFromStore();
-    }
+    // The style swap rebuilt the sources empty: the active mode redraws its
+    // own overlays (vertex handles, the rotation pivot).
+    this.renderManager.clearVertices();
+    this.modeManager.getCurrentMode()?.refreshFromStore?.();
   };
 
   /**
@@ -164,6 +163,7 @@ export class LibreDraw {
    */
   constructor(map: MaplibreMap, options: LibreDrawOptions = {}) {
     this.map = map;
+    this.mapBoxZoomEnabled = map.boxZoom.isEnabled();
 
     // Core modules
     this.eventBus = new EventBus(() => this.eventOrigin);
@@ -186,6 +186,19 @@ export class LibreDraw {
     this.sourceManager = new SourceManager(map);
     this.renderManager = new RenderManager(map, this.sourceManager, options.style);
 
+    // The one selection every mode reads and writes. Each change redraws the
+    // highlight, emits 'selectionchange', updates the rotate angle input, and
+    // lets the active mode adjust; modes never repeat these side effects.
+    this.selection = new SelectionManager((selectedIds) => {
+      this.renderManager.setSelectedIds(selectedIds);
+      this.renderAllFeatures();
+      this.eventBus.emit('selectionchange', { selectedIds });
+      this.toolbar?.setRotateSelection(
+        this.modeManager.getMode() === 'rotate' && selectedIds.length > 0
+      );
+      this.modeManager.getCurrentMode()?.onSelectionChange?.(selectedIds);
+    });
+
     // Mode setup
     const modeContext: ModeContext = {
       store: {
@@ -201,6 +214,7 @@ export class LibreDraw {
           this.updateToolbarHistoryState();
         },
       },
+      selection: this.selection,
       events: {
         emit: (type, payload) => this.eventBus.emit(type, payload),
       },
@@ -259,9 +273,7 @@ export class LibreDraw {
     const splitMode = new SplitMode(modeContext);
     const unionMode = new UnionMode(modeContext);
     this.setbackMode = new SetbackMode(modeContext);
-    this.rotateMode = new RotateMode(modeContext, (hasSelection) => {
-      this.toolbar?.setRotateSelection(hasSelection);
-    });
+    this.rotateMode = new RotateMode(modeContext);
 
     // Register modes
     this.modeManager.registerMode('idle', new IdleMode());
@@ -464,8 +476,10 @@ export class LibreDraw {
     // getAll() already returns clones, so the result cannot alias the store.
     const previous = this.featureStore.getAll();
     const created = this.asApi(() => {
-      this.featureStore.setAll(validated.features);
+      // Cleared before the swap so that a mode restoring an uncommitted
+      // preview (rotate) writes into the old data, never over the new.
       this.resetSelectionState();
+      this.featureStore.setAll(validated.features);
       this.historyManager.clear();
       this.renderAllFeatures();
       this.updateToolbarHistoryState();
@@ -593,9 +607,10 @@ export class LibreDraw {
   /**
    * Get the IDs of currently selected features.
    *
-   * Returns selected IDs in select mode, and the rotation target in
-   * rotate mode. In other modes, returns an empty array since selection
-   * is cleared on mode transition.
+   * Every mode shares one selection: select mode may hold several
+   * features, rotate / split / setback / union at most their one target,
+   * and drawing modes none (switching modes clears the selection).
+   * IDs are returned in the order they were selected.
    *
    * @returns An array of selected feature IDs.
    *
@@ -611,11 +626,7 @@ export class LibreDraw {
    */
   getSelectedFeatureIds(): string[] {
     this.assertNotDestroyed();
-    if (this.modeManager.getMode() === 'rotate') {
-      const id = this.rotateMode.getSelectedId();
-      return id ? [id] : [];
-    }
-    return this.selectMode.getSelectedIds();
+    return this.selection.getSelectedIds();
   }
 
   /**
@@ -865,11 +876,52 @@ export class LibreDraw {
   }
 
   /**
+   * Programmatically select several features at once.
+   *
+   * Switches to select mode if not already active and replaces the
+   * selection with `ids` (duplicates are ignored). Point, LineString and
+   * Polygon features can be mixed. With more than one feature selected no
+   * vertex handles are shown; a drag moves them all and Delete removes them
+   * all. When `ids` is empty or any id is unknown nothing happens: the mode
+   * and the selection stay as they are and no event is emitted.
+   *
+   * @param ids - The unique identifiers of the features to select.
+   * @returns `true` if the features were selected, `false` if `ids` is
+   *   empty or contains an id with no feature.
+   *
+   * @throws {LibreDrawError} If this instance has been destroyed.
+   *
+   * @example
+   * ```ts
+   * if (draw.selectFeatures(['a', 'b'])) {
+   *   console.log(draw.getSelectedFeatureIds()); // ['a', 'b']
+   * }
+   * ```
+   */
+  selectFeatures(ids: string[]): boolean {
+    this.assertNotDestroyed();
+
+    // Checked before entering select mode so a bad list changes nothing.
+    if (ids.length === 0 || ids.some((id) => !this.featureStore.getById(id))) {
+      return false;
+    }
+
+    this.asApi(() => {
+      if (this.modeManager.getMode() !== 'select') {
+        this.modeManager.setMode('select');
+      }
+      this.selectMode.selectFeatures(ids);
+    });
+    return true;
+  }
+
+  /**
    * Clear the current feature selection.
    *
    * Deselects all features, removes vertex handles, and emits
    * a `'selectionchange'` event. In rotate mode this also discards any
-   * uncommitted rotation preview. No-op if nothing is selected.
+   * uncommitted rotation preview, and in split / setback mode the
+   * half-finished operation on the target. No-op if nothing is selected.
    *
    * @throws {LibreDrawError} If this instance has been destroyed.
    *
@@ -882,10 +934,7 @@ export class LibreDraw {
    */
   clearSelection(): void {
     this.assertNotDestroyed();
-    this.asApi(() => {
-      this.selectMode.clearSelection();
-      this.rotateMode.clearSelection();
-    });
+    this.asApi(() => this.selection.clear());
   }
 
   /**
@@ -1166,17 +1215,14 @@ export class LibreDraw {
    * directly so its `'delete'` events stay `'user'`.
    */
   private removeFeature(id: string): LibreDrawFeature | undefined {
+    if (!this.featureStore.getById(id)) return undefined;
+
+    // Deselected first so a mode cancelling a drag or preview puts the
+    // committed shape back; the feature is read only after that, so the
+    // history, the event, and the return value never carry a preview.
+    this.selection.remove(id);
     const feature = this.featureStore.getById(id);
     if (!feature) return undefined;
-
-    // Clear selection if the feature is selected
-    const selectedIds = this.selectMode.getSelectedIds();
-    if (selectedIds.includes(id)) {
-      this.selectMode.clearSelection();
-    }
-    if (this.rotateMode.getSelectedId() === id) {
-      this.rotateMode.clearSelection();
-    }
 
     this.featureStore.remove(id);
     const action = new DeleteAction(feature);
@@ -1222,8 +1268,8 @@ export class LibreDraw {
    */
   private syncAfterExternalChange(): void {
     this.renderAllFeatures();
-    this.selectMode.refreshVertexHandles();
-    this.rotateMode.refreshFromStore();
+    this.selection.retain((id) => this.featureStore.getById(id) !== undefined);
+    this.modeManager.getCurrentMode()?.refreshFromStore?.();
   }
 
   /**
@@ -1314,12 +1360,8 @@ export class LibreDraw {
         // Toolbar buttons call the internal variants (not the public
         // methods) so their events are stamped origin: 'user'.
         onDeleteClick: () => {
-          if (this.modeManager.getMode() === 'select') {
-            const selectedIds = this.selectMode.getSelectedIds();
-            for (const id of selectedIds) {
-              this.removeFeature(id);
-            }
-          }
+          // One history step for the whole selection; no-op outside select mode.
+          this.selectMode.deleteSelected();
         },
         onUndoClick: () => {
           this.performUndo();
@@ -1352,6 +1394,14 @@ export class LibreDraw {
     } else {
       this.map.doubleClickZoom.disable();
     }
+
+    // Only switched off by modes that give Shift a meaning; everywhere else
+    // (and after destroy(), which goes back to idle) the host's choice stands.
+    if (config.boxZoom ?? this.mapBoxZoomEnabled) {
+      this.map.boxZoom.enable();
+    } else {
+      this.map.boxZoom.disable();
+    }
   }
 
   /**
@@ -1367,11 +1417,7 @@ export class LibreDraw {
    * Clear selection-related rendering and state.
    */
   private resetSelectionState(): void {
-    this.selectMode.clearSelection();
-    // The store was just replaced: forget the rotation target without
-    // writing its old shape back over the new data.
-    this.rotateMode.dropSelection();
-    this.renderManager.setSelectedIds([]);
+    this.selection.clear();
     this.renderManager.clearVertices();
     this.renderManager.clearEdgeHighlight();
     this.renderManager.clearPreview();

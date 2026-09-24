@@ -36,6 +36,20 @@ export class FakeMap {
     disable: vi.fn(),
   };
 
+  /** Box zoom keeps a real on / off state so tests can create a map with it disabled. */
+  public boxZoom = (() => {
+    let enabled = true;
+    return {
+      enable: vi.fn(() => {
+        enabled = true;
+      }),
+      disable: vi.fn(() => {
+        enabled = false;
+      }),
+      isEnabled: vi.fn(() => enabled),
+    };
+  })();
+
   /** Runtime style updates are applied per layer; record them instead of rendering. */
   public setPaintProperty = vi.fn();
   public setLayoutProperty = vi.fn();

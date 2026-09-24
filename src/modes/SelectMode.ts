@@ -1,10 +1,11 @@
-import type { Mode } from './Mode';
+import type { MapInteractionConfig, Mode } from './Mode';
 import type { NormalizedInputEvent } from '../types/input';
 import type { LibreDrawFeature } from '../types/features';
-import { DeleteAction, UpdateAction } from '../types/features';
+import type { Action } from '../types/features';
+import { BatchAction, DeleteAction, UpdateAction } from '../types/features';
 import type { ModeContext } from '../core/ModeContext';
 import { cloneFeature } from '../utils/featureSnapshot';
-import { SelectionManager } from './SelectionManager';
+import { moveLine, movePolygon } from '../utils/geometry';
 import { VertexEditor } from './VertexEditor';
 import { PolygonDragger } from './PolygonDragger';
 import booleanPointInPolygon from '@turf/boolean-point-in-polygon';
@@ -21,11 +22,35 @@ const POINT_HIT_THRESHOLD_PX = 20;
 const LINE_HIT_THRESHOLD_PX = 20;
 
 /**
- * Selection and editing mode for existing polygons.
+ * Whether the pointer event carries a modifier that adds to / toggles the
+ * selection instead of replacing it (Shift, Ctrl, or Cmd).
+ */
+function isAdditive(event: NormalizedInputEvent): boolean {
+  const e = event.originalEvent as MouseEvent;
+  return Boolean(e.shiftKey || e.ctrlKey || e.metaKey);
+}
+
+/** Move any feature by a longitude / latitude delta. */
+function translateFeature(feature: LibreDrawFeature, dLng: number, dLat: number): LibreDrawFeature {
+  if (feature.geometry.type === 'Point') {
+    const [lng, lat] = feature.geometry.coordinates;
+    return { ...feature, geometry: { type: 'Point', coordinates: [lng + dLng, lat + dLat] } };
+  }
+  if (feature.geometry.type === 'LineString') return moveLine(feature, dLng, dLat);
+  return movePolygon(feature, dLng, dLat);
+}
+
+/**
+ * Selection and editing mode for existing features.
+ *
+ * A plain click selects one feature; Shift / Ctrl / Cmd + click adds it to or
+ * removes it from the shared selection. With one feature selected, its
+ * vertices and body can be dragged; with several, a drag on any of them moves
+ * them all by the same delta, and Delete removes them all as one history step.
  */
 export class SelectMode implements Mode {
   private context: ModeContext;
-  private selection: SelectionManager;
+  private onSelectionChangeCallback?: (selectedIds: string[]) => void;
   private vertexEditor: VertexEditor;
   private polygonDragger: PolygonDragger;
   private isActive = false;
@@ -34,20 +59,28 @@ export class SelectMode implements Mode {
     startFeature: LibreDrawFeature;
     startLngLat: { lng: number; lat: number };
   } | null = null;
+  /** Whole-selection drag with two or more features selected. */
+  private groupDragState: {
+    startFeatures: LibreDrawFeature[];
+    startLngLat: { lng: number; lat: number };
+  } | null = null;
 
   constructor(context: ModeContext, onSelectionChange?: (selectedIds: string[]) => void) {
     this.context = context;
-    this.selection = new SelectionManager(context, onSelectionChange);
+    this.onSelectionChangeCallback = onSelectionChange;
     this.vertexEditor = new VertexEditor(context);
     this.polygonDragger = new PolygonDragger(context, (feature) => {
       this.vertexEditor.renderHandles(feature);
     });
   }
 
-  mapInteractions(): { dragPan: boolean; doubleClickZoom: boolean } {
+  mapInteractions(): MapInteractionConfig {
     return {
       dragPan: true,
       doubleClickZoom: false,
+      // Shift + click adds to the selection. With box zoom on, a click whose
+      // release lands even 1px away from the press zooms to that tiny box.
+      boxZoom: false,
     };
   }
 
@@ -64,7 +97,20 @@ export class SelectMode implements Mode {
    * Get the currently selected feature IDs.
    */
   getSelectedIds(): string[] {
-    return this.selection.getSelectedIds();
+    return this.context.selection.getSelectedIds();
+  }
+
+  /**
+   * Bring handles and in-progress drags in line with the shared selection.
+   * Runs after every selection change while this mode is active, whether the
+   * change came from a click here or from the public API.
+   */
+  onSelectionChange(selectedIds: string[]): void {
+    // This mode never changes the selection mid-drag, so a drag still in
+    // progress here was interrupted from outside: undo its preview.
+    this.abortInteraction();
+    this.syncHandles();
+    this.onSelectionChangeCallback?.(selectedIds);
   }
 
   /**
@@ -73,19 +119,22 @@ export class SelectMode implements Mode {
   selectFeature(id: string): boolean {
     if (!this.isActive) return false;
 
-    const feature = this.context.store.getById(id);
-    if (!feature) return false;
+    return this.selectFeatures([id]);
+  }
 
-    this.pointDragState = null;
-    this.vertexEditor.resetInteractionState();
-    this.polygonDragger.resetInteractionState();
+  /**
+   * Programmatically replace the selection with `ids`. Every id must exist.
+   */
+  selectFeatures(ids: string[]): boolean {
+    if (!this.isActive) return false;
+    if (ids.length === 0 || ids.some((id) => !this.context.store.getById(id))) return false;
 
-    this.selection.selectOnly(id);
-    if (feature.geometry.type !== 'Point') {
-      this.vertexEditor.renderHandles(feature);
+    this.abortInteraction();
+    if (!this.context.selection.set(ids)) {
+      // Same selection: the handles were already right, but the abort above
+      // dropped their highlight.
+      this.syncHandles();
     }
-    this.selection.notify();
-    this.context.render.renderFeatures();
     return true;
   }
 
@@ -142,16 +191,20 @@ export class SelectMode implements Mode {
    */
   clearSelection(): void {
     if (!this.isActive) return;
-    if (!this.selection.hasSelection()) return;
+    if (this.context.selection.size === 0) return;
 
     this.forceClearSelectionState();
-    this.context.render.renderFeatures();
   }
 
   onPointerDown(event: NormalizedInputEvent): void {
     if (!this.isActive) return;
 
-    const selectedId = this.selection.getFirstSelectedId();
+    if (isAdditive(event)) {
+      this.toggleAt(event);
+      return;
+    }
+
+    const selectedId = this.context.selection.getSingleId();
     if (selectedId) {
       const feature = this.context.store.getById(selectedId);
       if (feature) {
@@ -193,24 +246,22 @@ export class SelectMode implements Mode {
 
     const features = this.context.store.getAll();
     const hitFeature = this.findHitFeature(features, event);
+    const selection = this.context.selection;
 
-    if (hitFeature) {
-      if (this.selection.has(hitFeature.id)) {
-        this.selection.remove(hitFeature.id);
-        this.context.render.clearVertices();
-      } else {
-        this.selection.selectOnly(hitFeature.id);
-        if (hitFeature.geometry.type !== 'Point') {
-          this.vertexEditor.renderHandles(hitFeature);
-        }
-      }
-    } else {
-      this.selection.clear();
-      this.context.render.clearVertices();
+    if (hitFeature && selection.size > 1 && selection.has(hitFeature.id)) {
+      this.startGroupDrag(event);
+      return;
     }
 
-    this.selection.notify();
-    this.context.render.renderFeatures();
+    if (hitFeature) {
+      if (selection.has(hitFeature.id)) {
+        selection.remove(hitFeature.id);
+      } else {
+        selection.set([hitFeature.id]);
+      }
+    } else {
+      selection.clear();
+    }
   }
 
   onPointerMove(event: NormalizedInputEvent): void {
@@ -233,7 +284,18 @@ export class SelectMode implements Mode {
       return;
     }
 
-    const selectedId = this.selection.getFirstSelectedId();
+    if (this.groupDragState) {
+      const { startFeatures, startLngLat } = this.groupDragState;
+      const dLng = event.lngLat.lng - startLngLat.lng;
+      const dLat = event.lngLat.lat - startLngLat.lat;
+      for (const start of startFeatures) {
+        this.context.store.update(start.id, translateFeature(start, dLng, dLat));
+      }
+      this.context.render.renderFeatures();
+      return;
+    }
+
+    const selectedId = this.context.selection.getSingleId();
     if (!selectedId) return;
 
     if (this.vertexEditor.handleDragMove(selectedId, event)) return;
@@ -258,11 +320,18 @@ export class SelectMode implements Mode {
       return;
     }
 
+    if (this.groupDragState) {
+      this.commitGroupDrag(this.groupDragState.startFeatures);
+      this.groupDragState = null;
+      this.context.setDragPan(true);
+      return;
+    }
+
     const vertexDragging = this.vertexEditor.isDragging();
     const polygonDragging = this.polygonDragger.isDragging();
     if (!vertexDragging && !polygonDragging) return;
 
-    const selectedId = this.selection.getFirstSelectedId();
+    const selectedId = this.context.selection.getSingleId();
     if (!selectedId) {
       this.vertexEditor.endDrag();
       this.polygonDragger.endDrag();
@@ -284,7 +353,7 @@ export class SelectMode implements Mode {
   onDoubleClick(event: NormalizedInputEvent): void {
     if (!this.isActive) return;
 
-    const selectedId = this.selection.getFirstSelectedId();
+    const selectedId = this.context.selection.getSingleId();
     if (!selectedId) return;
 
     const feature = this.context.store.getById(selectedId);
@@ -299,7 +368,7 @@ export class SelectMode implements Mode {
   onLongPress(event: NormalizedInputEvent): void {
     if (!this.isActive) return;
 
-    const selectedId = this.selection.getFirstSelectedId();
+    const selectedId = this.context.selection.getSingleId();
     if (!selectedId) return;
 
     const feature = this.context.store.getById(selectedId);
@@ -317,24 +386,151 @@ export class SelectMode implements Mode {
   }
 
   /**
+   * Re-read the selection after the store changed behind this mode's back
+   * (undo / redo, API operations, a style reload): drop ids that left the
+   * store and redraw the handles from the current shape.
+   */
+  refreshFromStore(): void {
+    if (!this.isActive) return;
+
+    // The store is now the truth: drop any drag without writing its start
+    // shape back, or the external change would be overwritten.
+    this.resetInteractionState();
+
+    const store = this.context.store;
+    // A shrinking selection redraws the handles through onSelectionChange.
+    if (!this.context.selection.retain((id) => store.getById(id) !== undefined)) {
+      this.syncHandles();
+    }
+  }
+
+  /**
    * Refresh vertex/midpoint handles after external geometry changes.
    */
   refreshVertexHandles(): void {
+    this.refreshFromStore();
+  }
+
+  /**
+   * Delete every selected feature: one `DeleteAction` for a single feature,
+   * one `BatchAction` for several, and a `delete` event per feature.
+   */
+  deleteSelected(): void {
     if (!this.isActive) return;
+    const selection = this.context.selection;
+    if (selection.size === 0) return;
 
-    const selectedId = this.selection.getFirstSelectedId();
-    if (!selectedId) return;
+    // Undo a drag preview first, so the history records the committed shapes.
+    this.abortInteraction();
+    const actions: Action[] = [];
+    for (const id of selection.getSelectedIds()) {
+      const feature = this.context.store.getById(id);
+      if (!feature) continue;
 
-    const feature = this.context.store.getById(selectedId);
-    if (feature) {
-      if (feature.geometry.type !== 'Point') {
-        this.vertexEditor.renderHandles(feature);
-      }
-    } else {
-      this.selection.remove(selectedId);
-      this.context.render.clearVertices();
-      this.selection.notify();
+      this.context.store.remove(id);
+      actions.push(new DeleteAction(feature));
+      this.context.events.emit('delete', { feature: cloneFeature(feature) });
     }
+    if (actions.length === 1) {
+      this.context.history.push(actions[0]);
+    } else if (actions.length > 1) {
+      this.context.history.push(new BatchAction(actions));
+    }
+
+    selection.clear();
+  }
+
+  /** Shift / Ctrl / Cmd + click: add the hit feature to the selection, or take it out. */
+  private toggleAt(event: NormalizedInputEvent): void {
+    const hitFeature = this.findHitFeature(this.context.store.getAll(), event);
+    if (!hitFeature) return;
+
+    this.abortInteraction();
+    this.context.selection.toggle(hitFeature.id);
+  }
+
+  private startGroupDrag(event: NormalizedInputEvent): void {
+    const startFeatures: LibreDrawFeature[] = [];
+    for (const id of this.context.selection.getSelectedIds()) {
+      const feature = this.context.store.getById(id);
+      if (feature) startFeatures.push(feature);
+    }
+    this.groupDragState = { startFeatures, startLngLat: event.lngLat };
+    this.context.setDragPan(false);
+  }
+
+  /**
+   * Record a whole-selection drag as one `BatchAction` of `UpdateAction`s,
+   * with an `update` event per moved feature. A drag that moved nothing
+   * leaves the history untouched.
+   */
+  private commitGroupDrag(startFeatures: LibreDrawFeature[]): void {
+    const actions: Action[] = [];
+    for (const start of startFeatures) {
+      const current = this.context.store.getById(start.id);
+      if (!current || !this.hasGeometryChanged(start, current)) continue;
+
+      actions.push(new UpdateAction(start.id, start, cloneFeature(current)));
+      this.context.events.emit('update', {
+        feature: cloneFeature(current),
+        oldFeature: cloneFeature(start),
+      });
+    }
+    if (actions.length > 0) {
+      this.context.history.push(new BatchAction(actions));
+    }
+  }
+
+  /** Vertex handles are shown for exactly one selected LineString / Polygon. */
+  private syncHandles(): void {
+    const id = this.context.selection.getSingleId();
+    const feature = id !== undefined ? this.context.store.getById(id) : undefined;
+    if (feature && feature.geometry.type !== 'Point') {
+      this.vertexEditor.renderHandles(feature);
+    } else {
+      this.context.render.clearVertices();
+    }
+  }
+
+  /**
+   * Cancel an in-progress drag: put every dragged feature back to its shape
+   * at drag start (the preview lives in the store), then forget the drag.
+   * Nothing reaches the history or the event stream.
+   */
+  private abortInteraction(): void {
+    const starts: LibreDrawFeature[] = [];
+    if (this.pointDragState) starts.push(this.pointDragState.startFeature);
+    if (this.groupDragState) starts.push(...this.groupDragState.startFeatures);
+    const vertexStart = this.vertexEditor.isDragging()
+      ? this.vertexEditor.getDragStartFeature()
+      : null;
+    if (vertexStart) starts.push(vertexStart);
+    const bodyStart = this.polygonDragger.isDragging()
+      ? this.polygonDragger.getDragStartFeature()
+      : null;
+    if (bodyStart) starts.push(bodyStart);
+
+    this.resetInteractionState();
+
+    const store = this.context.store;
+    const restored = starts.filter((start) => store.getById(start.id) !== undefined);
+    for (const start of restored) {
+      store.update(start.id, cloneFeature(start));
+    }
+    if (restored.length > 0) {
+      this.context.render.renderFeatures();
+    }
+  }
+
+  /** Forget every in-progress drag without touching the store. */
+  private resetInteractionState(): void {
+    if (this.pointDragState || this.groupDragState) {
+      this.context.setDragPan(true);
+    }
+    this.pointDragState = null;
+    this.groupDragState = null;
+    this.vertexEditor.resetInteractionState();
+    this.polygonDragger.resetInteractionState();
   }
 
   /**
@@ -377,13 +573,8 @@ export class SelectMode implements Mode {
   }
 
   private forceClearSelectionState(): void {
-    this.pointDragState = null;
-    this.vertexEditor.resetInteractionState();
-    this.polygonDragger.resetInteractionState();
-
-    if (this.selection.clearAndNotify()) {
-      this.context.render.clearVertices();
-    }
+    this.abortInteraction();
+    this.context.selection.clear();
   }
 
   private commitDragUpdate(selectedId: string, startFeature: LibreDrawFeature | null): void {
@@ -400,26 +591,6 @@ export class SelectMode implements Mode {
       feature: cloneFeature(currentFeature),
       oldFeature: cloneFeature(startFeature),
     });
-  }
-
-  private deleteSelected(): void {
-    if (!this.selection.hasSelection()) return;
-
-    const idsToDelete = this.selection.getSelectedIds();
-    for (const id of idsToDelete) {
-      const feature = this.context.store.getById(id);
-      if (!feature) continue;
-
-      this.context.store.remove(id);
-      const action = new DeleteAction(feature);
-      this.context.history.push(action);
-      this.context.events.emit('delete', { feature: cloneFeature(feature) });
-    }
-
-    this.selection.clear();
-    this.context.render.clearVertices();
-    this.selection.notify();
-    this.context.render.renderFeatures();
   }
 
   private hasGeometryChanged(before: LibreDrawFeature, after: LibreDrawFeature): boolean {

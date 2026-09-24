@@ -153,3 +153,89 @@ test('union: tapping two overlapping polygons merges them', async ({ page, hasTo
   expect(await getEvents(page, 'unionfailed')).toHaveLength(0);
   expect(await featureCount(page)).toBe(1);
 });
+
+test('select: Shift + click selects two polygons and Delete removes both in one step', async ({
+  page,
+  hasTouch,
+}) => {
+  test.skip(hasTouch, 'adding to the selection needs a keyboard modifier');
+  await addPolygonFromScreen(page, [
+    [60, 100],
+    [180, 100],
+    [180, 220],
+    [60, 220],
+  ]);
+  await addPolygonFromScreen(page, [
+    [240, 100],
+    [360, 100],
+    [360, 220],
+    [240, 220],
+  ]);
+  await recordEvents(page, ['selectionchange', 'delete']);
+  await setMode(page, 'select');
+
+  await page.mouse.click(120, 160);
+  await page.keyboard.down('Shift');
+  await page.mouse.click(300, 160);
+  await page.keyboard.up('Shift');
+  await expect
+    .poll(async () => {
+      const events = await getEvents<{ selectedIds: string[] }>(page, 'selectionchange');
+      return events.at(-1)?.selectedIds.length ?? 0;
+    })
+    .toBe(2);
+
+  // The click focused the map canvas, so the key reaches LibreDraw.
+  await page.keyboard.press('Delete');
+
+  await expect.poll(async () => (await getEvents(page, 'delete')).length).toBe(2);
+  expect(await featureCount(page)).toBe(0);
+  await page.evaluate(() => (window as unknown as { draw: { undo(): boolean } }).draw.undo());
+  expect(await featureCount(page)).toBe(2);
+});
+
+test('select: Shift + click that lands a few pixels off does not zoom the map', async ({
+  page,
+  hasTouch,
+}) => {
+  test.skip(hasTouch, 'adding to the selection needs a keyboard modifier');
+  await addPolygonFromScreen(page, [
+    [60, 100],
+    [180, 100],
+    [180, 220],
+    [60, 220],
+  ]);
+  await addPolygonFromScreen(page, [
+    [240, 100],
+    [360, 100],
+    [360, 220],
+    [240, 220],
+  ]);
+  await recordEvents(page, ['selectionchange']);
+  await setMode(page, 'select');
+  const zoomBefore = await page.evaluate(() =>
+    (window as unknown as { map: { getZoom(): number } }).map.getZoom()
+  );
+
+  await page.mouse.click(120, 160);
+  // A shaky Shift + click: the button is released 2px away from the press.
+  await page.keyboard.down('Shift');
+  await page.mouse.move(300, 160);
+  await page.mouse.down();
+  await page.mouse.move(302, 161);
+  await page.mouse.up();
+  await page.keyboard.up('Shift');
+
+  await expect
+    .poll(async () => {
+      const events = await getEvents<{ selectedIds: string[] }>(page, 'selectionchange');
+      return events.at(-1)?.selectedIds.length ?? 0;
+    })
+    .toBe(2);
+  // Give a box zoom animation time to start if it were going to.
+  await page.waitForTimeout(300);
+  const zoomAfter = await page.evaluate(() =>
+    (window as unknown as { map: { getZoom(): number } }).map.getZoom()
+  );
+  expect(zoomAfter).toBe(zoomBefore);
+});

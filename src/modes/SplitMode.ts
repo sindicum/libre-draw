@@ -15,11 +15,24 @@ export class SplitMode implements Mode {
   private context: ModeContext;
   private isActive = false;
   private state: SplitState = 'idle';
-  private selectedFeatureId: string | null = null;
   private lineStart: Position | null = null;
 
   constructor(context: ModeContext) {
     this.context = context;
+  }
+
+  private get selectedFeatureId(): string | null {
+    return this.context.selection.getSingleId() ?? null;
+  }
+
+  /**
+   * The shared selection was cleared from outside (public API, a deleted
+   * feature): abandon the half-finished operation on the old target.
+   */
+  onSelectionChange(selectedIds: string[]): void {
+    if (selectedIds.length === 0 && this.state !== 'idle') {
+      this.resetInteractionState(false);
+    }
   }
 
   mapInteractions(): { dragPan: boolean; doubleClickZoom: boolean } {
@@ -176,19 +189,12 @@ export class SplitMode implements Mode {
 
   /** Highlight a feature as the split target and notify listeners. */
   private selectFeature(id: string): void {
-    this.selectedFeatureId = id;
-    this.context.render.setSelectedIds([id]);
-    this.context.events.emit('selectionchange', { selectedIds: [id] });
-    this.context.render.renderFeatures();
+    this.context.selection.set([id]);
   }
 
   /** Remove the current selection highlight and notify listeners. */
   private clearSelection(): void {
-    if (!this.selectedFeatureId) return;
-    this.selectedFeatureId = null;
-    this.context.render.setSelectedIds([]);
-    this.context.events.emit('selectionchange', { selectedIds: [] });
-    this.context.render.renderFeatures();
+    this.context.selection.clear();
   }
 
   /** Reset the mode to idle state, optionally clearing the active selection. */
