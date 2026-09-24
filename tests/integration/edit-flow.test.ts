@@ -9,6 +9,7 @@ import { DrawPolygonMode } from '../../src/modes/DrawPolygonMode';
 import { SelectMode } from '../../src/modes/SelectMode';
 import { DeleteAction } from '../../src/types/features';
 import type { NormalizedInputEvent } from '../../src/types/input';
+import { attachSelection } from '../helpers/selection';
 
 function createPointerEvent(
   lng: number,
@@ -29,7 +30,7 @@ describe('Edit Flow Integration', () => {
     const store = new FeatureStore();
     const history = new HistoryManager();
     const modeManager = new ModeManager();
-    const modeContext: ModeContext = {
+    const modeContext: ModeContext = attachSelection({
       store: {
         add: (feature) => store.add(feature),
         update: (id, feature) => store.update(id, feature),
@@ -65,7 +66,7 @@ describe('Edit Flow Integration', () => {
       getSetbackDistance: () => 10,
       getSnapConfig: () => ({ enabled: false, threshold: 10 }),
       getViewportBounds: () => ({ west: -180, south: -90, east: 180, north: 90 }),
-    };
+    });
 
     const drawPolygonMode = new DrawPolygonMode(modeContext);
     const selectMode = new SelectMode(modeContext, vi.fn());

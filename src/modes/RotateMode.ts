@@ -1,6 +1,6 @@
 import booleanPointInPolygon from '@turf/boolean-point-in-polygon';
 import { point as turfPoint } from '@turf/helpers';
-import type { Mode } from './Mode';
+import type { MapInteractionConfig, Mode } from './Mode';
 import type { ModeContext } from '../core/ModeContext';
 import type { LibreDrawFeature } from '../types/features';
 import type { NormalizedInputEvent } from '../types/input';
@@ -50,28 +50,30 @@ interface DragState {
  * Two inputs share one commit path: dragging on the selected feature, and the
  * numeric angle input on the toolbar. Both preview by writing the rotated
  * feature into the store and commit as one `UpdateAction`.
+ *
+ * The target is the single feature in the shared selection; `baseFeature`
+ * mirrors it (same id) while it is selected and is `null` otherwise.
  */
 export class RotateMode implements Mode {
   private context: ModeContext;
-  private onSelectionChange?: (hasSelection: boolean) => void;
   private isActive = false;
-  private selectedFeatureId: string | null = null;
-  /** Committed shape of the selection; every preview is computed from this. */
+  /** Committed shape of the target; every preview is computed from this. */
   private baseFeature: LibreDrawFeature | null = null;
   private drag: DragState | null = null;
   /** Whether a numeric-input preview currently sits in the store. */
   private previewing = false;
 
-  constructor(context: ModeContext, onSelectionChange?: (hasSelection: boolean) => void) {
+  constructor(context: ModeContext) {
     this.context = context;
-    this.onSelectionChange = onSelectionChange;
   }
 
-  mapInteractions(): { dragPan: boolean; doubleClickZoom: boolean } {
+  mapInteractions(): MapInteractionConfig {
     // Panning stays on: only a drag that starts on the selected feature turns it off.
     return {
       dragPan: true,
       doubleClickZoom: false,
+      // Shift + drag snaps the angle; box zoom would zoom to the dragged box.
+      boxZoom: false,
     };
   }
 
@@ -90,14 +92,29 @@ export class RotateMode implements Mode {
    * Whether a feature is currently selected for rotation.
    */
   hasSelection(): boolean {
-    return this.selectedFeatureId !== null;
+    return this.baseFeature !== null;
   }
 
   /**
    * ID of the feature selected for rotation, or `null`.
    */
   getSelectedId(): string | null {
-    return this.selectedFeatureId;
+    return this.baseFeature?.id ?? null;
+  }
+
+  /**
+   * The shared selection moved away from the rotation target (the public
+   * API cleared it, or the feature was deleted): discard the drag or preview
+   * and forget the target. A feature that has already left the store is not
+   * written back.
+   */
+  onSelectionChange(selectedIds: string[]): void {
+    if (!this.baseFeature) return;
+    if (selectedIds.length === 1 && selectedIds[0] === this.baseFeature.id) return;
+
+    this.cancelDrag();
+    this.discardPreview();
+    this.forgetTarget();
   }
 
   /**
@@ -107,13 +124,13 @@ export class RotateMode implements Mode {
    * a feature that has disappeared drops the selection.
    */
   refreshFromStore(): void {
-    if (!this.selectedFeatureId) return;
+    if (!this.baseFeature) return;
 
     // The store is now the truth: forget any drag or preview without writing
     // the old base back, or the external change would be overwritten.
     this.dropTransientState();
 
-    const feature = this.context.store.getById(this.selectedFeatureId);
+    const feature = this.context.store.getById(this.baseFeature.id);
     if (!feature) {
       this.dropSelection();
       return;
@@ -140,15 +157,10 @@ export class RotateMode implements Mode {
    */
   dropSelection(): void {
     this.dropTransientState();
-    if (!this.selectedFeatureId) return;
+    if (!this.baseFeature) return;
 
-    this.selectedFeatureId = null;
-    this.baseFeature = null;
-    this.context.render.setSelectedIds([]);
-    this.context.render.clearRotationCenter();
-    this.context.events.emit('selectionchange', { selectedIds: [] });
-    this.context.render.renderFeatures();
-    this.onSelectionChange?.(false);
+    this.forgetTarget();
+    this.context.selection.clear();
   }
 
   onPointerDown(event: NormalizedInputEvent): void {
@@ -169,7 +181,7 @@ export class RotateMode implements Mode {
   }
 
   onPointerMove(event: NormalizedInputEvent): void {
-    if (!this.isActive || !this.drag || !this.baseFeature || !this.selectedFeatureId) return;
+    if (!this.isActive || !this.drag || !this.baseFeature) return;
 
     let angle = angleBetween(this.drag.centerScreen, this.drag.startPoint, event.point);
     if (event.originalEvent.shiftKey) {
@@ -221,7 +233,7 @@ export class RotateMode implements Mode {
    * Ignored during a drag so the two inputs never fight over the store.
    */
   onAngleChange(angle: number): void {
-    if (!this.isActive || this.drag || !this.selectedFeatureId) return;
+    if (!this.isActive || this.drag || !this.baseFeature) return;
     if (!this.isAcceptableInputAngle(angle)) return;
 
     if (isNoRotation(angle)) {
@@ -238,7 +250,7 @@ export class RotateMode implements Mode {
    * Repeated calls stack on top of each other, one history step per call.
    */
   executeFromUi(angle: number): void {
-    if (!this.isActive || this.drag || !this.selectedFeatureId) return;
+    if (!this.isActive || this.drag || !this.baseFeature) return;
     if (!this.isAcceptableInputAngle(angle)) return;
 
     this.previewing = false;
@@ -248,13 +260,16 @@ export class RotateMode implements Mode {
   /** Select a feature and remember its committed shape as the rotation base. */
   private selectFeature(feature: LibreDrawFeature): void {
     this.discardPreview();
-    this.selectedFeatureId = feature.id;
+    // Set the base first so onSelectionChange sees the new target as current.
     this.baseFeature = cloneFeature(feature);
-    this.context.render.setSelectedIds([feature.id]);
     this.renderRotationCenter();
-    this.context.events.emit('selectionchange', { selectedIds: [feature.id] });
-    this.context.render.renderFeatures();
-    this.onSelectionChange?.(true);
+    this.context.selection.set([feature.id]);
+  }
+
+  /** Drop the target and its pivot marker; the selection itself is left alone. */
+  private forgetTarget(): void {
+    this.baseFeature = null;
+    this.context.render.clearRotationCenter();
   }
 
   private startDrag(event: NormalizedInputEvent): void {
@@ -299,15 +314,16 @@ export class RotateMode implements Mode {
 
   /** Write the rotated base into the store as a preview. */
   private applyPreview(angle: number): void {
-    if (!this.baseFeature || !this.selectedFeatureId) return;
-    this.context.store.update(this.selectedFeatureId, rotateFeature(this.baseFeature, angle));
+    if (!this.baseFeature) return;
+    this.context.store.update(this.baseFeature.id, rotateFeature(this.baseFeature, angle));
     this.context.render.renderFeatures();
   }
 
   /** Put the committed shape back into the store. */
   private restoreBase(): void {
-    if (!this.baseFeature || !this.selectedFeatureId) return;
-    this.context.store.update(this.selectedFeatureId, cloneFeature(this.baseFeature));
+    // A target that already left the store (deleted, undone) stays gone.
+    if (!this.baseFeature || !this.context.store.getById(this.baseFeature.id)) return;
+    this.context.store.update(this.baseFeature.id, cloneFeature(this.baseFeature));
     this.context.render.renderFeatures();
   }
 
@@ -317,7 +333,8 @@ export class RotateMode implements Mode {
    * for the next rotation.
    */
   private commit(angle: number): void {
-    if (!this.baseFeature || !this.selectedFeatureId) return;
+    if (!this.baseFeature) return;
+    const id = this.baseFeature.id;
 
     if (isNoRotation(angle)) {
       this.restoreBase();
@@ -327,8 +344,8 @@ export class RotateMode implements Mode {
     // The operation rotates whatever the store holds, and the store may hold
     // a preview: put the committed shape back first (without a redraw, the
     // commit below redraws once).
-    this.context.store.update(this.selectedFeatureId, cloneFeature(this.baseFeature));
-    const result = rotate(this.context, this.selectedFeatureId, angle);
+    this.context.store.update(id, cloneFeature(this.baseFeature));
+    const result = rotate(this.context, id, angle);
     if (result.ok) {
       this.baseFeature = cloneFeature(result.updated[0]);
     }
@@ -347,8 +364,8 @@ export class RotateMode implements Mode {
   }
 
   private getSelectedFeature(): LibreDrawFeature | undefined {
-    if (!this.selectedFeatureId) return undefined;
-    const feature = this.context.store.getById(this.selectedFeatureId);
+    if (!this.baseFeature) return undefined;
+    const feature = this.context.store.getById(this.baseFeature.id);
     if (!feature) {
       // The feature left the store behind our back (setFeatures, delete, undo).
       this.dropSelection();

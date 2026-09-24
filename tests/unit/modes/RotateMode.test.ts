@@ -5,6 +5,7 @@ import { UpdateAction } from '../../../src/types/features';
 import type { LibreDrawFeature, Position } from '../../../src/types/features';
 import type { NormalizedInputEvent } from '../../../src/types/input';
 import { getRotationCenter } from '../../../src/utils/rotate';
+import { attachSelection } from '../../helpers/selection';
 
 // The harness maps lng/lat to screen as (lng * 10, lat * 10). Features sit
 // near the equator so Mercator distortion is negligible in the assertions.
@@ -112,7 +113,7 @@ function createHarness(initial: LibreDrawFeature[] = [makeSquare()]): Harness {
   const renderRotationCenter = vi.fn();
   const clearRotationCenter = vi.fn();
 
-  const context: ModeContext = {
+  const context: ModeContext = attachSelection({
     store: {
       add: vi.fn((f: LibreDrawFeature) => {
         features.set(f.id, f);
@@ -148,7 +149,7 @@ function createHarness(initial: LibreDrawFeature[] = [makeSquare()]): Harness {
     getSetbackDistance: () => 10,
     getSnapConfig: () => ({ enabled: true, threshold: 10 }),
     getViewportBounds: () => ({ west: -180, south: -90, east: 180, north: 90 }),
-  };
+  });
 
   return {
     context,
@@ -196,21 +197,30 @@ function rotateEvents(harness: Harness) {
   return harness.mocks.emit.mock.calls.filter(([type]) => type === 'rotate');
 }
 
+/** `selectedIds` of every selectionchange emitted so far, in order. */
+function selectionEvents(harness: Harness): string[][] {
+  return harness.mocks.emit.mock.calls
+    .filter(([type]) => type === 'selectionchange')
+    .map(([, payload]) => payload.selectedIds);
+}
+
 describe('RotateMode', () => {
   let harness: Harness;
   let mode: RotateMode;
-  let onSelectionChange: ReturnType<typeof vi.fn>;
   const squareCenter = getRotationCenter(makeSquare());
 
   beforeEach(() => {
     harness = createHarness();
-    onSelectionChange = vi.fn();
-    mode = new RotateMode(harness.context, onSelectionChange);
+    mode = new RotateMode(harness.context);
     mode.activate();
   });
 
   it('keeps map panning enabled and disables double-click zoom', () => {
-    expect(mode.mapInteractions()).toEqual({ dragPan: true, doubleClickZoom: false });
+    expect(mode.mapInteractions()).toEqual({
+      dragPan: true,
+      doubleClickZoom: false,
+      boxZoom: false,
+    });
   });
 
   describe('selection', () => {
@@ -220,12 +230,11 @@ describe('RotateMode', () => {
       expect(mode.getSelectedId()).toBe('sq');
       expect(harness.mocks.setSelectedIds).toHaveBeenCalledWith(['sq']);
       expect(harness.mocks.emit).toHaveBeenCalledWith('selectionchange', { selectedIds: ['sq'] });
-      expect(onSelectionChange).toHaveBeenCalledWith(true);
     });
 
     it('selects a line when clicking near a segment', () => {
       harness = createHarness([makeLine()]);
-      mode = new RotateMode(harness.context, onSelectionChange);
+      mode = new RotateMode(harness.context);
       mode.activate();
 
       mode.onPointerDown(pointerEvent(12, 0.5));
@@ -235,7 +244,7 @@ describe('RotateMode', () => {
 
     it('does not select a line when clicking far from it', () => {
       harness = createHarness([makeLine()]);
-      mode = new RotateMode(harness.context, onSelectionChange);
+      mode = new RotateMode(harness.context);
       mode.activate();
 
       mode.onPointerDown(pointerEvent(12, 5));
@@ -245,13 +254,13 @@ describe('RotateMode', () => {
 
     it('never selects a point', () => {
       harness = createHarness([makePoint()]);
-      mode = new RotateMode(harness.context, onSelectionChange);
+      mode = new RotateMode(harness.context);
       mode.activate();
 
       mode.onPointerDown(pointerEvent(20, 0));
 
       expect(mode.getSelectedId()).toBeNull();
-      expect(onSelectionChange).not.toHaveBeenCalled();
+      expect(selectionEvents(harness)).toEqual([]);
     });
 
     it('clears the selection when clicking empty space', () => {
@@ -260,12 +269,12 @@ describe('RotateMode', () => {
 
       expect(mode.getSelectedId()).toBeNull();
       expect(harness.mocks.setSelectedIds).toHaveBeenLastCalledWith([]);
-      expect(onSelectionChange).toHaveBeenLastCalledWith(false);
+      expect(selectionEvents(harness).at(-1)).toEqual([]);
     });
 
     it('switches selection to another feature', () => {
       harness = createHarness([makeSquare(), makeLine()]);
-      mode = new RotateMode(harness.context, onSelectionChange);
+      mode = new RotateMode(harness.context);
       mode.activate();
 
       mode.onPointerDown(pointerEvent(2, 2));
@@ -377,7 +386,7 @@ describe('RotateMode', () => {
       mode.onKeyDown('Escape', new KeyboardEvent('keydown'));
 
       expect(mode.getSelectedId()).toBeNull();
-      expect(onSelectionChange).toHaveBeenLastCalledWith(false);
+      expect(selectionEvents(harness).at(-1)).toEqual([]);
     });
 
     it('does not start a drag from a press outside the selection', () => {
@@ -541,7 +550,7 @@ describe('RotateMode', () => {
 
     it('never draws a marker for a point', () => {
       harness = createHarness([makePoint()]);
-      mode = new RotateMode(harness.context, onSelectionChange);
+      mode = new RotateMode(harness.context);
       mode.activate();
 
       mode.onPointerDown(pointerEvent(20, 0));
@@ -575,7 +584,7 @@ describe('RotateMode', () => {
         properties: {},
       };
       harness = createHarness([triangle]);
-      mode = new RotateMode(harness.context, onSelectionChange);
+      mode = new RotateMode(harness.context);
       mode.activate();
       mode.onPointerDown(pointerEvent(1, 0.5));
       const first = harness.mocks.renderRotationCenter.mock.calls[0][0];
@@ -614,6 +623,36 @@ describe('RotateMode', () => {
   });
 
   describe('lifecycle', () => {
+    it('restores a preview and forgets the target when the selection is cleared from outside', () => {
+      mode.onPointerDown(pointerEvent(2, 2));
+      mode.onAngleChange(45);
+
+      harness.context.selection.clear();
+      mode.onSelectionChange([]);
+
+      expectRing(ring(harness.features.get('sq')), ring(makeSquare()), 9);
+      expect(mode.getSelectedId()).toBeNull();
+      expect(harness.mocks.clearRotationCenter).toHaveBeenCalled();
+      expect(harness.mocks.push).not.toHaveBeenCalled();
+    });
+
+    it('ignores a selection change that still names the target', () => {
+      mode.onPointerDown(pointerEvent(2, 2));
+      mode.onSelectionChange(['sq']);
+      expect(mode.getSelectedId()).toBe('sq');
+    });
+
+    it('does not write the base back when the target already left the store', () => {
+      mode.onPointerDown(pointerEvent(2, 2));
+      mode.onAngleChange(45);
+      harness.features.delete('sq');
+
+      mode.onSelectionChange([]);
+
+      expect(harness.features.has('sq')).toBe(false);
+      expect(mode.getSelectedId()).toBeNull();
+    });
+
     it('restores a pending preview and clears the selection on deactivate', () => {
       mode.onPointerDown(pointerEvent(2, 2));
       mode.onAngleChange(45);
@@ -623,7 +662,7 @@ describe('RotateMode', () => {
       expectRing(ring(harness.features.get('sq')), ring(makeSquare()), 9);
       expect(mode.getSelectedId()).toBeNull();
       expect(harness.mocks.setSelectedIds).toHaveBeenLastCalledWith([]);
-      expect(onSelectionChange).toHaveBeenLastCalledWith(false);
+      expect(selectionEvents(harness).at(-1)).toEqual([]);
     });
 
     it('aborts an in-progress drag on deactivate', () => {
@@ -645,7 +684,7 @@ describe('RotateMode', () => {
       mode.onPointerDown(pointerEvent(2, 2));
 
       expect(mode.getSelectedId()).toBeNull();
-      expect(onSelectionChange).toHaveBeenLastCalledWith(false);
+      expect(selectionEvents(harness).at(-1)).toEqual([]);
     });
 
     it('rebases on the stored shape after an external change (undo / redo)', () => {
@@ -688,7 +727,7 @@ describe('RotateMode', () => {
       mode.refreshFromStore();
 
       expect(mode.getSelectedId()).toBeNull();
-      expect(onSelectionChange).toHaveBeenLastCalledWith(false);
+      expect(selectionEvents(harness).at(-1)).toEqual([]);
     });
 
     it('keeps the undone shape when refreshed during a numeric preview', () => {
@@ -744,7 +783,7 @@ describe('RotateMode', () => {
       expect(ring(harness.features.get('sq'))).toEqual(previewed);
       expect(mode.getSelectedId()).toBeNull();
       expect(harness.mocks.emit).toHaveBeenLastCalledWith('selectionchange', { selectedIds: [] });
-      expect(onSelectionChange).toHaveBeenLastCalledWith(false);
+      expect(selectionEvents(harness).at(-1)).toEqual([]);
     });
 
     it('refresh is a no-op without a selection', () => {
@@ -757,7 +796,7 @@ describe('RotateMode', () => {
       mode.clearSelection();
 
       expect(harness.mocks.emit).not.toHaveBeenCalled();
-      expect(onSelectionChange).not.toHaveBeenCalled();
+      expect(selectionEvents(harness)).toEqual([]);
     });
   });
 });

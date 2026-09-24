@@ -94,6 +94,37 @@ describe('LibreDraw lifecycle integration', () => {
     draw.destroy();
   });
 
+  it('turns box zoom off in select and rotate mode, where Shift has a meaning', () => {
+    const map = new FakeMap();
+    const draw = new LibreDraw(map.asMap(), { toolbar: false });
+
+    draw.setMode('select');
+    expect(map.boxZoom.isEnabled()).toBe(false);
+
+    draw.setMode('draw-polygon');
+    expect(map.boxZoom.isEnabled()).toBe(true);
+
+    draw.setMode('rotate');
+    expect(map.boxZoom.isEnabled()).toBe(false);
+
+    draw.destroy();
+    expect(map.boxZoom.isEnabled()).toBe(true);
+  });
+
+  it('keeps box zoom off in every mode when the map was created without it', () => {
+    const map = new FakeMap();
+    map.boxZoom.disable();
+    const draw = new LibreDraw(map.asMap(), { toolbar: false });
+
+    draw.setMode('select');
+    draw.setMode('idle');
+    draw.setMode('split');
+    draw.destroy();
+
+    expect(map.boxZoom.enable).not.toHaveBeenCalled();
+    expect(map.boxZoom.isEnabled()).toBe(false);
+  });
+
   it('should apply map interactions from mode declarations on mode changes', () => {
     const map = new FakeMap();
     const draw = new LibreDraw(map.asMap(), { toolbar: false });

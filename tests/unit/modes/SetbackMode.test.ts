@@ -3,6 +3,7 @@ import type { ModeContext } from '../../../src/core/ModeContext';
 import { SetbackMode } from '../../../src/modes/SetbackMode';
 import type { LibreDrawFeature } from '../../../src/types/features';
 import type { NormalizedInputEvent } from '../../../src/types/input';
+import { attachSelection } from '../../helpers/selection';
 
 function makeSquare(id: string): LibreDrawFeature {
   return {
@@ -117,7 +118,7 @@ function createHarness(feature: LibreDrawFeature = makeSquare('f1')): Harness {
   const setSelectedIds = vi.fn();
   const setDragPan = vi.fn();
 
-  const context: ModeContext = {
+  const context: ModeContext = attachSelection({
     store: {
       add,
       update,
@@ -146,7 +147,7 @@ function createHarness(feature: LibreDrawFeature = makeSquare('f1')): Harness {
     getSetbackDistance: () => setbackDistance,
     getSnapConfig: () => ({ enabled: false, threshold: 10 }),
     getViewportBounds: () => ({ west: -180, south: -90, east: 180, north: 90 }),
-  };
+  });
 
   return {
     context,
@@ -173,6 +174,12 @@ function createHarness(feature: LibreDrawFeature = makeSquare('f1')): Harness {
       setDragPan,
     },
   };
+}
+
+function selectionEvents(emit: ReturnType<typeof vi.fn>): string[][] {
+  return emit.mock.calls
+    .filter(([type]) => type === 'selectionchange')
+    .map(([, payload]) => payload.selectedIds);
 }
 
 describe('SetbackMode', () => {
@@ -459,5 +466,17 @@ describe('SetbackMode', () => {
         edgeIndex: 1,
       })
     );
+  });
+
+  it('goes back to picking a polygon when the selection is cleared from outside', () => {
+    mode.activate();
+    mode.onPointerDown(pointerEvent(5, 5)); // select polygon, now picking an edge
+
+    harness.context.selection.clear();
+    mode.onSelectionChange([]);
+
+    mode.onPointerDown(pointerEvent(5, 5));
+    expect(selectionEvents(harness.mocks.emit)).toEqual([['f1'], [], ['f1']]);
+    expect(harness.mocks.push).not.toHaveBeenCalled();
   });
 });

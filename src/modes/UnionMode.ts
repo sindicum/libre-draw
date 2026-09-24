@@ -23,12 +23,15 @@ import { union } from '../operations/union';
 export class UnionMode implements Mode {
   private context: ModeContext;
   private isActive = false;
-  private selectedFeatureId: string | null = null;
   private pointerDown: { x: number; y: number; time: number } | null = null;
   private isDragging = false;
 
   constructor(context: ModeContext) {
     this.context = context;
+  }
+
+  private get selectedFeatureId(): string | null {
+    return this.context.selection.getSingleId() ?? null;
   }
 
   mapInteractions(): { dragPan: boolean; doubleClickZoom: boolean } {
@@ -148,19 +151,12 @@ export class UnionMode implements Mode {
 
   /** Highlight a feature as the first union target and notify listeners. */
   private selectFeature(id: string): void {
-    this.selectedFeatureId = id;
-    this.context.render.setSelectedIds([id]);
-    this.context.events.emit('selectionchange', { selectedIds: [id] });
-    this.context.render.renderFeatures();
+    this.context.selection.set([id]);
   }
 
   /** Remove the current selection highlight and notify listeners. */
   private clearSelection(): void {
-    if (!this.selectedFeatureId) return;
-    this.selectedFeatureId = null;
-    this.context.render.setSelectedIds([]);
-    this.context.events.emit('selectionchange', { selectedIds: [] });
-    this.context.render.renderFeatures();
+    this.context.selection.clear();
   }
 
   /** Forget the pending pointer and drop the selection; the mode stays active. */

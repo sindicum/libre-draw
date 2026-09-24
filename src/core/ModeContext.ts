@@ -2,6 +2,7 @@ import type { EventInput, LibreDrawEventMap } from '../types/events';
 import type { Action, LibreDrawFeature, Position } from '../types/features';
 import type { SnapConfig } from '../types/options';
 import type { ViewportBounds } from '../utils/snap';
+import type { SelectionManager } from './SelectionManager';
 
 /**
  * Shared dependencies injected into modes.
@@ -17,6 +18,11 @@ export interface ModeContext {
   history: {
     push(action: Action): void;
   };
+  /**
+   * The selection shared by every mode. Modes select and deselect through
+   * it; rendering and the `selectionchange` event follow automatically.
+   */
+  selection: SelectionManager;
   events: {
     emit<K extends keyof LibreDrawEventMap>(type: K, payload: EventInput<K>): void;
   };

@@ -3,6 +3,9 @@ import { SelectMode } from '../../../src/modes/SelectMode';
 import type { ModeContext } from '../../../src/core/ModeContext';
 import type { NormalizedInputEvent } from '../../../src/types/input';
 import type { LibreDrawFeature } from '../../../src/types/features';
+import { BatchAction, DeleteAction, UpdateAction } from '../../../src/types/features';
+import type { Mode } from '../../../src/modes/Mode';
+import { attachSelection } from '../../helpers/selection';
 
 function makeFeature(id: string): LibreDrawFeature {
   return {
@@ -100,41 +103,47 @@ function createCallbacks(featureMap: Map<string, LibreDrawFeature>): SelectModeM
   };
 }
 
-function createModeContext(callbacks: SelectModeMocks): ModeContext {
-  return {
-    store: {
-      add: vi.fn(),
-      update: callbacks.updateFeatureInStore,
-      remove: callbacks.removeFeatureFromStore,
-      getById: callbacks.getFeatureById,
-      getAll: callbacks.getAllFeatures,
+function createModeContext(
+  callbacks: SelectModeMocks,
+  getMode?: () => Mode | undefined
+): ModeContext {
+  return attachSelection(
+    {
+      store: {
+        add: vi.fn(),
+        update: callbacks.updateFeatureInStore,
+        remove: callbacks.removeFeatureFromStore,
+        getById: callbacks.getFeatureById,
+        getAll: callbacks.getAllFeatures,
+      },
+      history: {
+        push: callbacks.pushToHistory,
+      },
+      events: {
+        emit: callbacks.emitEvent,
+      },
+      render: {
+        renderFeatures: callbacks.renderFeatures,
+        renderPreview: vi.fn(),
+        clearPreview: vi.fn(),
+        renderEdgeHighlight: vi.fn(),
+        clearEdgeHighlight: vi.fn(),
+        renderVertices: callbacks.renderVertices,
+        clearVertices: callbacks.clearVertices,
+        setSelectedIds: vi.fn(),
+        renderSnapIndicator: vi.fn(),
+        clearSnapIndicator: vi.fn(),
+        renderRotationCenter: vi.fn(),
+        clearRotationCenter: vi.fn(),
+      },
+      getScreenPoint: callbacks.getScreenPoint,
+      setDragPan: callbacks.setDragPan,
+      getSetbackDistance: () => 10,
+      getSnapConfig: () => ({ enabled: false, threshold: 10 }),
+      getViewportBounds: () => ({ west: -180, south: -90, east: 180, north: 90 }),
     },
-    history: {
-      push: callbacks.pushToHistory,
-    },
-    events: {
-      emit: callbacks.emitEvent,
-    },
-    render: {
-      renderFeatures: callbacks.renderFeatures,
-      renderPreview: vi.fn(),
-      clearPreview: vi.fn(),
-      renderEdgeHighlight: vi.fn(),
-      clearEdgeHighlight: vi.fn(),
-      renderVertices: callbacks.renderVertices,
-      clearVertices: callbacks.clearVertices,
-      setSelectedIds: vi.fn(),
-      renderSnapIndicator: vi.fn(),
-      clearSnapIndicator: vi.fn(),
-      renderRotationCenter: vi.fn(),
-      clearRotationCenter: vi.fn(),
-    },
-    getScreenPoint: callbacks.getScreenPoint,
-    setDragPan: callbacks.setDragPan,
-    getSetbackDistance: () => 10,
-    getSnapConfig: () => ({ enabled: false, threshold: 10 }),
-    getViewportBounds: () => ({ west: -180, south: -90, east: 180, north: 90 }),
-  };
+    getMode
+  );
 }
 
 describe('SelectMode', () => {
@@ -148,7 +157,7 @@ describe('SelectMode', () => {
     featureMap = new Map();
     featureMap.set('f1', makeFeature('f1'));
     callbacks = createCallbacks(featureMap);
-    context = createModeContext(callbacks);
+    context = createModeContext(callbacks, () => selectMode);
     onSelectionChange = vi.fn();
     selectMode = new SelectMode(context, onSelectionChange);
   });
@@ -896,6 +905,383 @@ describe('SelectMode', () => {
       selectMode.onPointerMove(createPointerEvent(1, 1));
 
       expect(callbacks.updateFeatureInStore).toHaveBeenCalled();
+    });
+  });
+
+  // --- Multi-selection (F-023) ---
+
+  describe('multi-selection', () => {
+    function makeSquareAt(id: string, x: number): LibreDrawFeature {
+      return {
+        id,
+        type: 'Feature',
+        geometry: {
+          type: 'Polygon',
+          coordinates: [
+            [
+              [x, 0],
+              [x + 10, 0],
+              [x + 10, 10],
+              [x, 10],
+              [x, 0],
+            ],
+          ],
+        },
+        properties: {},
+      };
+    }
+
+    function withModifier(
+      lng: number,
+      lat: number,
+      modifier: 'shiftKey' | 'ctrlKey' | 'metaKey' = 'shiftKey'
+    ): NormalizedInputEvent {
+      return {
+        ...createPointerEvent(lng, lat),
+        originalEvent: new MouseEvent('click', { [modifier]: true }),
+      };
+    }
+
+    function pushedActions(): unknown[] {
+      return callbacks.pushToHistory.mock.calls.map(([action]) => action);
+    }
+
+    beforeEach(() => {
+      featureMap.set('f2', makeSquareAt('f2', 20));
+      featureMap.set('p1', {
+        id: 'p1',
+        type: 'Feature',
+        geometry: { type: 'Point', coordinates: [45, 5] },
+        properties: {},
+      });
+      featureMap.set('l1', {
+        id: 'l1',
+        type: 'Feature',
+        geometry: {
+          type: 'LineString',
+          coordinates: [
+            [60, 0],
+            [70, 0],
+          ],
+        },
+        properties: {},
+      });
+      selectMode.activate();
+    });
+
+    it.each(['shiftKey', 'ctrlKey', 'metaKey'] as const)(
+      'adds a second feature with %s + click',
+      (modifier) => {
+        selectMode.onPointerDown(createPointerEvent(5, 5));
+        selectMode.onPointerDown(withModifier(25, 5, modifier));
+
+        expect(selectMode.getSelectedIds()).toEqual(['f1', 'f2']);
+        expect(callbacks.emitEvent).toHaveBeenLastCalledWith('selectionchange', {
+          selectedIds: ['f1', 'f2'],
+        });
+      }
+    );
+
+    it('removes an already selected feature with Shift + click', () => {
+      selectMode.onPointerDown(createPointerEvent(5, 5));
+      selectMode.onPointerDown(withModifier(25, 5));
+      selectMode.onPointerDown(withModifier(5, 5));
+
+      expect(selectMode.getSelectedIds()).toEqual(['f2']);
+    });
+
+    it('keeps the selection on Shift + click on empty space', () => {
+      selectMode.onPointerDown(createPointerEvent(5, 5));
+      vi.mocked(callbacks.emitEvent).mockClear();
+
+      selectMode.onPointerDown(withModifier(100, 100));
+
+      expect(selectMode.getSelectedIds()).toEqual(['f1']);
+      expect(callbacks.emitEvent).not.toHaveBeenCalled();
+    });
+
+    it('does not start a vertex drag on Shift + click on a vertex of the selection', () => {
+      selectMode.onPointerDown(createPointerEvent(5, 5));
+      vi.mocked(callbacks.setDragPan).mockClear();
+
+      selectMode.onPointerDown(withModifier(0, 0));
+
+      expect(callbacks.setDragPan).not.toHaveBeenCalledWith(false);
+      expect(selectMode.getSelectedIds()).toEqual([]);
+    });
+
+    it('allows Point, LineString, and Polygon in one selection', () => {
+      selectMode.onPointerDown(createPointerEvent(5, 5));
+      selectMode.onPointerDown(withModifier(45, 5));
+      selectMode.onPointerDown(withModifier(65, 0));
+
+      expect(selectMode.getSelectedIds()).toEqual(['f1', 'p1', 'l1']);
+    });
+
+    it('replaces a multi-selection with a plain click on an unselected feature', () => {
+      selectMode.onPointerDown(createPointerEvent(5, 5));
+      selectMode.onPointerDown(withModifier(25, 5));
+
+      selectMode.onPointerDown(createPointerEvent(45, 5));
+
+      expect(selectMode.getSelectedIds()).toEqual(['p1']);
+    });
+
+    it('clears a multi-selection with a plain click on empty space', () => {
+      selectMode.onPointerDown(createPointerEvent(5, 5));
+      selectMode.onPointerDown(withModifier(25, 5));
+
+      selectMode.onPointerDown(createPointerEvent(100, 100));
+
+      expect(selectMode.getSelectedIds()).toEqual([]);
+    });
+
+    it('shows vertex handles only while exactly one feature is selected', () => {
+      selectMode.onPointerDown(createPointerEvent(5, 5));
+      expect(callbacks.renderVertices).toHaveBeenCalled();
+
+      vi.mocked(callbacks.renderVertices).mockClear();
+      vi.mocked(callbacks.clearVertices).mockClear();
+      selectMode.onPointerDown(withModifier(25, 5));
+      expect(callbacks.clearVertices).toHaveBeenCalled();
+      expect(callbacks.renderVertices).not.toHaveBeenCalled();
+
+      // Hovering a vertex of f1 does not bring its handles back.
+      selectMode.onPointerMove(createPointerEvent(0, 0));
+      expect(callbacks.renderVertices).not.toHaveBeenCalled();
+
+      selectMode.onPointerDown(withModifier(25, 5)); // back to one
+      expect(callbacks.renderVertices).toHaveBeenCalled();
+    });
+
+    it('does not delete a vertex on double-click while several are selected', () => {
+      featureMap.set('f1', {
+        ...makeFeature('f1'),
+        geometry: {
+          type: 'Polygon',
+          coordinates: [
+            [
+              [0, 0],
+              [10, 0],
+              [10, 10],
+              [5, 12],
+              [0, 10],
+              [0, 0],
+            ],
+          ],
+        },
+      });
+      selectMode.onPointerDown(createPointerEvent(5, 5));
+      selectMode.onPointerDown(withModifier(25, 5));
+
+      selectMode.onDoubleClick(createPointerEvent(0, 0));
+
+      expect(callbacks.pushToHistory).not.toHaveBeenCalled();
+    });
+
+    describe('whole-selection drag', () => {
+      beforeEach(() => {
+        selectMode.onPointerDown(createPointerEvent(5, 5));
+        selectMode.onPointerDown(withModifier(25, 5));
+        selectMode.onPointerDown(withModifier(45, 5));
+        vi.mocked(callbacks.emitEvent).mockClear();
+        vi.mocked(callbacks.setDragPan).mockClear();
+      });
+
+      it('moves every selected feature by the same delta and keeps the selection', () => {
+        selectMode.onPointerDown(createPointerEvent(25, 5));
+        expect(callbacks.setDragPan).toHaveBeenCalledWith(false);
+
+        selectMode.onPointerMove(createPointerEvent(27, 8));
+
+        // Preview: all three already moved in the store.
+        const f1 = featureMap.get('f1')!;
+        const f2 = featureMap.get('f2')!;
+        const p1 = featureMap.get('p1')!;
+        expect(f1.geometry.type === 'Polygon' && f1.geometry.coordinates[0][0]).toEqual([2, 3]);
+        expect(f2.geometry.type === 'Polygon' && f2.geometry.coordinates[0][0]).toEqual([22, 3]);
+        expect(p1.geometry.coordinates).toEqual([47, 8]);
+        expect(selectMode.getSelectedIds()).toEqual(['f1', 'f2', 'p1']);
+      });
+
+      it('commits one BatchAction of UpdateActions and an update event per feature', () => {
+        selectMode.onPointerDown(createPointerEvent(25, 5));
+        selectMode.onPointerMove(createPointerEvent(27, 8));
+        selectMode.onPointerUp(createPointerEvent(27, 8));
+
+        const actions = pushedActions();
+        expect(actions).toHaveLength(1);
+        const batch = actions[0] as BatchAction;
+        expect(batch).toBeInstanceOf(BatchAction);
+        expect(batch.actions).toHaveLength(3);
+        expect(batch.actions.every((a) => a instanceof UpdateAction)).toBe(true);
+
+        const updates = callbacks.emitEvent.mock.calls.filter(([type]) => type === 'update');
+        expect(updates.map(([, payload]) => payload.feature.id)).toEqual(['f1', 'f2', 'p1']);
+        expect(callbacks.setDragPan).toHaveBeenLastCalledWith(true);
+      });
+
+      it('records nothing for a press without movement', () => {
+        selectMode.onPointerDown(createPointerEvent(25, 5));
+        selectMode.onPointerUp(createPointerEvent(25, 5));
+
+        expect(callbacks.pushToHistory).not.toHaveBeenCalled();
+        expect(selectMode.getSelectedIds()).toEqual(['f1', 'f2', 'p1']);
+      });
+
+      it('is abandoned when the selection is cleared from outside mid-drag', () => {
+        selectMode.onPointerDown(createPointerEvent(25, 5));
+        selectMode.onPointerMove(createPointerEvent(27, 8));
+
+        context.selection.clear();
+        selectMode.onPointerUp(createPointerEvent(27, 8));
+
+        expect(callbacks.pushToHistory).not.toHaveBeenCalled();
+        expect(callbacks.setDragPan).toHaveBeenLastCalledWith(true);
+        // The preview is undone: nothing moved without a history entry.
+        expect(featureMap.get('f1')).toEqual(makeFeature('f1'));
+        expect(featureMap.get('f2')).toEqual(makeSquareAt('f2', 20));
+        expect(featureMap.get('p1')!.geometry.coordinates).toEqual([45, 5]);
+        expect(callbacks.emitEvent).not.toHaveBeenCalledWith('update', expect.anything());
+      });
+
+      it('deletes the committed shapes when Delete is pressed mid-drag', () => {
+        selectMode.onPointerDown(createPointerEvent(25, 5));
+        selectMode.onPointerMove(createPointerEvent(27, 8));
+
+        selectMode.onKeyDown('Delete', new KeyboardEvent('keydown', { key: 'Delete' }));
+        selectMode.onPointerUp(createPointerEvent(27, 8));
+
+        const actions = pushedActions();
+        expect(actions).toHaveLength(1);
+        const batch = actions[0] as BatchAction;
+        const deleted = batch.actions.map((a) => (a as DeleteAction).feature);
+        expect(deleted).toEqual([
+          makeFeature('f1'),
+          makeSquareAt('f2', 20),
+          expect.objectContaining({ geometry: { type: 'Point', coordinates: [45, 5] } }),
+        ]);
+        const deleteEvents = callbacks.emitEvent.mock.calls.filter(([type]) => type === 'delete');
+        expect(deleteEvents[1][1].feature).toEqual(makeSquareAt('f2', 20));
+      });
+
+      it('is abandoned on deactivate with the preview undone', () => {
+        selectMode.onPointerDown(createPointerEvent(25, 5));
+        selectMode.onPointerMove(createPointerEvent(27, 8));
+
+        selectMode.deactivate();
+
+        expect(featureMap.get('f2')).toEqual(makeSquareAt('f2', 20));
+        expect(callbacks.pushToHistory).not.toHaveBeenCalled();
+      });
+
+      it('keeps an external change made mid-drag and drops the stale drag', () => {
+        selectMode.onPointerDown(createPointerEvent(25, 5));
+        selectMode.onPointerMove(createPointerEvent(27, 8));
+
+        // e.g. undo / updateFeature while the button is still held
+        featureMap.set('f2', { ...makeSquareAt('f2', 20), properties: { external: 'saved' } });
+        selectMode.refreshFromStore();
+        selectMode.onPointerMove(createPointerEvent(30, 9));
+        selectMode.onPointerUp(createPointerEvent(30, 9));
+
+        expect(featureMap.get('f2')).toEqual({
+          ...makeSquareAt('f2', 20),
+          properties: { external: 'saved' },
+        });
+        expect(callbacks.pushToHistory).not.toHaveBeenCalled();
+        expect(selectMode.getSelectedIds()).toEqual(['f1', 'f2', 'p1']);
+      });
+    });
+
+    describe('single-feature drag aborted from outside', () => {
+      it('puts a dragged point back when the selection is cleared', () => {
+        selectMode.onPointerDown(createPointerEvent(45, 5)); // select p1
+        selectMode.onPointerDown(createPointerEvent(45, 5)); // start point drag
+        selectMode.onPointerMove(createPointerEvent(48, 7));
+
+        context.selection.clear();
+
+        expect(featureMap.get('p1')!.geometry.coordinates).toEqual([45, 5]);
+        expect(callbacks.pushToHistory).not.toHaveBeenCalled();
+      });
+
+      it('puts a dragged polygon back when another feature is selected via the API', () => {
+        selectMode.onPointerDown(createPointerEvent(5, 5)); // select f1
+        selectMode.onPointerDown(createPointerEvent(5, 5)); // start body drag
+        selectMode.onPointerMove(createPointerEvent(7, 7));
+
+        selectMode.selectFeatures(['f2']);
+        selectMode.onPointerUp(createPointerEvent(7, 7));
+
+        expect(featureMap.get('f1')).toEqual(makeFeature('f1'));
+        expect(callbacks.pushToHistory).not.toHaveBeenCalled();
+      });
+    });
+
+    describe('delete', () => {
+      it('removes every selected feature as one BatchAction with a delete event each', () => {
+        selectMode.onPointerDown(createPointerEvent(5, 5));
+        selectMode.onPointerDown(withModifier(25, 5));
+
+        selectMode.onKeyDown('Delete', new KeyboardEvent('keydown', { key: 'Delete' }));
+
+        expect(featureMap.has('f1')).toBe(false);
+        expect(featureMap.has('f2')).toBe(false);
+        const actions = pushedActions();
+        expect(actions).toHaveLength(1);
+        const batch = actions[0] as BatchAction;
+        expect(batch).toBeInstanceOf(BatchAction);
+        expect(batch.actions.every((a) => a instanceof DeleteAction)).toBe(true);
+        const deletes = callbacks.emitEvent.mock.calls.filter(([type]) => type === 'delete');
+        expect(deletes).toHaveLength(2);
+        expect(selectMode.getSelectedIds()).toEqual([]);
+      });
+
+      it('keeps a single DeleteAction for one selected feature', () => {
+        selectMode.onPointerDown(createPointerEvent(5, 5));
+        selectMode.deleteSelected();
+
+        const actions = pushedActions();
+        expect(actions).toHaveLength(1);
+        expect(actions[0]).toBeInstanceOf(DeleteAction);
+      });
+
+      it('does nothing while inactive', () => {
+        selectMode.onPointerDown(createPointerEvent(5, 5));
+        selectMode.deactivate();
+        selectMode.deleteSelected();
+
+        expect(callbacks.removeFeatureFromStore).not.toHaveBeenCalled();
+      });
+    });
+
+    describe('selectFeatures', () => {
+      it('replaces the selection with every given feature', () => {
+        expect(selectMode.selectFeatures(['f2', 'l1'])).toBe(true);
+        expect(selectMode.getSelectedIds()).toEqual(['f2', 'l1']);
+        expect(callbacks.emitEvent).toHaveBeenLastCalledWith('selectionchange', {
+          selectedIds: ['f2', 'l1'],
+        });
+      });
+
+      it('changes nothing when any id is unknown', () => {
+        selectMode.selectFeatures(['f1']);
+        vi.mocked(callbacks.emitEvent).mockClear();
+
+        expect(selectMode.selectFeatures(['f2', 'missing'])).toBe(false);
+        expect(selectMode.getSelectedIds()).toEqual(['f1']);
+        expect(callbacks.emitEvent).not.toHaveBeenCalled();
+      });
+
+      it('rejects an empty list', () => {
+        expect(selectMode.selectFeatures([])).toBe(false);
+      });
+
+      it('returns false while inactive', () => {
+        selectMode.deactivate();
+        expect(selectMode.selectFeatures(['f1', 'f2'])).toBe(false);
+      });
     });
   });
 });

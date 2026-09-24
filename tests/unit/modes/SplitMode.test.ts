@@ -3,6 +3,7 @@ import type { ModeContext } from '../../../src/core/ModeContext';
 import { SplitMode } from '../../../src/modes/SplitMode';
 import type { LibreDrawFeature } from '../../../src/types/features';
 import type { NormalizedInputEvent } from '../../../src/types/input';
+import { attachSelection } from '../../helpers/selection';
 
 function makeSquare(id: string): LibreDrawFeature {
   return {
@@ -87,7 +88,7 @@ function createHarness(): TestHarness {
   const setSelectedIds = vi.fn();
   const setDragPan = vi.fn();
 
-  const context: ModeContext = {
+  const context: ModeContext = attachSelection({
     store: {
       add,
       update,
@@ -120,7 +121,7 @@ function createHarness(): TestHarness {
     getSetbackDistance: () => 10,
     getSnapConfig: () => ({ enabled: false, threshold: 10 }),
     getViewportBounds: () => ({ west: -180, south: -90, east: 180, north: 90 }),
-  };
+  });
 
   return {
     context,
@@ -144,6 +145,12 @@ function createHarness(): TestHarness {
       setDragPan,
     },
   };
+}
+
+function selectionEvents(emit: ReturnType<typeof vi.fn>): string[][] {
+  return emit.mock.calls
+    .filter(([type]) => type === 'selectionchange')
+    .map(([, payload]) => payload.selectedIds);
 }
 
 describe('SplitMode', () => {
@@ -246,5 +253,31 @@ describe('SplitMode', () => {
     expect(harness.mocks.emit).toHaveBeenCalledWith('selectionchange', {
       selectedIds: [],
     });
+  });
+
+  it('abandons the half-drawn line when the selection is cleared from outside', () => {
+    mode.activate();
+    mode.onPointerDown(pointerEvent(5, 5)); // select target
+    mode.onPointerDown(pointerEvent(5, -1)); // first split point
+
+    harness.context.selection.clear();
+    mode.onSelectionChange([]);
+    expect(harness.mocks.clearPreview).toHaveBeenCalled();
+
+    // The next press picks a target again instead of finishing the line.
+    mode.onPointerDown(pointerEvent(5, 5));
+    expect(harness.mocks.push).not.toHaveBeenCalled();
+    expect(selectionEvents(harness.mocks.emit)).toEqual([['f1'], [], ['f1']]);
+  });
+
+  it('keeps its state when the selection change still names the target', () => {
+    mode.activate();
+    mode.onPointerDown(pointerEvent(5, 5));
+    mode.onPointerDown(pointerEvent(5, -1));
+
+    mode.onSelectionChange(['f1']);
+    mode.onPointerDown(pointerEvent(5, 11)); // second point: the split runs
+
+    expect(harness.mocks.push).toHaveBeenCalledTimes(1);
   });
 });
