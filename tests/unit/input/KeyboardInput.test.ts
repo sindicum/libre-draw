@@ -184,6 +184,35 @@ describe('KeyboardInput shortcuts', () => {
     expect(onUndo).not.toHaveBeenCalled();
   });
 
+  it('should dispatch Enter pressed on the map to the mode', () => {
+    const enter = keydown({ key: 'Enter' });
+    canvas.dispatchEvent(enter);
+
+    expect(onKeyDown).toHaveBeenCalledWith('Enter', enter);
+  });
+
+  it.each(['input', 'textarea', 'select', 'button'])(
+    'should withhold Enter from the mode while a <%s> inside the map has focus',
+    (tag) => {
+      // Enter already submits the field or clicks the button there.
+      const el = document.createElement(tag);
+      container.appendChild(el);
+
+      el.dispatchEvent(keydown({ key: 'Enter' }));
+
+      expect(onKeyDown).not.toHaveBeenCalled();
+    }
+  );
+
+  it('should still dispatch Escape from a focused button', () => {
+    const button = document.createElement('button');
+    container.appendChild(button);
+
+    button.dispatchEvent(keydown({ key: 'Escape' }));
+
+    expect(onKeyDown).toHaveBeenCalledWith('Escape', expect.anything());
+  });
+
   it.each(['input', 'textarea', 'select'])(
     'should ignore shortcuts while a <%s> inside the map has focus',
     (tag) => {

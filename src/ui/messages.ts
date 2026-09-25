@@ -27,6 +27,9 @@ export const MESSAGES_EN: Messages = {
   rotateExecute: 'Apply',
   rotateExecuteLabel: 'Execute rotation',
 
+  unionExecute: 'Merge',
+  unionExecuteLabel: 'Merge selected polygons',
+
   styleFeatureSection: 'Feature style',
   styleSelectedSection: 'Selected style',
   styleGuideSection: 'Guide lines',
@@ -78,6 +81,9 @@ export const MESSAGES_JA: Messages = {
   rotateAngleInput: '回転角度（度）',
   rotateExecute: '実行',
   rotateExecuteLabel: '回転を実行',
+
+  unionExecute: '統合',
+  unionExecuteLabel: '選択したポリゴンを統合',
 
   styleFeatureSection: '地物スタイル',
   styleSelectedSection: '選択時スタイル',

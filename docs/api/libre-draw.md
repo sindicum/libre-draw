@@ -478,24 +478,24 @@ draw.undo();
 
 ### `union(ids)`
 
-Merge two Polygons into one.
+Merge two or more Polygons into one.
 
-Same computation as the [`union` mode](/guide/modes#union): the merged polygon gets a fresh id and a copy of the first polygon's properties, and only a single Polygon without holes counts as success. Recorded as **one undoable step** and reported with a [`union`](/api/events#union) event (`origin: 'api'`); a geometric failure also emits [`unionfailed`](/api/events#unionfailed), as the mode does.
+Same computation as the [`union` mode](/guide/modes#union): all polygons are merged at once, the merged polygon gets a fresh id and a copy of the first polygon's properties, and only a single Polygon without holes counts as success. If any polygon does not connect to the others, nothing is merged. Recorded as **one undoable step** and reported with a [`union`](/api/events#union) event (`origin: 'api'`); a geometric failure also emits [`unionfailed`](/api/events#unionfailed), as the mode does.
 
 **Parameters:**
 
-| Name  | Type       | Description                                                                          |
-| ----- | ---------- | ------------------------------------------------------------------------------------ |
-| `ids` | `string[]` | Exactly two distinct feature ids, in the order that decides whose properties survive |
+| Name  | Type       | Description                                                                                                   |
+| ----- | ---------- | ------------------------------------------------------------------------------------------------------------- |
+| `ids` | `string[]` | Two or more distinct feature ids (duplicates are ignored), in the order that decides whose properties survive |
 
-**Returns:** [`OperationResult`](/api/types#operationresult) — `{ ok: true, created: [merged], deleted: [a, b] }`, or `{ ok: false, reason }` with `'unsupported-count'`, `'not-found'`, or a [`UnionFailReason`](/api/events#payload-unionfailedevent) (see [`UnionOperationFailReason`](/api/types#unionoperationfailreason)). Nothing changes on failure.
+**Returns:** [`OperationResult`](/api/types#operationresult) — `{ ok: true, created: [merged], deleted: [...sources] }`, or `{ ok: false, reason }` with `'unsupported-count'`, `'not-found'`, or a [`UnionFailReason`](/api/events#payload-unionfailedevent) (see [`UnionOperationFailReason`](/api/types#unionoperationfailreason)). Nothing changes on failure.
 
 **Throws:** [`LibreDrawError`](/api/types#libredrawerror) if this instance has been destroyed.
 
 **Example:**
 
 ```ts
-const result = draw.union(['a', 'b']);
+const result = draw.union(['a', 'b', 'c']);
 if (!result.ok) console.warn(result.reason); // e.g. 'disjoint'
 ```
 
@@ -558,7 +558,7 @@ if (draw.selectFeatures(['a', 'b'])) {
 
 Get the IDs of currently selected features.
 
-Every mode shares one selection: select mode may hold several features, rotate / split / setback / union at most their one target, and drawing modes none (switching modes clears the selection). IDs are returned in the order they were selected.
+Every mode shares one selection: select mode may hold several features, union the polygons picked for the merge, rotate / split / setback at most their one target, and drawing modes none (switching modes clears the selection). IDs are returned in the order they were selected.
 
 **Returns:** `string[]`
 

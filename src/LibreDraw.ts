@@ -103,6 +103,7 @@ export class LibreDraw {
   private selectMode: SelectMode;
   private setbackMode: SetbackMode;
   private rotateMode: RotateMode;
+  private unionMode: UnionMode;
   private snapConfig: SnapConfig;
   private messages: Messages;
   private destroyed = false;
@@ -187,8 +188,9 @@ export class LibreDraw {
     this.renderManager = new RenderManager(map, this.sourceManager, options.style);
 
     // The one selection every mode reads and writes. Each change redraws the
-    // highlight, emits 'selectionchange', updates the rotate angle input, and
-    // lets the active mode adjust; modes never repeat these side effects.
+    // highlight, emits 'selectionchange', updates the rotate angle input and
+    // the union execute button, and lets the active mode adjust; modes never
+    // repeat these side effects.
     this.selection = new SelectionManager((selectedIds) => {
       this.renderManager.setSelectedIds(selectedIds);
       this.renderAllFeatures();
@@ -196,6 +198,7 @@ export class LibreDraw {
       this.toolbar?.setRotateSelection(
         this.modeManager.getMode() === 'rotate' && selectedIds.length > 0
       );
+      this.toolbar?.setUnionSelectionCount(selectedIds.length);
       this.modeManager.getCurrentMode()?.onSelectionChange?.(selectedIds);
     });
 
@@ -271,7 +274,7 @@ export class LibreDraw {
     const drawAngledRectangleMode = new DrawAngledRectangleMode(modeContext);
     this.selectMode = new SelectMode(modeContext);
     const splitMode = new SplitMode(modeContext);
-    const unionMode = new UnionMode(modeContext);
+    this.unionMode = new UnionMode(modeContext);
     this.setbackMode = new SetbackMode(modeContext);
     this.rotateMode = new RotateMode(modeContext);
 
@@ -284,7 +287,7 @@ export class LibreDraw {
     this.modeManager.registerMode('draw-angled-rectangle', drawAngledRectangleMode);
     this.modeManager.registerMode('select', this.selectMode);
     this.modeManager.registerMode('split', splitMode);
-    this.modeManager.registerMode('union', unionMode);
+    this.modeManager.registerMode('union', this.unionMode);
     this.modeManager.registerMode('setback', this.setbackMode);
     this.modeManager.registerMode('rotate', this.rotateMode);
 
@@ -808,17 +811,19 @@ export class LibreDraw {
   }
 
   /**
-   * Merge two Polygons into one.
+   * Merge two or more Polygons into one.
    *
-   * Same computation as the [`union` mode]: the merged polygon gets a fresh
-   * id and a copy of the first polygon's properties, and only a single
-   * Polygon without holes counts as success. Recorded as one undoable step
-   * and reported with a `'union'` event (`origin: 'api'`); a geometric
-   * failure also emits `'unionfailed'` as the mode does.
+   * Same computation as the [`union` mode]: all polygons are merged at
+   * once, the merged polygon gets a fresh id and a copy of the first
+   * polygon's properties, and only a single Polygon without holes counts as
+   * success. If any polygon does not connect to the others, nothing is
+   * merged. Recorded as one undoable step and reported with a `'union'`
+   * event (`origin: 'api'`); a geometric failure also emits `'unionfailed'`
+   * as the mode does.
    *
-   * @param ids - Exactly two distinct feature ids, in the order that decides
-   *   whose properties survive.
-   * @returns `{ ok: true, created: [merged], deleted: [a, b] }`, or
+   * @param ids - Two or more distinct feature ids (duplicates are ignored),
+   *   in the order that decides whose properties survive.
+   * @returns `{ ok: true, created: [merged], deleted: [...sources] }`, or
    *   `{ ok: false, reason }` with `'unsupported-count'`, `'not-found'`, or a
    *   {@link UnionFailReason}. Nothing changes on failure.
    *
@@ -826,7 +831,7 @@ export class LibreDraw {
    *
    * @example
    * ```ts
-   * const result = draw.union(['a', 'b']);
+   * const result = draw.union(['a', 'b', 'c']);
    * if (!result.ok) console.warn(result.reason); // e.g. 'disjoint'
    * ```
    */
@@ -1334,6 +1339,9 @@ export class LibreDraw {
           const current = this.modeManager.getMode();
           this.modeManager.setMode(current === 'union' ? 'idle' : 'union');
         },
+        onUnionExecute: () => {
+          this.unionMode.execute();
+        },
         onSetbackClick: () => {
           const current = this.modeManager.getMode();
           this.modeManager.setMode(current === 'setback' ? 'idle' : 'setback');
@@ -1472,8 +1480,9 @@ export class LibreDraw {
       this.eventBus.emit('create', { feature: cloneFeature(action.originalFeature) });
     } else if (action instanceof UnionAction) {
       this.eventBus.emit('delete', { feature: cloneFeature(action.resultFeature) });
-      this.eventBus.emit('create', { feature: cloneFeature(action.featureA) });
-      this.eventBus.emit('create', { feature: cloneFeature(action.featureB) });
+      for (const feature of action.originalFeatures) {
+        this.eventBus.emit('create', { feature: cloneFeature(feature) });
+      }
     }
   }
 
@@ -1510,7 +1519,7 @@ export class LibreDraw {
       });
     } else if (action instanceof UnionAction) {
       this.eventBus.emit('union', {
-        originalFeatures: [cloneFeature(action.featureA), cloneFeature(action.featureB)],
+        originalFeatures: action.originalFeatures.map(cloneFeature),
         feature: cloneFeature(action.resultFeature),
       });
     }

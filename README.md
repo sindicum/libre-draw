@@ -17,7 +17,7 @@ A point, line, and polygon drawing and editing library for [MapLibre GL JS](http
 - **Select & edit** — Click a feature to select it, drag vertices to reshape, drag midpoints to add vertices
 - **Feature drag** — Drag an entire selected point, line, or polygon to reposition it
 - **Split polygon** — Cut a polygon into two polygons with a two-point split line
-- **Union** — Merge two touching or overlapping polygons into one by clicking them in turn
+- **Union** — Merge two or more touching or overlapping polygons into one: click them to select, then press Enter or the execute button
 - **Setback edge** — Offset a selected edge inward and remove the setback band
 - **Rotate** — Turn a polygon or line by dragging it or by entering a relative angle
 - **Snap** — Vertices snap to nearby existing vertices and edges during drawing and editing
@@ -83,7 +83,7 @@ new LibreDraw(map: maplibregl.Map, options?: LibreDrawOptions)
 | `rotate(id, angleDeg)`              | Rotate a polygon or line around its centroid (undoable, returns `{ ok, ... }`)                                                                                                          |
 | `split(id, line)`                   | Split a polygon or line along the line through two points (undoable, returns `{ ok, ... }`)                                                                                             |
 | `setback(id, edge, distanceMeters)` | Move one edge of a polygon inward by a distance in meters (undoable, returns `{ ok, ... }`)                                                                                             |
-| `union(ids)`                        | Merge two polygons into one (undoable, returns `{ ok, ... }`)                                                                                                                           |
+| `union(ids)`                        | Merge two or more polygons into one (undoable, returns `{ ok, ... }`)                                                                                                                   |
 | `selectFeature(id)`                 | Programmatically select a feature (returns `false` for an unknown id)                                                                                                                   |
 | `selectFeatures(ids)`               | Select several features at once (returns `false` for an empty list or any unknown id)                                                                                                   |
 | `clearSelection()`                  | Clear the current selection                                                                                                                                                             |
@@ -105,7 +105,7 @@ new LibreDraw(map: maplibregl.Map, options?: LibreDrawOptions)
 | `splitfailed`     | `{ reason, featureId }`                               | Split operation failed                          |
 | `setback`         | `{ originalFeature, feature, edgeIndex, distance }`   | Setback operation succeeded                     |
 | `setbackfailed`   | `{ reason, featureId }`                               | Setback operation failed                        |
-| `union`           | `{ originalFeatures: [featureA, featureB], feature }` | Two polygons were merged into one               |
+| `union`           | `{ originalFeatures: [...features], feature }`        | Two or more polygons were merged into one       |
 | `unionfailed`     | `{ reason, featureIds }`                              | Union operation failed                          |
 | `rotate`          | `{ originalFeature, feature, angle }`                 | A polygon or line was rotated                   |
 | `selectionchange` | `{ selectedIds }`                                     | Selection changed                               |

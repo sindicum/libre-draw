@@ -94,7 +94,7 @@ describe('LibreDraw lifecycle integration', () => {
     draw.destroy();
   });
 
-  it('turns box zoom off in select and rotate mode, where Shift has a meaning', () => {
+  it('turns box zoom off in select, rotate and union mode, where Shift + click is used', () => {
     const map = new FakeMap();
     const draw = new LibreDraw(map.asMap(), { toolbar: false });
 
@@ -106,6 +106,12 @@ describe('LibreDraw lifecycle integration', () => {
 
     draw.setMode('rotate');
     expect(map.boxZoom.isEnabled()).toBe(false);
+
+    draw.setMode('union');
+    expect(map.boxZoom.isEnabled()).toBe(false);
+
+    draw.setMode('split');
+    expect(map.boxZoom.isEnabled()).toBe(true);
 
     draw.destroy();
     expect(map.boxZoom.isEnabled()).toBe(true);
@@ -720,6 +726,13 @@ describe('LibreDraw lifecycle integration', () => {
       window.dispatchEvent(new MouseEvent('mouseup', { clientX: x, clientY: y, button: 0 }));
     }
 
+    /** Press Enter with the map focused. */
+    function pressEnter(map: FakeMap): void {
+      map
+        .getCanvasContainer()
+        .dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true }));
+    }
+
     it('enters union mode from setMode() and the toolbar button', () => {
       const map = new FakeMap();
       const draw = new LibreDraw(map.asMap());
@@ -763,7 +776,10 @@ describe('LibreDraw lifecycle integration', () => {
 
       draw.setMode('union');
       clickAt(map, 15, 15); // select 'a'
-      clickAt(map, 65, 65); // click 'b' (outside 'a')
+      clickAt(map, 65, 65); // add 'b' (outside 'a')
+      expect(unionListener).not.toHaveBeenCalled();
+      expect(draw.getSelectedFeatureIds()).toEqual(['a', 'b']);
+      pressEnter(map);
 
       expect(unionListener).toHaveBeenCalledTimes(1);
       const merged = unionListener.mock.calls[0][0].feature;
@@ -819,6 +835,7 @@ describe('LibreDraw lifecycle integration', () => {
       draw.setMode('union');
       clickAt(map, 15, 15);
       clickAt(map, 70, 70);
+      pressEnter(map);
 
       expect(failedListener).toHaveBeenCalledWith({
         reason: 'disjoint',
@@ -826,9 +843,69 @@ describe('LibreDraw lifecycle integration', () => {
         origin: 'user',
       });
       expect(draw.getFeatures()).toHaveLength(2);
+      expect(draw.getSelectedFeatureIds()).toEqual(['a', 'b']);
       // Nothing was pushed: the only undoable step is the addFeatures() call.
       expect(draw.undo()).toBe(true);
       expect(draw.getFeatures()).toHaveLength(0);
+
+      draw.destroy();
+    });
+
+    it('merges three polygons from the toolbar execute button, shown only with two or more selected', () => {
+      const map = new FakeMap();
+      const draw = new LibreDraw(map.asMap(), { toolbar: true });
+      const container = map.getContainer();
+      draw.addFeatures([
+        makeSquare('a', 10, 10, 20),
+        makeSquare('b', 30, 10, 20),
+        makeSquare('c', 50, 10, 20),
+      ]);
+      const unionListener = vi.fn();
+      draw.on('union', unionListener);
+
+      const popup = container.querySelector<HTMLDivElement>('.libre-draw-union-execute');
+      const execute = container.querySelector<HTMLButtonElement>(
+        'button[aria-label="Merge selected polygons"]'
+      );
+      expect(popup).not.toBeNull();
+      expect(execute).not.toBeNull();
+      expect(popup!.style.display).toBe('none');
+
+      draw.setMode('union');
+      clickAt(map, 15, 15);
+      expect(popup!.style.display).toBe('none');
+      clickAt(map, 40, 15);
+      expect(popup!.style.display).toBe('inline-flex');
+      clickAt(map, 60, 15);
+
+      execute!.click();
+
+      expect(unionListener).toHaveBeenCalledTimes(1);
+      expect(unionListener.mock.calls[0][0]).toMatchObject({
+        originalFeatures: [{ id: 'a' }, { id: 'b' }, { id: 'c' }],
+        origin: 'user',
+      });
+      expect(draw.getFeatures()).toHaveLength(1);
+      expect(popup!.style.display).toBe('none');
+
+      expect(draw.undo()).toBe(true);
+      expect(draw.getFeatures().map((f) => f.id)).toEqual(['a', 'b', 'c']);
+
+      // Leaving union mode hides the button even with a selection.
+      clickAt(map, 15, 15);
+      clickAt(map, 40, 15);
+      expect(popup!.style.display).toBe('inline-flex');
+      draw.setMode('select');
+      expect(popup!.style.display).toBe('none');
+
+      draw.destroy();
+    });
+
+    it('hides the union execute button with controls.union: false', () => {
+      const map = new FakeMap();
+      const draw = new LibreDraw(map.asMap(), { toolbar: { controls: { union: false } } });
+
+      expect(map.getContainer().querySelector('.libre-draw-union-execute')).toBeNull();
 
       draw.destroy();
     });

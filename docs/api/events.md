@@ -285,23 +285,23 @@ draw.on('setbackfailed', (e) => {
 
 ## `union`
 
-Emitted when two polygons are merged into one, in `union` mode or through [`union()`](/api/libre-draw#union-ids). The merge is one history step: undoing it emits a [`delete`](#delete) for the merged polygon and a [`create`](#create) for each source polygon, and redoing it emits `union` again.
+Emitted when two or more polygons are merged into one, in `union` mode or through [`union()`](/api/libre-draw#union-ids). The merge is one history step: undoing it emits a [`delete`](#delete) for the merged polygon and a [`create`](#create) for each source polygon, and redoing it emits `union` again.
 
 ### Payload: `UnionEvent`
 
 ```ts
 interface UnionEvent {
   origin: EventOrigin;
-  originalFeatures: [LibreDrawFeature, LibreDrawFeature];
+  originalFeatures: LibreDrawFeature[];
   feature: LibreDrawFeature;
 }
 ```
 
-| Property           | Type                                              | Description                                                                |
-| ------------------ | ------------------------------------------------- | -------------------------------------------------------------------------- |
-| `origin`           | [`EventOrigin`](#event-origin)                    | Who caused the change: `'api'` or `'user'`                                 |
-| `originalFeatures` | <code>[LibreDrawFeature, LibreDrawFeature]</code> | The two source polygons in selection order                                 |
-| `feature`          | [`LibreDrawFeature`](/api/types#libredrawfeature) | The merged polygon. It has a new id and the properties of the first source |
+| Property           | Type                                                | Description                                                                |
+| ------------------ | --------------------------------------------------- | -------------------------------------------------------------------------- |
+| `origin`           | [`EventOrigin`](#event-origin)                      | Who caused the change: `'api'` or `'user'`                                 |
+| `originalFeatures` | [`LibreDrawFeature`](/api/types#libredrawfeature)[] | The source polygons (two or more) in selection order                       |
+| `feature`          | [`LibreDrawFeature`](/api/types#libredrawfeature)   | The merged polygon. It has a new id and the properties of the first source |
 
 ### Example
 
@@ -320,7 +320,7 @@ draw.on('union', (e) => {
 
 ## `unionfailed`
 
-Emitted when a union fails for a geometric reason, in `union` mode or through [`union()`](/api/libre-draw#union-ids). The store is left untouched; in the mode the first polygon stays selected so another partner can be picked. Argument errors of the API (`'not-found'`, `'unsupported-count'`) are only returned, not emitted.
+Emitted when a union fails for a geometric reason, in `union` mode or through [`union()`](/api/libre-draw#union-ids). Nothing is merged and the store is left untouched; in the mode the selection is kept so it can be adjusted and run again. Argument errors of the API (`'not-found'`, `'unsupported-count'`) are only returned, not emitted.
 
 ### Payload: `UnionFailedEvent`
 
@@ -330,22 +330,22 @@ type UnionFailReason = 'not-polygon' | 'has-holes' | 'disjoint' | 'invalid-resul
 interface UnionFailedEvent {
   origin: EventOrigin;
   reason: UnionFailReason;
-  featureIds: [string, string];
+  featureIds: string[];
 }
 ```
 
-| Property     | Type                           | Description                                       |
-| ------------ | ------------------------------ | ------------------------------------------------- |
-| `origin`     | [`EventOrigin`](#event-origin) | Who caused the change: `'api'` or `'user'`        |
-| `reason`     | `UnionFailReason`              | Reason of union failure                           |
-| `featureIds` | `[string, string]`             | IDs of the two target polygons in selection order |
+| Property     | Type                           | Description                                   |
+| ------------ | ------------------------------ | --------------------------------------------- |
+| `origin`     | [`EventOrigin`](#event-origin) | Who caused the change: `'api'` or `'user'`    |
+| `reason`     | `UnionFailReason`              | Reason of union failure                       |
+| `featureIds` | `string[]`                     | IDs of all target polygons in selection order |
 
-| Reason             | Meaning                                                          |
-| ------------------ | ---------------------------------------------------------------- |
-| `'disjoint'`       | The polygons do not touch, so the result would be a MultiPolygon |
-| `'has-holes'`      | A target has a hole, or the merged outline would enclose a hole  |
-| `'not-polygon'`    | A target is not a Polygon                                        |
-| `'invalid-result'` | The geometry engine could not produce a usable polygon           |
+| Reason             | Meaning                                                                |
+| ------------------ | ---------------------------------------------------------------------- |
+| `'disjoint'`       | The polygons do not all connect, so the result would be a MultiPolygon |
+| `'has-holes'`      | A target has a hole, or the merged outline would enclose a hole        |
+| `'not-polygon'`    | A target is not a Polygon                                              |
+| `'invalid-result'` | The geometry engine could not produce a usable polygon                 |
 
 ### Example
 
@@ -409,7 +409,7 @@ interface SelectionChangeEvent {
 | `origin`      | [`EventOrigin`](#event-origin) | Who caused the change: `'api'` or `'user'`                                                                      |
 | `selectedIds` | `string[]`                     | Array of currently selected feature IDs, in the order they were selected. Empty array when nothing is selected. |
 
-Fired once per change, in every mode (the selection is shared). A change that leaves the set as it was fires nothing. In select mode the array can hold several IDs (Shift / Ctrl / Cmd + click, or `selectFeatures()`); in rotate, split, setback and union mode it holds at most one.
+Fired once per change, in every mode (the selection is shared). A change that leaves the set as it was fires nothing. In select mode the array can hold several IDs (Shift / Ctrl / Cmd + click, or `selectFeatures()`); in union mode it holds the polygons picked for the merge; in rotate, split and setback mode it holds at most one.
 
 ### Example
 

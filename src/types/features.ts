@@ -217,39 +217,37 @@ export class SetbackAction implements Action {
 }
 
 /**
- * Action that represents merging two features into one (2 -> 1 replacement).
+ * Action that represents merging two or more features into one (N -> 1
+ * replacement).
  *
- * `apply` removes both source features and adds the merged result; `revert`
- * removes the result and restores both sources. Kept as a dedicated action
- * (rather than a `BatchAction`) so that a redo can report a `union` event
- * carrying the original pair.
+ * `apply` removes every source feature and adds the merged result; `revert`
+ * removes the result and restores the sources in their original order.
+ * Kept as a dedicated action (rather than a `BatchAction`) so that a redo
+ * can report a `union` event carrying the original features.
  */
 export class UnionAction implements Action {
   public readonly type: ActionType = 'union';
-  public readonly featureA: LibreDrawFeature;
-  public readonly featureB: LibreDrawFeature;
+  /** The source features in the order they were merged; the first one's properties survive. */
+  public readonly originalFeatures: LibreDrawFeature[];
   public readonly resultFeature: LibreDrawFeature;
 
-  constructor(
-    featureA: LibreDrawFeature,
-    featureB: LibreDrawFeature,
-    resultFeature: LibreDrawFeature
-  ) {
-    this.featureA = cloneFeature(featureA);
-    this.featureB = cloneFeature(featureB);
+  constructor(originalFeatures: readonly LibreDrawFeature[], resultFeature: LibreDrawFeature) {
+    this.originalFeatures = originalFeatures.map(cloneFeature);
     this.resultFeature = cloneFeature(resultFeature);
   }
 
   apply(store: FeatureStoreInterface): void {
-    store.remove(this.featureA.id);
-    store.remove(this.featureB.id);
+    for (const feature of this.originalFeatures) {
+      store.remove(feature.id);
+    }
     store.add(this.resultFeature);
   }
 
   revert(store: FeatureStoreInterface): void {
     store.remove(this.resultFeature.id);
-    store.add(this.featureA);
-    store.add(this.featureB);
+    for (const feature of this.originalFeatures) {
+      store.add(feature);
+    }
   }
 }
 

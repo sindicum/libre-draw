@@ -1,11 +1,29 @@
-import { describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import { union } from '../../../src/operations/union';
 import { UnionAction } from '../../../src/types/features';
 import type { Position } from '../../../src/types/features';
 import { unionPolygons } from '../../../src/utils/unionPolygon';
 import { createContext, makeLine, makeSquare, makeSquareWithHole, ringArea } from './helpers';
 
+// A merge of valid polygons is itself valid, so the rejection of an
+// engine result is exercised by failing validation on demand instead.
+const validation = vi.hoisted(() => ({ rejectWith: null as string | null }));
+vi.mock('../../../src/validation/geojson', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('../../../src/validation/geojson')>();
+  return {
+    ...actual,
+    tryValidateFeature: (feature: unknown) =>
+      validation.rejectWith === null
+        ? actual.tryValidateFeature(feature)
+        : { valid: false, reason: validation.rejectWith },
+  };
+});
+
 describe('union', () => {
+  afterEach(() => {
+    validation.rejectWith = null;
+  });
+
   it('merges two touching squares into one polygon like unionPolygons, as one UnionAction', () => {
     const { context, features, push, emit, add, remove } = createContext([
       makeSquare('a', 0, 0, 10),
@@ -26,7 +44,7 @@ describe('union', () => {
     expect(ringArea(merged.geometry.coordinates[0] as Position[])).toBeCloseTo(200, 9);
     expect(merged.properties).toEqual({ name: 'a' });
 
-    const reference = unionPolygons(makeSquare('a', 0, 0, 10), makeSquare('b', 10, 0, 10));
+    const reference = unionPolygons([makeSquare('a', 0, 0, 10), makeSquare('b', 10, 0, 10)]);
     if (reference.type !== 'success') throw new Error('reference union failed');
     expect(merged.geometry).toEqual(reference.feature.geometry);
 
@@ -39,8 +57,7 @@ describe('union', () => {
     expect(push).toHaveBeenCalledTimes(1);
     const action = push.mock.calls[0][0] as UnionAction;
     expect(action).toBeInstanceOf(UnionAction);
-    expect(action.featureA).toEqual(first);
-    expect(action.featureB).toEqual(second);
+    expect(action.originalFeatures).toEqual([first, second]);
     expect(action.resultFeature.id).toBe(merged.id);
 
     expect(emit).toHaveBeenCalledTimes(1);
@@ -48,6 +65,35 @@ describe('union', () => {
       originalFeatures: [first, second],
       feature: merged,
     });
+  });
+
+  it('merges three touching squares as one UnionAction and one union event', () => {
+    const { context, features, push, emit } = createContext([
+      makeSquare('a', 0, 0, 10),
+      makeSquare('b', 10, 0, 10),
+      makeSquare('c', 20, 0, 10),
+    ]);
+    const sources = ['a', 'b', 'c'].map((id) => features.get(id)!);
+
+    const result = union(context, ['a', 'b', 'c']);
+
+    if (!result.ok) throw new Error('expected success');
+    expect(result.deleted).toEqual(sources);
+    const merged = result.created[0];
+    if (merged.geometry.type !== 'Polygon') throw new Error('expected polygon');
+    expect(ringArea(merged.geometry.coordinates[0] as Position[])).toBeCloseTo(300, 9);
+    expect(features.size).toBe(1);
+    expect(push).toHaveBeenCalledTimes(1);
+    expect((push.mock.calls[0][0] as UnionAction).originalFeatures).toEqual(sources);
+    expect(emit).toHaveBeenCalledTimes(1);
+    expect(emit).toHaveBeenCalledWith('union', { originalFeatures: sources, feature: merged });
+  });
+
+  it('ignores duplicate ids', () => {
+    const { context } = createContext([makeSquare('a', 0, 0, 10), makeSquare('b', 10, 0, 10)]);
+    const result = union(context, ['a', 'b', 'a']);
+    if (!result.ok) throw new Error('expected success');
+    expect(result.deleted.map((f) => f.id)).toEqual(['a', 'b']);
   });
 
   it('keeps the properties of the first id, whatever the order', () => {
@@ -71,7 +117,7 @@ describe('union', () => {
   });
 
   describe('failures leave the store, history and listeners untouched', () => {
-    it.each([[[]], [['a']], [['a', 'b', 'c']], [['a', 'a']]])(
+    it.each([[[]], [['a']], [['a', 'a']]])(
       'rejects %j as unsupported-count without an event',
       (ids) => {
         const { context, features, push, emit } = createContext([
@@ -105,6 +151,49 @@ describe('union', () => {
       expect(emit).toHaveBeenCalledWith('unionfailed', {
         reason: 'disjoint',
         featureIds: ['a', 'b'],
+      });
+    });
+
+    it('merges nothing when one of three polygons does not connect', () => {
+      const { context, features, push, emit } = createContext([
+        makeSquare('a', 0, 0, 10),
+        makeSquare('b', 10, 0, 10),
+        makeSquare('far', 50, 50, 10),
+      ]);
+      expect(union(context, ['a', 'b', 'far'])).toEqual({ ok: false, reason: 'disjoint' });
+      expect(features.size).toBe(3);
+      expect(push).not.toHaveBeenCalled();
+      expect(emit).toHaveBeenCalledWith('unionfailed', {
+        reason: 'disjoint',
+        featureIds: ['a', 'b', 'far'],
+      });
+    });
+
+    it('checks every id before merging: one unknown id among three is not-found', () => {
+      const { context, features, emit } = createContext([
+        makeSquare('a', 0, 0, 10),
+        makeSquare('b', 10, 0, 10),
+      ]);
+      expect(union(context, ['a', 'b', 'missing'])).toEqual({ ok: false, reason: 'not-found' });
+      expect(features.size).toBe(2);
+      expect(emit).not.toHaveBeenCalled();
+    });
+
+    it('reports a merged polygon that fails validation as invalid-result, changing nothing', () => {
+      const { context, features, push, emit } = createContext([
+        makeSquare('a', 0, 0, 10),
+        makeSquare('b', 10, 0, 10),
+        makeSquare('c', 20, 0, 10),
+      ]);
+      validation.rejectWith = 'Invalid longitude';
+
+      expect(union(context, ['a', 'b', 'c'])).toEqual({ ok: false, reason: 'invalid-result' });
+      expect(features.size).toBe(3);
+      expect(push).not.toHaveBeenCalled();
+      expect(emit).toHaveBeenCalledTimes(1);
+      expect(emit).toHaveBeenCalledWith('unionfailed', {
+        reason: 'invalid-result',
+        featureIds: ['a', 'b', 'c'],
       });
     });
 

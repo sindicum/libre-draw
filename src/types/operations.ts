@@ -149,6 +149,6 @@ export type SetbackOperationFailReason =
  * the argument errors below emit nothing.
  *
  * - `not-found`: one of the ids has no feature
- * - `unsupported-count`: `ids` does not name exactly two distinct features
+ * - `unsupported-count`: `ids` names fewer than two distinct features
  */
 export type UnionOperationFailReason = 'not-found' | 'unsupported-count' | UnionFailReason;

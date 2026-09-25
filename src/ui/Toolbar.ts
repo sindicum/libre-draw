@@ -20,6 +20,7 @@ import { undoIcon } from './icons/undo';
 import { redoIcon } from './icons/redo';
 import { SetbackInput } from './SetbackInput';
 import { RotateInput } from './RotateInput';
+import { UnionExecute } from './UnionExecute';
 import { StylePanel } from './StylePanel';
 
 /**
@@ -54,6 +55,7 @@ export interface ToolbarCallbacks {
   onSelectClick(): void;
   onSplitClick(): void;
   onUnionClick(): void;
+  onUnionExecute(): void;
   onSetbackClick(): void;
   onSetbackExecute(distance: number): void;
   onSetbackDistanceChange(distance: number): void;
@@ -82,6 +84,8 @@ export class Toolbar {
   private rotateInput: RotateInput | null = null;
   private activeMode = 'idle';
   private rotateHasSelection = false;
+  private unionExecute: UnionExecute | null = null;
+  private unionSelectionCount = 0;
   private stylePanel: StylePanel | null = null;
   private stylePanelVisible = false;
   private handleOutsideClick: ((e: PointerEvent) => void) | null = null;
@@ -160,6 +164,18 @@ export class Toolbar {
       this.setbackInput.setVisible(mode === 'setback');
     }
     this.updateRotateInputVisibility();
+    this.updateUnionExecuteVisibility();
+  }
+
+  /**
+   * Tell the toolbar how many features are selected, for union mode. The
+   * execute button is only shown while union mode is active and at least
+   * two features are selected, the minimum a union needs.
+   * @param count - Number of selected features.
+   */
+  setUnionSelectionCount(count: number): void {
+    this.unionSelectionCount = count;
+    this.updateUnionExecuteVisibility();
   }
 
   /**
@@ -202,6 +218,10 @@ export class Toolbar {
     if (this.rotateInput) {
       this.rotateInput.destroy();
       this.rotateInput = null;
+    }
+    if (this.unionExecute) {
+      this.unionExecute.destroy();
+      this.unionExecute = null;
     }
     if (this.handleOutsideClick) {
       document.removeEventListener('pointerdown', this.handleOutsideClick);
@@ -319,15 +339,7 @@ export class Toolbar {
     }
 
     if (controls.union) {
-      this.addButton(
-        'union',
-        unionIcon,
-        this.messages.toolbarUnion,
-        () => {
-          this.callbacks.onUnionClick();
-        },
-        true
-      );
+      this.addUnionControl();
     }
 
     if (controls.setback) {
@@ -445,6 +457,43 @@ export class Toolbar {
     row.appendChild(this.rotateInput.getElement());
 
     this.container.appendChild(row);
+  }
+
+  /**
+   * Create union toggle button + popup execute button.
+   */
+  private addUnionControl(): void {
+    const row = this.createControlRow();
+    row.style.position = 'relative';
+
+    const button = new ToolbarButton({
+      id: 'union',
+      icon: unionIcon,
+      title: this.messages.toolbarUnion,
+      onClick: () => this.callbacks.onUnionClick(),
+      isToggle: true,
+    });
+    this.buttons.set('union', button);
+    row.appendChild(button.getElement());
+
+    this.unionExecute = new UnionExecute(
+      { onExecute: () => this.callbacks.onUnionExecute() },
+      this.messages
+    );
+
+    const position = this.options.position || 'top-right';
+    const isRight = position === 'top-right' || position === 'bottom-right';
+    this.unionExecute.setPosition(isRight ? 'left' : 'right');
+
+    row.appendChild(this.unionExecute.getElement());
+
+    this.container.appendChild(row);
+  }
+
+  /** Show the union execute button only while union mode has two or more selected. */
+  private updateUnionExecuteVisibility(): void {
+    if (!this.unionExecute) return;
+    this.unionExecute.setVisible(this.activeMode === 'union' && this.unionSelectionCount >= 2);
   }
 
   /** Show the angle input only while rotate mode is active with a selection. */

@@ -63,7 +63,7 @@ All types are exported as TypeScript type-only exports:
 | [`splitfailed`](/api/events#splitfailed)         | `SplitFailedEvent`     | Split operation failed                    |
 | [`setback`](/api/events#setback)                 | `SetbackEvent`         | Setback operation succeeded               |
 | [`setbackfailed`](/api/events#setbackfailed)     | `SetbackFailedEvent`   | Setback operation failed                  |
-| [`union`](/api/events#union)                     | `UnionEvent`           | Two polygons merged into one              |
+| [`union`](/api/events#union)                     | `UnionEvent`           | Two or more polygons merged into one      |
 | [`unionfailed`](/api/events#unionfailed)         | `UnionFailedEvent`     | Union operation failed                    |
 | [`rotate`](/api/events#rotate)                   | `RotateEvent`          | Feature rotated                           |
 | [`selectionchange`](/api/events#selectionchange) | `SelectionChangeEvent` | Selection changed                         |
