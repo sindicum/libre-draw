@@ -984,6 +984,7 @@ describe('LibreDraw lifecycle integration', () => {
         'input-method',
         'select',
         'split',
+        'cut',
         'union',
         'setback',
         'rotate',

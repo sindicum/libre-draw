@@ -63,7 +63,15 @@ export interface FeatureCollection {
 /**
  * The type of history action.
  */
-export type ActionType = 'create' | 'update' | 'delete' | 'split' | 'setback' | 'union' | 'batch';
+export type ActionType =
+  | 'create'
+  | 'update'
+  | 'delete'
+  | 'split'
+  | 'setback'
+  | 'union'
+  | 'cut'
+  | 'batch';
 
 /**
  * A reversible action that can be applied and reverted on a FeatureStore.
@@ -248,6 +256,57 @@ export class UnionAction implements Action {
     for (const feature of this.originalFeatures) {
       store.add(feature);
     }
+  }
+}
+
+/**
+ * Action that represents cutting an area out of a polygon (1 -> N
+ * replacement).
+ *
+ * When one piece remains it keeps the original's id and replaces it in
+ * place, so the feature keeps its position in the drawing order; when the
+ * cut split the polygon apart, the original is removed and the pieces are
+ * added. Kept as a dedicated action so that a redo can report a `cut`
+ * event.
+ */
+export class CutAction implements Action {
+  public readonly type: ActionType = 'cut';
+  public readonly originalFeature: LibreDrawFeature;
+  /** The pieces that remain after the cut. */
+  public readonly resultFeatures: LibreDrawFeature[];
+
+  constructor(originalFeature: LibreDrawFeature, resultFeatures: readonly LibreDrawFeature[]) {
+    this.originalFeature = cloneFeature(originalFeature);
+    this.resultFeatures = resultFeatures.map(cloneFeature);
+  }
+
+  /** Whether the single remaining piece replaces the original under its id. */
+  get keepsId(): boolean {
+    return (
+      this.resultFeatures.length === 1 && this.resultFeatures[0].id === this.originalFeature.id
+    );
+  }
+
+  apply(store: FeatureStoreInterface): void {
+    if (this.keepsId) {
+      store.update(this.originalFeature.id, this.resultFeatures[0]);
+      return;
+    }
+    store.remove(this.originalFeature.id);
+    for (const feature of this.resultFeatures) {
+      store.add(feature);
+    }
+  }
+
+  revert(store: FeatureStoreInterface): void {
+    if (this.keepsId) {
+      store.update(this.originalFeature.id, this.originalFeature);
+      return;
+    }
+    for (const feature of this.resultFeatures) {
+      store.remove(feature.id);
+    }
+    store.add(this.originalFeature);
   }
 }
 

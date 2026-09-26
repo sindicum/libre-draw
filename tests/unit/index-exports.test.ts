@@ -50,7 +50,13 @@ describe('package root exports', () => {
     expect(typeof api.LibreDrawError).toBe('function');
     expect(typeof api.mergeStyleConfig).toBe('function');
     expect(api.DEFAULT_STYLE_CONFIG.fill).toBeDefined();
-    for (const name of ['BatchAction', 'SplitAction', 'SetbackAction', 'UnionAction'] as const) {
+    for (const name of [
+      'BatchAction',
+      'SplitAction',
+      'SetbackAction',
+      'UnionAction',
+      'CutAction',
+    ] as const) {
       expect(typeof api[name]).toBe('function');
     }
   });

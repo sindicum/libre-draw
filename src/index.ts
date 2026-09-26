@@ -30,6 +30,9 @@ export type {
   UnionEvent,
   UnionFailedEvent,
   UnionFailReason,
+  CutEvent,
+  CutFailedEvent,
+  CutFailReason,
   RotateEvent,
   SelectionChangeEvent,
   ModeChangeEvent,
@@ -51,6 +54,7 @@ export type {
   SplitOperationFailReason,
   SetbackOperationFailReason,
   UnionOperationFailReason,
+  CutOperationFailReason,
 } from './types';
 
 export type {
@@ -94,6 +98,9 @@ export { SetbackAction } from './types';
 
 // Union history action
 export { UnionAction } from './types';
+
+// Cut history action
+export { CutAction } from './types';
 
 // Batch history action (used by addFeatures)
 export { BatchAction } from './types';

@@ -168,3 +168,143 @@ export function wouldClosingCauseIntersection(vertices: Position[]): boolean {
 
   return false;
 }
+
+/**
+ * Why a polygon's rings are invalid together, from {@link findPolygonRingError}.
+ * - `self-intersection`: a ring crosses itself.
+ * - `ring-intersection`: two rings cross each other.
+ * - `hole-outside`: a hole lies outside the outer ring.
+ * - `hole-nested`: a hole lies inside another hole.
+ */
+export type PolygonRingError =
+  | 'self-intersection'
+  | 'ring-intersection'
+  | 'hole-outside'
+  | 'hole-nested';
+
+/**
+ * Check whether two segments lie on the same line and share a stretch of
+ * positive length (touching at a single point does not count).
+ */
+export function segmentsOverlap(p1: Position, p2: Position, p3: Position, p4: Position): boolean {
+  if (orientation(p1, p2, p3) !== 0 || orientation(p1, p2, p4) !== 0) return false;
+  // Compare along the segment's dominant axis.
+  const axis = Math.abs(p2[0] - p1[0]) >= Math.abs(p2[1] - p1[1]) ? 0 : 1;
+  const start = Math.max(Math.min(p1[axis], p2[axis]), Math.min(p3[axis], p4[axis]));
+  const end = Math.min(Math.max(p1[axis], p2[axis]), Math.max(p3[axis], p4[axis]));
+  return end - start > EPSILON;
+}
+
+/**
+ * Check whether two closed rings cross or overlap each other. Rings that
+ * only touch at single points do not count: segments sharing just an
+ * endpoint are skipped, as in {@link segmentsIntersect}, while edges that
+ * run along each other for some length do count. A ring passing through the
+ * other at a shared vertex is not detected here; {@link findPolygonRingError}
+ * catches it by locating the ring's points.
+ */
+export function ringsIntersect(a: Position[], b: Position[]): boolean {
+  for (let i = 0; i < a.length - 1; i++) {
+    for (let j = 0; j < b.length - 1; j++) {
+      if (
+        segmentsIntersect(a[i], a[i + 1], b[j], b[j + 1]) ||
+        segmentsOverlap(a[i], a[i + 1], b[j], b[j + 1])
+      ) {
+        return true;
+      }
+    }
+  }
+  return false;
+}
+
+/**
+ * Locate a point against a closed ring by ray casting.
+ */
+export function locatePointInRing(
+  point: Position,
+  ring: Position[]
+): 'inside' | 'outside' | 'boundary' {
+  let inside = false;
+  for (let i = 0; i < ring.length - 1; i++) {
+    const a = ring[i];
+    const b = ring[i + 1];
+    if (orientation(a, b, point) === 0 && onSegment(a, point, b)) return 'boundary';
+    if (a[1] > point[1] !== b[1] > point[1]) {
+      const x = a[0] + ((point[1] - a[1]) * (b[0] - a[0])) / (b[1] - a[1]);
+      if (point[0] < x) inside = !inside;
+    }
+  }
+  return inside ? 'inside' : 'outside';
+}
+
+/**
+ * Where `ring` lies relative to `container`, for rings whose edges do not
+ * cross or overlap. Every vertex and edge midpoint of `ring` is located:
+ * points on the container's boundary (shared vertices) are ignored, and the
+ * rest must agree. `'crossing'` when some are inside and some outside (the
+ * ring passes through the container at a shared vertex) or when every point
+ * is on the boundary.
+ */
+function locateRing(ring: Position[], container: Position[]): 'inside' | 'outside' | 'crossing' {
+  const probes: Position[] = ring.slice(0, ring.length - 1);
+  for (let i = 0; i < ring.length - 1; i++) {
+    probes.push([(ring[i][0] + ring[i + 1][0]) / 2, (ring[i][1] + ring[i + 1][1]) / 2]);
+  }
+  let inside = false;
+  let outside = false;
+  for (const probe of probes) {
+    const location = locatePointInRing(probe, container);
+    if (location === 'inside') inside = true;
+    if (location === 'outside') outside = true;
+  }
+  if (inside === outside) return 'crossing';
+  return inside ? 'inside' : 'outside';
+}
+
+/**
+ * Validate the rings of a polygon together: each ring must be free of
+ * self-intersections, no two rings may cross, every hole must lie inside
+ * the outer ring, and no hole may lie inside another hole. Rings must be
+ * closed (first position repeated at the end).
+ * @param rings - The polygon's rings, outer ring first.
+ * @returns The first problem found, or `null` if the rings are valid.
+ */
+export function findPolygonRingError(rings: Position[][]): PolygonRingError | null {
+  if (rings.some((ring) => hasRingSelfIntersection(ring))) return 'self-intersection';
+  return findRingRelationError(rings);
+}
+
+/**
+ * The part of {@link findPolygonRingError} that relates the rings to each
+ * other, for callers that have already checked each ring on its own.
+ * @param rings - The polygon's rings, outer ring first; each must be closed
+ *   and free of self-intersections.
+ * @returns The first problem found, or `null` if the rings fit together.
+ */
+export function findRingRelationError(
+  rings: Position[][]
+): Exclude<PolygonRingError, 'self-intersection'> | null {
+  for (let i = 0; i < rings.length; i++) {
+    for (let j = i + 1; j < rings.length; j++) {
+      if (ringsIntersect(rings[i], rings[j])) return 'ring-intersection';
+    }
+  }
+
+  const [outer, ...holes] = rings;
+  for (const hole of holes) {
+    const location = locateRing(hole, outer);
+    if (location === 'crossing') return 'ring-intersection';
+    if (location === 'outside') return 'hole-outside';
+  }
+
+  for (let i = 0; i < holes.length; i++) {
+    for (let j = 0; j < holes.length; j++) {
+      if (i === j) continue;
+      const location = locateRing(holes[i], holes[j]);
+      if (location === 'crossing') return 'ring-intersection';
+      if (location === 'inside') return 'hole-nested';
+    }
+  }
+
+  return null;
+}

@@ -49,6 +49,7 @@ const draw = new LibreDraw(map, {
       drawPolygon: true,
       select: true,
       split: true,
+      cut: true,
       union: true,
       setback: true,
       rotate: true,
@@ -92,9 +93,9 @@ Switching modes deactivates the current mode (clearing any in-progress state) an
 
 **Parameters:**
 
-| Name   | Type                              | Description                                                                                                                                                            |
-| ------ | --------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `mode` | [`ModeName`](/api/types#modename) | `'idle'`, `'draw-point'`, `'draw-line'`, `'draw-polygon'`, `'draw-rectangle'`, `'draw-angled-rectangle'`, `'select'`, `'split'`, `'union'`, `'setback'`, or `'rotate'` |
+| Name   | Type                              | Description                                                                                                                                                                     |
+| ------ | --------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `mode` | [`ModeName`](/api/types#modename) | `'idle'`, `'draw-point'`, `'draw-line'`, `'draw-polygon'`, `'draw-rectangle'`, `'draw-angled-rectangle'`, `'select'`, `'split'`, `'union'`, `'setback'`, `'rotate'`, or `'cut'` |
 
 **Returns:** `void`
 
@@ -119,7 +120,7 @@ draw.on('modechange', (e) => {
 
 Get the current drawing mode.
 
-**Returns:** [`ModeName`](/api/types#modename) — `'idle'`, `'draw-point'`, `'draw-line'`, `'draw-polygon'`, `'draw-rectangle'`, `'draw-angled-rectangle'`, `'select'`, `'split'`, `'union'`, `'setback'`, or `'rotate'`.
+**Returns:** [`ModeName`](/api/types#modename) — `'idle'`, `'draw-point'`, `'draw-line'`, `'draw-polygon'`, `'draw-rectangle'`, `'draw-angled-rectangle'`, `'select'`, `'split'`, `'union'`, `'setback'`, `'rotate'`, or `'cut'`.
 
 **Throws:** [`LibreDrawError`](/api/types#libredrawerror) if this instance has been destroyed.
 
@@ -140,7 +141,7 @@ if (draw.getMode() === 'draw-polygon') {
 Choose how the drawing modes (`'draw-point'`, `'draw-line'`, `'draw-polygon'`, `'draw-rectangle'`, `'draw-angled-rectangle'`) take a point.
 
 - `'tap'` (default): a click or tap on the map places the point.
-- `'reticle'`: while a drawing mode is active, a crosshair is shown at the center of the map and an **Add point** button at the bottom. The map pans freely (also in `'draw-polygon'` / `'draw-line'`), clicks and taps on it place nothing, and the button places a point at the crosshair under the same rules as a tap: snapping applies, and adding on the first or last vertex finishes the polygon or line. The preview and the snap indicator follow the crosshair as the map moves. Other modes keep working with clicks and taps and show no crosshair.
+- `'reticle'`: while a drawing mode is active, a crosshair is shown at the center of the map and an **Add point** button at the bottom. The map pans freely (also in `'draw-polygon'` / `'draw-line'`), clicks and taps on it place nothing, and the button places a point at the crosshair under the same rules as a tap: snapping applies, and adding on the first or last vertex finishes the polygon or line. The preview and the snap indicator follow the crosshair as the map moves. In `'cut'` mode the target is picked by click or tap, and the crosshair drafts the cutter once a target is selected. Other modes keep working with clicks and taps and show no crosshair.
 
 The setting is kept across mode changes, and changing it while drawing keeps the draft. The toolbar's input method toggle calls the same switch and shows the current method as pressed, also after a call to this method. The crosshair and the action bar (**Undo point**, **Add point**, **Finish**) do not depend on the toolbar, so they are also shown with `toolbar: false`. See [Input methods](/guide/modes#input-methods).
 
@@ -322,7 +323,7 @@ results.forEach((r, i) => {
 
 Check whether an object would be accepted by [`addFeatures`](#addfeatures-features) / [`setFeatures`](#setfeatures-geojson), without adding it and without throwing.
 
-Applies the same rules (Feature envelope, geometry type, coordinate ranges, ring closure, self-intersection). Duplicate ids are not checked here because they depend on the store's contents at add time.
+Applies the same rules (Feature envelope, geometry type, coordinate ranges, ring closure, self-intersection, holes inside the outer ring without crossing or nesting). Duplicate ids are not checked here because they depend on the store's contents at add time.
 
 **Parameters:**
 
@@ -547,6 +548,37 @@ if (!result.ok) console.warn(result.reason); // e.g. 'disjoint'
 
 ---
 
+### `cut(id, cutter)`
+
+Cut the area of a ring out of a Polygon.
+
+Same computation as the [`cut` mode](/guide/modes#cut-mode): a cutter inside the polygon makes a hole, one across its boundary makes a notch, and one that cuts it apart leaves several pieces. One remaining piece keeps the polygon's id; several pieces get fresh ids and a copy of its properties each. Existing holes are kept, and grow or merge where the cutter meets them. Recorded as **one undoable step** and reported with a [`cut`](/api/events#cut) event (`origin: 'api'`); a geometric failure also emits [`cutfailed`](/api/events#cutfailed), as the mode does. If the polygon is selected, the selection is dropped when it is replaced.
+
+**Parameters:**
+
+| Name     | Type                                  | Description                                                                                                          |
+| -------- | ------------------------------------- | -------------------------------------------------------------------------------------------------------------------- |
+| `id`     | `string`                              | The Polygon to cut                                                                                                   |
+| `cutter` | [`Position`](/api/types#position)`[]` | The ring to cut out. The closing position may be omitted. It needs three distinct vertices and must not cross itself |
+
+**Returns:** [`OperationResult`](/api/types#operationresult) — `{ ok: true, updated: [piece] }` when one piece remains, `{ ok: true, created: [...pieces], deleted: [original] }` when the polygon was cut apart, or `{ ok: false, reason }` with `'not-found'`, `'not-polygon'`, `'invalid-cutter'`, or a [`CutFailReason`](/api/events#payload-cutfailedevent) (see [`CutOperationFailReason`](/api/types#cutoperationfailreason)). Nothing changes on failure.
+
+**Throws:** [`LibreDrawError`](/api/types#libredrawerror) if this instance has been destroyed.
+
+**Example:**
+
+```ts
+const result = draw.cut('abc-123', [
+  [139.7, 35.66],
+  [139.702, 35.66],
+  [139.702, 35.662],
+  [139.7, 35.662],
+]);
+if (result.ok) console.log(result.updated[0]?.geometry.coordinates.length); // 2: a hole
+```
+
+---
+
 ### `selectFeature(id)`
 
 Programmatically select a feature by its ID.
@@ -604,7 +636,7 @@ if (draw.selectFeatures(['a', 'b'])) {
 
 Get the IDs of currently selected features.
 
-Every mode shares one selection: select mode may hold several features, union the polygons picked for the merge, rotate / split / setback at most their one target, and drawing modes none (switching modes clears the selection). IDs are returned in the order they were selected.
+Every mode shares one selection: select mode may hold several features, union the polygons picked for the merge, rotate / split / setback / cut at most their one target, and drawing modes none (switching modes clears the selection). IDs are returned in the order they were selected.
 
 **Returns:** `string[]`
 
@@ -704,7 +736,7 @@ console.log('Point radius:', style.point.radius);
 
 Undo the last action.
 
-Reverts the most recent action (`create`, `update`, `delete`, `split`, `setback`, `union`, or a `batch` recorded by [`addFeatures`](#addfeatures-features)) and updates the map rendering. If a feature is selected and its geometry changes, vertex handles are refreshed.
+Reverts the most recent action (`create`, `update`, `delete`, `split`, `setback`, `union`, `cut`, or a `batch` recorded by [`addFeatures`](#addfeatures-features)) and updates the map rendering. If a feature is selected and its geometry changes, vertex handles are refreshed.
 
 **Returns:** `boolean` — `true` if an action was undone, `false` if nothing to undo.
 
@@ -741,7 +773,7 @@ draw.redo(); // re-applies the undone action
 
 ## Draft Control
 
-Programmatically control the in-progress draft of the `'draw-polygon'` (polygon), `'draw-line'` (linestring), `'draw-rectangle'`, and `'draw-angled-rectangle'` modes. Useful for implementing custom finish/cancel buttons or showing the current vertex count in a UI.
+Programmatically control the in-progress draft of the `'draw-polygon'` (polygon), `'draw-line'` (linestring), `'draw-rectangle'`, and `'draw-angled-rectangle'` modes, and of the cutter in `'cut'` mode once a target is selected. Useful for implementing custom finish/cancel buttons or showing the current vertex count in a UI.
 
 ### `finishDrawing()`
 
@@ -749,7 +781,9 @@ Finalize the in-progress draft of the active drawing mode.
 
 On success, a feature is added to the store, a [`create`](/api/events#create) event fires, and a [`draftchange`](/api/events#draftchange) event with `vertexCount: 0` is emitted. The mode remains active so the user can start a new draft.
 
-**Returns:** `boolean` — `true` if the draft was finalized, `false` if it could not be (non-drawing mode, insufficient vertices, or a polygon whose closing would produce a self-intersection). In `'draw-rectangle'` and `'draw-angled-rectangle'` modes this always returns `false`: the rectangle is only defined once its last point (the second corner, or the third point that sets the width) is clicked.
+In `'cut'` mode, finishing closes the cutter and runs the cut instead of adding a feature: a [`cut`](/api/events#cut) event fires on success, a [`cutfailed`](/api/events#cutfailed) event on failure (the target stays selected and the cutter is discarded either way).
+
+**Returns:** `boolean` — `true` if the draft was finalized (in `'cut'` mode: if the cut succeeded), `false` if it could not be (non-drawing mode, insufficient vertices, or a polygon whose closing would produce a self-intersection). In `'draw-rectangle'` and `'draw-angled-rectangle'` modes this always returns `false`: the rectangle is only defined once its last point (the second corner, or the third point that sets the width) is clicked.
 
 **Throws:** [`LibreDrawError`](/api/types#libredrawerror) if this instance has been destroyed.
 
@@ -806,7 +840,7 @@ draw.on('draftchange', () => {
 
 Take back the last placed point of the in-progress draft, as a touch long press does. The center reticle's **Undo point** button does the same.
 
-- `'draw-polygon'` / `'draw-line'`: removes the last vertex.
+- `'draw-polygon'` / `'draw-line'` / `'cut'`: removes the last vertex.
 - `'draw-rectangle'`: discards the first corner.
 - `'draw-angled-rectangle'`: removes the last base-edge point (`2` → `1` → `0`).
 
@@ -859,6 +893,8 @@ draw.on('union', (e) =>
   )
 );
 draw.on('unionfailed', (e) => console.log('Union failed:', e.reason, e.featureIds));
+draw.on('cut', (e) => console.log('Cut:', e.originalFeature.id, e.features));
+draw.on('cutfailed', (e) => console.log('Cut failed:', e.reason, e.featureId));
 draw.on('rotate', (e) => console.log('Rotated:', e.feature.id, e.angle));
 draw.on('selectionchange', (e) => console.log('Selected:', e.selectedIds));
 draw.on('modechange', (e) => console.log(`${e.previousMode} → ${e.mode}`));

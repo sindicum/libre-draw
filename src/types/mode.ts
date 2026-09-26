@@ -12,4 +12,5 @@ export type ModeName =
   | 'split'
   | 'setback'
   | 'union'
-  | 'rotate';
+  | 'rotate'
+  | 'cut';

@@ -12,6 +12,7 @@ import { drawAngledRectangleIcon } from './icons/draw-angled-rectangle';
 import { inputMethodIcon } from './icons/input-method';
 import { selectIcon } from './icons/select';
 import { splitIcon } from './icons/split';
+import { cutIcon } from './icons/cut';
 import { unionIcon } from './icons/union';
 import { setbackIcon } from './icons/setback';
 import { rotateIcon } from './icons/rotate';
@@ -36,6 +37,7 @@ const DEFAULT_CONTROLS: Required<ToolbarControls> = {
   inputMethod: true,
   select: true,
   split: true,
+  cut: true,
   union: true,
   setback: true,
   rotate: true,
@@ -57,6 +59,7 @@ export interface ToolbarCallbacks {
   onInputMethodClick(): void;
   onSelectClick(): void;
   onSplitClick(): void;
+  onCutClick(): void;
   onUnionClick(): void;
   onUnionExecute(): void;
   onSetbackClick(): void;
@@ -118,7 +121,8 @@ export class Toolbar {
   /**
    * Update the active mode displayed in the toolbar.
    * @param mode - The active mode name ('idle', 'draw-point', 'draw-line', 'draw-polygon',
-   *   'draw-rectangle', 'draw-angled-rectangle', 'select', 'split', 'union', 'setback', 'rotate').
+   *   'draw-rectangle', 'draw-angled-rectangle', 'select', 'split', 'cut', 'union', 'setback',
+   *   'rotate').
    */
   setActiveMode(mode: string): void {
     this.activeMode = mode;
@@ -129,6 +133,7 @@ export class Toolbar {
     const drawAngledRectangleBtn = this.buttons.get('draw-angled-rectangle');
     const selectBtn = this.buttons.get('select');
     const splitBtn = this.buttons.get('split');
+    const cutBtn = this.buttons.get('cut');
     const unionBtn = this.buttons.get('union');
     const setbackBtn = this.buttons.get('setback');
     const rotateBtn = this.buttons.get('rotate');
@@ -153,6 +158,9 @@ export class Toolbar {
     }
     if (splitBtn) {
       splitBtn.setActive(mode === 'split');
+    }
+    if (cutBtn) {
+      cutBtn.setActive(mode === 'cut');
     }
     if (unionBtn) {
       unionBtn.setActive(mode === 'union');
@@ -358,6 +366,18 @@ export class Toolbar {
         this.messages.toolbarSplit,
         () => {
           this.callbacks.onSplitClick();
+        },
+        true
+      );
+    }
+
+    if (controls.cut) {
+      this.addButton(
+        'cut',
+        cutIcon,
+        this.messages.toolbarCut,
+        () => {
+          this.callbacks.onCutClick();
         },
         true
       );

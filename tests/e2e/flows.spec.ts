@@ -452,3 +452,47 @@ test('reticle: undo the last point, then finish with the button', async ({ page,
   await expect(undo).toBeDisabled();
   await expect(finish).toBeDisabled();
 });
+
+test('cut: tapping a polygon and drawing a cutter inside it makes a hole', async ({
+  page,
+  hasTouch,
+}) => {
+  const pointer = new Pointer(page, hasTouch);
+  await addPolygonFromScreen(page, [
+    [80, 80],
+    [330, 80],
+    [330, 330],
+    [80, 330],
+  ]);
+  await recordEvents(page, ['cut', 'cutfailed', 'draftchange', 'selectionchange']);
+  await setMode(page, 'cut');
+
+  // The first tap picks the target; it places no cutter vertex.
+  await pointer.tap(100, 100);
+  await expect
+    .poll(async () => (await getEvents<{ selectedIds: string[] }>(page, 'selectionchange')).at(-1))
+    .toMatchObject({ selectedIds: [expect.any(String)] });
+
+  await pointer.tap(150, 150);
+  await expect.poll(() => lastDraftVertexCount(page)).toBe(1);
+  await pointer.tap(250, 150);
+  await expect.poll(() => lastDraftVertexCount(page)).toBe(2);
+  await pointer.tap(250, 250);
+  await expect.poll(() => lastDraftVertexCount(page)).toBe(3);
+  await pointer.tap(150, 250);
+  await expect.poll(() => lastDraftVertexCount(page)).toBe(4);
+
+  // Landing on the first vertex closes the cutter and cuts.
+  await pointer.tap(150, 150);
+
+  await expect.poll(async () => (await getEvents(page, 'cut')).length).toBe(1);
+  expect(await getEvents(page, 'cutfailed')).toHaveLength(0);
+  expect(await featureCount(page)).toBe(1);
+  const ringCount = await page.evaluate(() => {
+    const feature = (
+      window as unknown as { draw: { getFeatures(): { geometry: { coordinates: unknown[] } }[] } }
+    ).draw.getFeatures()[0];
+    return feature.geometry.coordinates.length;
+  });
+  expect(ringCount).toBe(2);
+});

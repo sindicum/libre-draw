@@ -32,6 +32,7 @@ export interface ToolbarControls {
   setback?: boolean;
   union?: boolean;
   rotate?: boolean;
+  cut?: boolean;
   settings?: boolean;
   delete?: boolean;
   undo?: boolean;

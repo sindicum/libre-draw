@@ -431,3 +431,47 @@ describe('tryValidateGeoJSON', () => {
     expect(() => tryValidateGeoJSON(hostile)).toThrow(TypeError);
   });
 });
+
+describe('validateFeature with holes', () => {
+  const outer = [
+    [0, 0],
+    [10, 0],
+    [10, 10],
+    [0, 10],
+    [0, 0],
+  ];
+  const square = (x: number, y: number, size: number) => [
+    [x, y],
+    [x, y + size],
+    [x + size, y + size],
+    [x + size, y],
+    [x, y],
+  ];
+  const holed = (...holes: number[][][]) =>
+    makeFeature({ geometry: { type: 'Polygon', coordinates: [outer, ...holes] } });
+
+  it('accepts a hole inside the outer ring', () => {
+    const feature = validateFeature(holed(square(3, 3, 3)));
+    expect(feature.geometry.type === 'Polygon' && feature.geometry.coordinates).toHaveLength(2);
+  });
+
+  it('rejects a hole crossing the outer ring', () => {
+    expect(() => validateFeature(holed(square(8, 8, 4)))).toThrow('Polygon rings intersect');
+  });
+
+  it('rejects a hole outside the outer ring', () => {
+    expect(() => validateFeature(holed(square(20, 20, 2)))).toThrow('outside the outer ring');
+  });
+
+  it('rejects a hole inside another hole', () => {
+    expect(() => validateFeature(holed(square(1, 1, 6), square(3, 3, 2)))).toThrow(
+      'inside another hole'
+    );
+  });
+
+  it('reports the message through tryValidateFeature', () => {
+    const result = tryValidateFeature(holed(square(20, 20, 2)));
+    expect(result.valid).toBe(false);
+    if (!result.valid) expect(result.reason).toMatch('outside the outer ring');
+  });
+});

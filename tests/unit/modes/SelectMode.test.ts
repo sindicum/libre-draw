@@ -1285,3 +1285,223 @@ describe('SelectMode', () => {
     });
   });
 });
+
+describe('SelectMode with a polygon hole', () => {
+  // Outer ring 0..10, hole 3..6. Screen = lngLat * 10, so the mouse hit
+  // threshold (10px) is one coordinate unit.
+  const hole = [
+    [3, 3],
+    [3, 6],
+    [6, 6],
+    [6, 3],
+    [3, 3],
+  ];
+
+  let callbacks: SelectModeMocks;
+  let context: ModeContext;
+  let selectMode: SelectMode;
+  let featureMap: Map<string, LibreDrawFeature>;
+
+  function rings(): number[][][] {
+    const feature = featureMap.get('h1')!;
+    if (feature.geometry.type !== 'Polygon') throw new Error('expected Polygon');
+    return feature.geometry.coordinates;
+  }
+
+  function drag(from: [number, number], to: [number, number]): void {
+    selectMode.onPointerDown(createPointerEvent(...from));
+    selectMode.onPointerMove(createPointerEvent(...to));
+    selectMode.onPointerUp(createPointerEvent(...to));
+  }
+
+  function doubleClick(lng: number, lat: number): void {
+    const evt = createPointerEvent(lng, lat);
+    vi.spyOn(evt.originalEvent, 'preventDefault').mockImplementation(() => {});
+    vi.spyOn(evt.originalEvent, 'stopPropagation').mockImplementation(() => {});
+    selectMode.onDoubleClick(evt);
+  }
+
+  beforeEach(() => {
+    const holed = makeFeature('h1');
+    if (holed.geometry.type === 'Polygon') holed.geometry.coordinates.push(hole);
+    featureMap = new Map([['h1', holed]]);
+    callbacks = createCallbacks(featureMap);
+    context = createModeContext(callbacks, () => selectMode);
+    selectMode = new SelectMode(context);
+    selectMode.activate();
+    selectMode.onPointerDown(createPointerEvent(1, 1)); // select via the body
+    vi.mocked(callbacks.pushToHistory).mockClear();
+  });
+
+  it('shows vertex and midpoint handles for the outer ring and the hole', () => {
+    const [vertices, midpoints] = vi.mocked(callbacks.renderVertices).mock.lastCall!;
+    expect(vertices).toHaveLength(8);
+    expect(midpoints).toHaveLength(8);
+    expect(vertices).toContainEqual([6, 6]);
+    expect(midpoints).toContainEqual([3, 4.5]);
+  });
+
+  it('does not hit the polygon when clicking inside the hole', () => {
+    selectMode.onPointerDown(createPointerEvent(4.5, 4.5));
+    expect(selectMode.getSelectedIds()).toEqual([]);
+  });
+
+  it('drags a hole vertex as one history step', () => {
+    drag([3, 3], [2, 2]);
+
+    expect(rings()[1][0]).toEqual([2, 2]);
+    expect(rings()[1][4]).toEqual([2, 2]);
+    expect(rings()[0]).toEqual(makeFeature('x').geometry.coordinates[0]);
+    expect(callbacks.pushToHistory).toHaveBeenCalledTimes(1);
+    expect(callbacks.pushToHistory.mock.calls[0][0]).toBeInstanceOf(UpdateAction);
+  });
+
+  it('refuses to drag a hole vertex outside the outer ring', () => {
+    drag([3, 3], [-2, 5]);
+
+    expect(rings()[1]).toEqual(hole);
+    expect(callbacks.pushToHistory).not.toHaveBeenCalled();
+  });
+
+  it('refuses to drag an outer vertex across the hole', () => {
+    drag([10, 10], [4.5, 4.5]);
+
+    expect(rings()[0][2]).toEqual([10, 10]);
+    expect(callbacks.pushToHistory).not.toHaveBeenCalled();
+  });
+
+  it('inserts a vertex from a hole midpoint and keeps the outer ring', () => {
+    drag([3, 4.5], [2.5, 4.5]);
+
+    expect(rings()[0]).toHaveLength(5);
+    expect(rings()[1]).toHaveLength(6);
+    expect(rings()[1][1]).toEqual([2.5, 4.5]);
+    expect(callbacks.pushToHistory).toHaveBeenCalledTimes(1);
+  });
+
+  it('highlights the vertex inserted into the hole', () => {
+    selectMode.onPointerDown(createPointerEvent(3, 4.5));
+
+    // Outer ring 4 vertices, then hole vertices [3,3], [3,4.5], ...: flat index 5.
+    const [vertices, , highlight] = vi.mocked(callbacks.renderVertices).mock.lastCall!;
+    expect(highlight).toBe(5);
+    expect(vertices[5]).toEqual([3, 4.5]);
+  });
+
+  it('deletes a hole vertex, keeping at least three per ring', () => {
+    doubleClick(3, 3);
+    expect(rings()[1]).toHaveLength(4);
+    expect(callbacks.pushToHistory).toHaveBeenCalledTimes(1);
+
+    doubleClick(6, 6);
+    expect(rings()[1]).toHaveLength(4);
+    expect(callbacks.pushToHistory).toHaveBeenCalledTimes(1);
+  });
+
+  it('refuses to delete an outer vertex when the new edge would cut the hole', () => {
+    doubleClick(10, 10);
+
+    expect(rings()[0]).toHaveLength(5);
+    expect(callbacks.pushToHistory).not.toHaveBeenCalled();
+  });
+
+  it('records the pre-insert shape, so undo drops the vertex inserted into the hole', () => {
+    drag([3, 4.5], [2.5, 4.5]);
+
+    const action = callbacks.pushToHistory.mock.calls[0][0] as UpdateAction;
+    expect(action.oldFeature.geometry.coordinates).toEqual([
+      makeFeature('x').geometry.coordinates[0],
+      hole,
+    ]);
+  });
+
+  it('records the pre-delete shape, so undo restores the deleted hole vertex', () => {
+    doubleClick(3, 3);
+
+    const action = callbacks.pushToHistory.mock.calls[0][0] as UpdateAction;
+    expect(action.oldFeature.geometry.coordinates[1]).toEqual(hole);
+    expect(action.newFeature.geometry.coordinates[1]).toHaveLength(4);
+  });
+
+  it('deletes a hole vertex on long press (touch)', () => {
+    selectMode.onLongPress(createTouchEvent(3, 3));
+
+    expect(rings()[1]).toHaveLength(4);
+    expect(rings()[1]).not.toContainEqual([3, 3]);
+  });
+
+  it('edits a second hole through the flat handle list', () => {
+    const second = [
+      [7, 7],
+      [7, 8.5],
+      [8.5, 8.5],
+      [8.5, 7],
+      [7, 7],
+    ];
+    const feature = featureMap.get('h1')!;
+    if (feature.geometry.type === 'Polygon') feature.geometry.coordinates.push(second);
+    selectMode.refreshFromStore();
+
+    selectMode.onPointerDown(createPointerEvent(8.5, 8.5));
+    selectMode.onPointerMove(createPointerEvent(9, 9));
+    // The dragged vertex is highlighted: outer ring 4 + first hole 4 +
+    // index 2 of the second hole.
+    const [vertices, , highlight] = vi.mocked(callbacks.renderVertices).mock.lastCall!;
+    expect(highlight).toBe(10);
+    expect(vertices[10]).toEqual([9, 9]);
+    selectMode.onPointerUp(createPointerEvent(9, 9));
+
+    expect(rings()[2][2]).toEqual([9, 9]);
+    expect(rings()[1]).toEqual(hole);
+  });
+
+  it('falls back to the unsnapped position when snapping would push the hole out', () => {
+    context.getSnapConfig = () => ({ enabled: true, threshold: 10 });
+    featureMap.set('f2', {
+      id: 'f2',
+      type: 'Feature',
+      geometry: {
+        type: 'Polygon',
+        coordinates: [
+          [
+            [10.5, 3],
+            [12, 3],
+            [12, 4],
+            [10.5, 4],
+            [10.5, 3],
+          ],
+        ],
+      },
+      properties: {},
+    });
+
+    // (9.8, 3) is 7px from f2's vertex (10.5, 3), outside the outer ring.
+    drag([6, 3], [9.8, 3]);
+
+    expect(context.render.renderSnapIndicator).toHaveBeenCalledWith([10.5, 3]);
+    expect(context.render.clearSnapIndicator).toHaveBeenCalled();
+    expect(rings()[1][3]).toEqual([9.8, 3]);
+  });
+
+  it('moves the hole in a multi-selection drag', () => {
+    featureMap.set('f2', makeFeature('f2'));
+    const f2 = featureMap.get('f2')!;
+    if (f2.geometry.type === 'Polygon') {
+      f2.geometry.coordinates = [f2.geometry.coordinates[0].map(([x, y]) => [x + 20, y])];
+    }
+    selectMode.selectFeatures(['h1', 'f2']);
+
+    drag([1, 1], [2, 3]);
+
+    expect(rings()[1][0]).toEqual([4, 5]);
+    expect(callbacks.pushToHistory).toHaveBeenCalledTimes(1);
+  });
+
+  it('moves the hole with a whole-polygon drag', () => {
+    drag([1, 1], [2, 3]);
+
+    expect(rings()[0][0]).toEqual([1, 2]);
+    expect(rings()[1][0]).toEqual([4, 5]);
+    expect(callbacks.pushToHistory).toHaveBeenCalledTimes(1);
+  });
+});

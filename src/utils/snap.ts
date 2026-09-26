@@ -94,8 +94,8 @@ function filterFeatures(features: LibreDrawFeature[], options: SnapOptions): Lib
 /**
  * Check whether a feature's bounding box intersects the given viewport bounds.
  *
- * Uses a fast min/max scan over the outer ring coordinates.
- * No map.project() calls are needed.
+ * Uses a fast min/max scan over the outer ring coordinates (holes lie
+ * inside it, so they never widen the box). No map.project() calls are needed.
  */
 export function isFeatureInBounds(feature: LibreDrawFeature, bounds: ViewportBounds): boolean {
   if (feature.geometry.type === 'Point') {
@@ -198,24 +198,26 @@ function findNearestVertex(
       continue;
     }
 
-    const ring = feature.geometry.coordinates[0];
-    // Exclude closing point (same as first vertex)
-    const vertexCount = ring.length - 1;
+    // Every ring, holes included.
+    for (const ring of feature.geometry.coordinates) {
+      // Exclude closing point (same as first vertex)
+      const vertexCount = ring.length - 1;
 
-    for (let i = 0; i < vertexCount; i++) {
-      const vertexScreen = getScreenPoint({
-        lng: ring[i][0],
-        lat: ring[i][1],
-      });
-      const dist = pixelDistance(screenPoint, vertexScreen);
+      for (let i = 0; i < vertexCount; i++) {
+        const vertexScreen = getScreenPoint({
+          lng: ring[i][0],
+          lat: ring[i][1],
+        });
+        const dist = pixelDistance(screenPoint, vertexScreen);
 
-      if (dist <= threshold && (!best || dist < best.distance)) {
-        best = {
-          position: [ring[i][0], ring[i][1]],
-          type: 'vertex',
-          featureId: feature.id,
-          distance: dist,
-        };
+        if (dist <= threshold && (!best || dist < best.distance)) {
+          best = {
+            position: [ring[i][0], ring[i][1]],
+            type: 'vertex',
+            featureId: feature.id,
+            distance: dist,
+          };
+        }
       }
     }
   }
@@ -267,35 +269,37 @@ function findNearestEdge(
       continue;
     }
 
-    const ring = feature.geometry.coordinates[0];
-    const vertexCount = ring.length - 1;
+    // Every ring, holes included.
+    for (const ring of feature.geometry.coordinates) {
+      const vertexCount = ring.length - 1;
 
-    for (let i = 0; i < vertexCount; i++) {
-      const nextIdx = (i + 1) % vertexCount;
-      const aScreen = getScreenPoint({ lng: ring[i][0], lat: ring[i][1] });
-      const bScreen = getScreenPoint({
-        lng: ring[nextIdx][0],
-        lat: ring[nextIdx][1],
-      });
+      for (let i = 0; i < vertexCount; i++) {
+        const nextIdx = (i + 1) % vertexCount;
+        const aScreen = getScreenPoint({ lng: ring[i][0], lat: ring[i][1] });
+        const bScreen = getScreenPoint({
+          lng: ring[nextIdx][0],
+          lat: ring[nextIdx][1],
+        });
 
-      const projected = projectPointOnSegment(screenPoint, aScreen, bScreen);
-      const dist = pixelDistance(screenPoint, projected);
+        const projected = projectPointOnSegment(screenPoint, aScreen, bScreen);
+        const dist = pixelDistance(screenPoint, projected);
 
-      if (dist <= threshold && (!best || dist < best.distance)) {
-        // Convert the projected screen point back to geographic coordinates.
-        // We interpolate between the two edge endpoints using the parametric t.
-        const aGeo = ring[i];
-        const bGeo = ring[nextIdx];
-        const t = computeParametricT(aScreen, bScreen, projected);
-        const snapLng = aGeo[0] + t * (bGeo[0] - aGeo[0]);
-        const snapLat = aGeo[1] + t * (bGeo[1] - aGeo[1]);
+        if (dist <= threshold && (!best || dist < best.distance)) {
+          // Convert the projected screen point back to geographic coordinates.
+          // We interpolate between the two edge endpoints using the parametric t.
+          const aGeo = ring[i];
+          const bGeo = ring[nextIdx];
+          const t = computeParametricT(aScreen, bScreen, projected);
+          const snapLng = aGeo[0] + t * (bGeo[0] - aGeo[0]);
+          const snapLat = aGeo[1] + t * (bGeo[1] - aGeo[1]);
 
-        best = {
-          position: [snapLng, snapLat],
-          type: 'edge',
-          featureId: feature.id,
-          distance: dist,
-        };
+          best = {
+            position: [snapLng, snapLat],
+            type: 'edge',
+            featureId: feature.id,
+            distance: dist,
+          };
+        }
       }
     }
   }

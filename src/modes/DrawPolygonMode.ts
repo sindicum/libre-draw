@@ -19,6 +19,19 @@ import { findDraftVertexTarget, finishRadius, type DraftVertexTarget } from './d
 const MIN_VERTICES = 3;
 
 /**
+ * Options for a {@link DrawPolygonMode} used as the drafting part of
+ * another mode.
+ */
+export interface DrawPolygonModeOptions {
+  /**
+   * Called with the closed ring instead of creating a feature when the
+   * draft is finished. Its result becomes the result of the finish
+   * (`finishDrawing()`); the draft is cleared either way.
+   */
+  onComplete?: (ring: Position[]) => boolean;
+}
+
+/**
  * Drawing mode for creating new polygons.
  *
  * Each **click or tap** — a pointer down followed by a pointer up that has
@@ -56,8 +69,11 @@ export class DrawPolygonMode implements DraftCapableMode {
   /** Set once the pointer has travelled beyond the click/tap tolerance. */
   private isDragging = false;
 
-  constructor(context: ModeContext) {
+  private onComplete: ((ring: Position[]) => boolean) | undefined;
+
+  constructor(context: ModeContext, options: DrawPolygonModeOptions = {}) {
     this.context = context;
+    this.onComplete = options.onComplete;
   }
 
   mapInteractions(): { dragPan: boolean; doubleClickZoom: boolean } {
@@ -299,7 +315,8 @@ export class DrawPolygonMode implements DraftCapableMode {
 
   /**
    * Attempt to finalize the current draft.
-   * @returns `true` when a feature was created, `false` on validation failure.
+   * @returns `true` when a feature was created (or the `onComplete` hook
+   *   succeeded), `false` on validation failure.
    */
   private tryFinalize(): boolean {
     if (this.vertices.length < MIN_VERTICES) return false;
@@ -308,6 +325,27 @@ export class DrawPolygonMode implements DraftCapableMode {
     // Close the ring
     const ring: Position[] = [...this.vertices, [...this.vertices[0]] as Position];
 
+    let completed = true;
+    if (this.onComplete) {
+      completed = this.onComplete(ring);
+    } else {
+      this.createFeature(ring);
+    }
+
+    // Reset state for next drawing and notify listeners.
+    this.vertices = [];
+    this.resetPointer();
+    this.context.render.clearPreview();
+    this.context.render.clearVertices();
+    this.context.render.clearSnapIndicator();
+    this.emitDraftChange();
+    return completed;
+  }
+
+  /**
+   * Add a polygon feature with the given closed ring as one history step.
+   */
+  private createFeature(ring: Position[]): void {
     const feature: LibreDrawFeature = {
       id: createFeatureId(),
       type: 'Feature',
@@ -323,15 +361,6 @@ export class DrawPolygonMode implements DraftCapableMode {
     this.context.history.push(action);
     this.context.events.emit('create', { feature: cloneFeature(stored) });
     this.context.render.renderFeatures();
-
-    // Reset state for next drawing and notify listeners.
-    this.vertices = [];
-    this.resetPointer();
-    this.context.render.clearPreview();
-    this.context.render.clearVertices();
-    this.context.render.clearSnapIndicator();
-    this.emitDraftChange();
-    return true;
   }
 
   /**

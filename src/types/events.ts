@@ -145,6 +145,41 @@ export interface UnionFailedEvent {
 }
 
 /**
+ * Event payload for a successful cut.
+ *
+ * `features` are the pieces that remain. When there is one piece it keeps
+ * the original's id (a new hole or a notch), so `features[0].id` equals
+ * `originalFeature.id`; when the cut split the polygon apart, each piece
+ * has a fresh id and a copy of the original's properties.
+ */
+export interface CutEvent {
+  /** Where the change came from. See {@link EventOrigin}. */
+  origin: EventOrigin;
+  originalFeature: LibreDrawFeature;
+  features: LibreDrawFeature[];
+}
+
+/**
+ * Reasons a cut can fail.
+ *
+ * - `no-overlap`: the cutter does not overlap the polygon (it misses it,
+ *   only touches it, or lies inside one of its holes)
+ * - `empty-result`: the cutter covers the whole polygon
+ * - `invalid-result`: the geometry engine failed, or a piece failed validation
+ */
+export type CutFailReason = 'no-overlap' | 'empty-result' | 'invalid-result';
+
+/**
+ * Event payload for a failed cut.
+ */
+export interface CutFailedEvent {
+  /** Where the change came from. See {@link EventOrigin}. */
+  origin: EventOrigin;
+  reason: CutFailReason;
+  featureId: string;
+}
+
+/**
  * Event payload for a committed rotation.
  *
  * `angle` is the rotation applied by this step in degrees, positive clockwise
@@ -204,6 +239,8 @@ export interface LibreDrawEventMap {
   setbackfailed: SetbackFailedEvent;
   union: UnionEvent;
   unionfailed: UnionFailedEvent;
+  cut: CutEvent;
+  cutfailed: CutFailedEvent;
   rotate: RotateEvent;
   selectionchange: SelectionChangeEvent;
   modechange: ModeChangeEvent;

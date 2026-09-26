@@ -23,6 +23,7 @@ export interface Messages {
   toolbarUnion: string;
   toolbarSetback: string;
   toolbarRotate: string;
+  toolbarCut: string;
   toolbarSettings: string;
   toolbarDelete: string;
   toolbarUndo: string;
