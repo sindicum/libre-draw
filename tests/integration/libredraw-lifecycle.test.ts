@@ -1290,5 +1290,23 @@ describe('LibreDraw lifecycle integration', () => {
 
       draw.destroy();
     });
+
+    it('should return a deep copy from getStyle', () => {
+      const map = new FakeMap();
+      const draw = new LibreDraw(map.asMap(), { toolbar: false });
+      const fillColor = draw.getStyle().fill.color;
+      const dasharray = [...draw.getStyle().preview.dasharray];
+
+      const style = draw.getStyle();
+      style.fill.color = '#123456';
+      style.preview.dasharray.push(9);
+      draw.setStyle({ outline: { width: 5 } });
+
+      // Writing to the returned object changed nothing, not even on the next setStyle.
+      expect(draw.getStyle().fill.color).toBe(fillColor);
+      expect(draw.getStyle().preview.dasharray).toEqual(dasharray);
+
+      draw.destroy();
+    });
   });
 });
