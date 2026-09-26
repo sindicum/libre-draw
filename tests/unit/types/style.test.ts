@@ -78,3 +78,30 @@ describe('mergeStyleConfig with a base style', () => {
     expect(merged.outline.color).toBe(DEFAULT_STYLE_CONFIG.outline.color);
   });
 });
+
+describe('DEFAULT_STYLE_CONFIG colors', () => {
+  const brand = '#285daa';
+
+  it('draws features in MapLibre brand blue, matching the toolbar', () => {
+    const d = DEFAULT_STYLE_CONFIG;
+    expect([
+      d.fill.color,
+      d.outline.color,
+      d.vertex.strokeColor,
+      d.preview.color,
+      d.editVertex.strokeColor,
+      d.midpoint.color,
+      d.point.color,
+      d.point.strokeColor,
+    ]).toEqual(Array(8).fill(brand));
+  });
+
+  it('keeps the selection orange, the highlight red and the white handles', () => {
+    const d = DEFAULT_STYLE_CONFIG;
+    expect([d.fill.selectedColor, d.outline.selectedColor, d.point.selectedColor]).toEqual(
+      Array(3).fill('#fbb03b')
+    );
+    expect(d.editVertex.highlightedColor).toBe('#ff4444');
+    expect(d.editVertex.color).toBe('#ffffff');
+  });
+});

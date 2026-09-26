@@ -17,8 +17,8 @@ describe('createCrosshairImage', () => {
   });
 
   it('paints the arms opaque in the accent colour', () => {
-    expect(pixel(image, Math.floor(center), 0)).toEqual([0x3b, 0xb2, 0xd0, 255]);
-    expect(pixel(image, 0, Math.floor(center))).toEqual([0x3b, 0xb2, 0xd0, 255]);
+    expect(pixel(image, Math.floor(center), 0)).toEqual([0x28, 0x5d, 0xaa, 255]);
+    expect(pixel(image, 0, Math.floor(center))).toEqual([0x28, 0x5d, 0xaa, 255]);
   });
 
   it('surrounds the arms with a white halo', () => {

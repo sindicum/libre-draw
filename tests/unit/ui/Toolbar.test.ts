@@ -73,7 +73,7 @@ describe('ToolbarButton', () => {
     btn.setActive(true);
     const el = btn.getElement();
     expect(el.getAttribute('aria-pressed')).toBe('true');
-    expect(el.style.backgroundColor).toBe('#3bb2d0');
+    expect(el.style.backgroundColor).toBe('#285daa');
 
     btn.setActive(false);
     expect(el.getAttribute('aria-pressed')).toBe('false');
@@ -113,5 +113,87 @@ describe('ToolbarButton', () => {
 
     btn.destroy();
     expect(parent.children).toHaveLength(0);
+  });
+});
+
+describe('ToolbarButton hover', () => {
+  function createButton() {
+    return new ToolbarButton({
+      id: 'draw',
+      icon: '<svg><circle r="5"/></svg>',
+      title: 'Draw polygon',
+      onClick: vi.fn(),
+    });
+  }
+
+  function pointer(el: HTMLElement, type: 'pointerenter' | 'pointerleave', pointerType: string) {
+    el.dispatchEvent(new PointerEvent(type, { pointerType }));
+  }
+
+  it('turns pale blue under the mouse and back to white when it leaves', () => {
+    const el = createButton().getElement();
+
+    pointer(el, 'pointerenter', 'mouse');
+    expect(el.style.backgroundColor).toBe('#d4dfee');
+
+    pointer(el, 'pointerleave', 'mouse');
+    expect(el.style.backgroundColor).toBe('#ffffff');
+  });
+
+  it('shows no hover for touch or pen, so a tap leaves no tint behind', () => {
+    const el = createButton().getElement();
+
+    pointer(el, 'pointerenter', 'touch');
+    expect(el.style.backgroundColor).toBe('#ffffff');
+    pointer(el, 'pointerenter', 'pen');
+    expect(el.style.backgroundColor).toBe('#ffffff');
+  });
+
+  it('keeps an active button blue under the mouse, and pale blue again once deactivated', () => {
+    const btn = createButton();
+    const el = btn.getElement();
+    btn.setActive(true);
+
+    pointer(el, 'pointerenter', 'mouse');
+    expect(el.style.backgroundColor).toBe('#285daa');
+
+    btn.setActive(false);
+    expect(el.style.backgroundColor).toBe('#d4dfee');
+  });
+
+  it('shows no hover while disabled, and the hover once enabled under the mouse', () => {
+    const btn = createButton();
+    const el = btn.getElement();
+    btn.setDisabled(true);
+
+    pointer(el, 'pointerenter', 'mouse');
+    expect(el.style.backgroundColor).toBe('#ffffff');
+
+    btn.setDisabled(false);
+    expect(el.style.backgroundColor).toBe('#d4dfee');
+  });
+
+  it('drops the hover when disabled under the mouse and stays white after it leaves', () => {
+    const btn = createButton();
+    const el = btn.getElement();
+    pointer(el, 'pointerenter', 'mouse');
+    expect(el.style.backgroundColor).toBe('#d4dfee');
+
+    btn.setDisabled(true);
+    expect(el.style.backgroundColor).toBe('#ffffff');
+    pointer(el, 'pointerleave', 'mouse');
+    btn.setDisabled(false);
+    expect(el.style.backgroundColor).toBe('#ffffff');
+  });
+
+  it('turns blue when activated under the mouse and stays blue after it leaves', () => {
+    const btn = createButton();
+    const el = btn.getElement();
+    pointer(el, 'pointerenter', 'mouse');
+
+    btn.setActive(true);
+    expect(el.style.backgroundColor).toBe('#285daa');
+    pointer(el, 'pointerleave', 'mouse');
+    expect(el.style.backgroundColor).toBe('#285daa');
   });
 });

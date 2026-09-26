@@ -851,7 +851,7 @@ interface FillStyle {
 
 | Property          | Type     | Default     | Description                |
 | ----------------- | -------- | ----------- | -------------------------- |
-| `color`           | `string` | `'#3bb2d0'` | Fill color                 |
+| `color`           | `string` | `'#285daa'` | Fill color                 |
 | `opacity`         | `number` | `0.2`       | Fill opacity (0–1)         |
 | `selectedColor`   | `string` | `'#fbb03b'` | Fill color when selected   |
 | `selectedOpacity` | `number` | `0.4`       | Fill opacity when selected |
@@ -872,7 +872,7 @@ interface OutlineStyle {
 
 | Property        | Type     | Default     | Description              |
 | --------------- | -------- | ----------- | ------------------------ |
-| `color`         | `string` | `'#3bb2d0'` | Line color               |
+| `color`         | `string` | `'#285daa'` | Line color               |
 | `width`         | `number` | `2`         | Line width in pixels     |
 | `selectedColor` | `string` | `'#fbb03b'` | Line color when selected |
 
@@ -896,7 +896,7 @@ interface VertexStyle {
 | Property      | Type     | Default     | Description             |
 | ------------- | -------- | ----------- | ----------------------- |
 | `color`       | `string` | `'#ffffff'` | Vertex fill color       |
-| `strokeColor` | `string` | `'#3bb2d0'` | Vertex stroke color     |
+| `strokeColor` | `string` | `'#285daa'` | Vertex stroke color     |
 | `strokeWidth` | `number` | `2`         | Vertex stroke width     |
 | `radius`      | `number` | `4`         | Vertex radius in pixels |
 
@@ -916,7 +916,7 @@ interface PreviewStyle {
 
 | Property    | Type       | Default     | Description     |
 | ----------- | ---------- | ----------- | --------------- |
-| `color`     | `string`   | `'#3bb2d0'` | Dash line color |
+| `color`     | `string`   | `'#285daa'` | Dash line color |
 | `width`     | `number`   | `2`         | Dash line width |
 | `dasharray` | `number[]` | `[2, 2]`    | Dash pattern    |
 
@@ -941,7 +941,7 @@ interface EditVertexStyle {
 | Property                 | Type     | Default     | Description                  |
 | ------------------------ | -------- | ----------- | ---------------------------- |
 | `color`                  | `string` | `'#ffffff'` | Handle fill color            |
-| `strokeColor`            | `string` | `'#3bb2d0'` | Handle stroke color          |
+| `strokeColor`            | `string` | `'#285daa'` | Handle stroke color          |
 | `strokeWidth`            | `number` | `2`         | Handle stroke width          |
 | `radius`                 | `number` | `5`         | Handle radius                |
 | `highlightedColor`       | `string` | `'#ff4444'` | Hover/highlight fill color   |
@@ -964,7 +964,7 @@ interface MidpointStyle {
 
 | Property  | Type     | Default     | Description         |
 | --------- | -------- | ----------- | ------------------- |
-| `color`   | `string` | `'#3bb2d0'` | Midpoint fill color |
+| `color`   | `string` | `'#285daa'` | Midpoint fill color |
 | `opacity` | `number` | `0.6`       | Midpoint opacity    |
 | `radius`  | `number` | `4`         | Midpoint radius     |
 
@@ -988,12 +988,12 @@ interface PointStyle {
 
 | Property         | Type     | Default     | Description                |
 | ---------------- | -------- | ----------- | -------------------------- |
-| `color`          | `string` | `'#3bb2d0'` | Point fill color           |
+| `color`          | `string` | `'#285daa'` | Point fill color           |
 | `radius`         | `number` | `6`         | Point radius in pixels     |
 | `selectedColor`  | `string` | `'#fbb03b'` | Point color when selected  |
 | `selectedRadius` | `number` | `8`         | Point radius when selected |
 | `hoverColor`     | `string` | `'#fbb03b'` | Point color on mouse hover |
-| `strokeColor`    | `string` | `'#3bb2d0'` | Point stroke color         |
+| `strokeColor`    | `string` | `'#285daa'` | Point stroke color         |
 | `strokeWidth`    | `number` | `2`         | Point stroke width         |
 
 ---

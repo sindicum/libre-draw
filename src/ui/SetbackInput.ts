@@ -1,5 +1,6 @@
 import type { Messages } from '../types/messages';
 import { MESSAGES_EN } from './messages';
+import { addHover } from './hover';
 
 export interface SetbackInputCallbacks {
   onSubmit(distance: number): void;
@@ -42,6 +43,7 @@ export class SetbackInput {
     this.executeButton.textContent = messages.setbackExecute;
     this.executeButton.setAttribute('aria-label', messages.setbackExecuteLabel);
     this.applyButtonStyles();
+    addHover(this.executeButton);
 
     this.container.appendChild(this.input);
     this.container.appendChild(unit);

@@ -1,5 +1,6 @@
 import type { Messages } from '../types/messages';
 import { MESSAGES_EN } from './messages';
+import { addHover } from './hover';
 
 export interface RotateInputCallbacks {
   onSubmit(angle: number): void;
@@ -54,6 +55,7 @@ export class RotateInput {
     this.executeButton.textContent = messages.rotateExecute;
     this.executeButton.setAttribute('aria-label', messages.rotateExecuteLabel);
     this.applyButtonStyles();
+    addHover(this.executeButton);
 
     this.container.appendChild(this.input);
     this.container.appendChild(unit);

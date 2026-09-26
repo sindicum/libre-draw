@@ -1,5 +1,6 @@
 import type { Messages } from '../types/messages';
 import { MESSAGES_EN } from './messages';
+import { addHover } from './hover';
 
 export interface UnionExecuteCallbacks {
   onExecute(): void;
@@ -30,6 +31,7 @@ export class UnionExecute {
     this.executeButton.textContent = messages.unionExecute;
     this.executeButton.setAttribute('aria-label', messages.unionExecuteLabel);
     this.applyButtonStyles();
+    addHover(this.executeButton);
 
     this.container.appendChild(this.executeButton);
     this.executeButton.addEventListener('click', this.handleExecute);
