@@ -519,7 +519,7 @@ draw.on('rotate', (e) => console.log(`${e.originalFeature.id} rotated by ${e.ang
 
 ## Input Methods
 
-The drawing modes (`draw-point`, `draw-line`, `draw-polygon`, `draw-rectangle`, `draw-angled-rectangle`) take points in one of two ways. The choice is an input method, not a mode: it is kept when you switch modes.
+The drawing modes (`draw-point`, `draw-line`, `draw-polygon`, `draw-rectangle`, `draw-angled-rectangle`) take points in one of two ways, and so do the `cut` and `reshape` modes once their target is picked by tap. The choice is an input method, not a mode: it is kept when you switch modes.
 
 | Input method      | How a point is placed                                                                                  |
 | ----------------- | ------------------------------------------------------------------------------------------------------ |
@@ -569,7 +569,11 @@ Disable them with the `keyboard` option:
 
 ```ts
 const draw = new LibreDraw(map, { keyboard: false });
-// or, equivalently for the undo / redo pair:
+```
+
+or, equivalently for the undo / redo pair:
+
+```ts
 const draw = new LibreDraw(map, { keyboard: { undoRedo: false } });
 ```
 

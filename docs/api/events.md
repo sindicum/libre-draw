@@ -26,6 +26,8 @@ interface LibreDrawEventMap {
 }
 ```
 
+Features in every payload are deep copies taken when the event fires: a listener may keep or change them without affecting the store.
+
 ## Event origin
 
 Every payload carries an `origin` telling you who caused the change:
@@ -57,7 +59,7 @@ The value is decided by the call path, not by the kind of change: the same `dele
 Emitted when a new feature is created.
 In `draw-point` mode this happens on each click/tap. In `draw-line` mode it happens when the line is finalized. In `draw-polygon` mode it happens when the polygon is completed. In `draw-rectangle` mode it happens on the second corner click, and in `draw-angled-rectangle` mode on the third click (the width point).
 
-It also fires once per feature from [`addFeatures()`](/api/libre-draw#addfeatures-features), and from history: redoing a `create` emits it again, and undoing a `delete`, `split`, `setback`, or `union` emits `create` for every feature that comes back.
+It also fires once per feature from [`addFeatures()`](/api/libre-draw#addfeatures-features), and from history: redoing a `create` emits it again, and undoing a `delete`, `split`, `setback`, `union`, or a `cut` that split the polygon apart emits `create` for every feature that comes back.
 
 ### Payload: `CreateEvent`
 
@@ -90,7 +92,7 @@ draw.on('create', (e) => {
 ## `update`
 
 Emitted when an existing feature is modified.
-This includes vertex edits and dragging of polygons and lines, and point dragging in select mode. Dragging several selected features together emits one `update` per feature (and records a single undo step). Undo and redo of any `update` (including rotations, see [`rotate`](#rotate)) emit it as well, with `feature` / `oldFeature` describing the direction of the change.
+This includes vertex edits and dragging of polygons and lines, point dragging in select mode, and [`updateFeature()`](/api/libre-draw#updatefeature-id-patch). Dragging several selected features together emits one `update` per feature (and records a single undo step). Undo and redo of any `update` (including rotations and reshapes, see [`rotate`](#rotate) and [`reshape`](#reshape)) emit it as well, with `feature` / `oldFeature` describing the direction of the change. Undoing a [`cut`](#cut) that kept the polygon's id (a hole or a notch) also emits `update`.
 
 ### Payload: `UpdateEvent`
 
@@ -122,7 +124,7 @@ draw.on('update', (e) => {
 
 ## `delete`
 
-Emitted when a feature is deleted (via toolbar button, Delete key, or `deleteFeature()` API). Deleting a multi-selection emits one `delete` per feature (and records a single undo step). History emits it too: undoing a `create` (or a batch from `addFeatures()`, children in reverse order), undoing a `split` (two deletes), `setback`, or `union`, and redoing a `delete` or a `split` (the original polygon is deleted before `split` fires again).
+Emitted when a feature is deleted (via toolbar button, Delete key, or `deleteFeature()` API). Deleting a multi-selection emits one `delete` per feature (and records a single undo step). History emits it too: undoing a `create` (or a batch from `addFeatures()`, children in reverse order), undoing a `split` (two deletes), `setback`, `union`, or a `cut` that split the polygon apart (one delete per piece), and redoing a `delete` or a `split` (the original polygon is deleted before `split` fires again).
 
 ### Payload: `DeleteEvent`
 
@@ -619,7 +621,7 @@ draw.on('modechange', (e) => {
 
 ## `draftchange`
 
-Emitted whenever the in-progress draft of a drawing mode (`'draw-polygon'`, `'draw-line'`, `'draw-rectangle'`, or `'draw-angled-rectangle'`) changes.
+Emitted whenever the in-progress draft of a drawing mode (`'draw-polygon'`, `'draw-line'`, `'draw-rectangle'`, or `'draw-angled-rectangle'`) changes, and the cutter in `'cut'` mode or the line in `'reshape'` mode once a target is selected (they are drafted like a polygon and a line).
 
 Fires when:
 

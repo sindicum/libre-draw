@@ -41,11 +41,11 @@ export interface OperationFailure {
  *
  * ```ts
  * const result = draw.split(id, line);
- * if (!result.ok) {
+ * if (result.ok) {
+ *   result.created.forEach(save);
+ * } else {
  *   console.warn(result.reason);
- *   return;
  * }
- * result.created.forEach(save);
  * ```
  *
  * Operations never throw for a geometric or validation failure; they

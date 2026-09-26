@@ -27,11 +27,13 @@ const map = new maplibregl.Map({
 const draw = new LibreDraw(map);
 ```
 
-That's it! A toolbar with draw-point, draw-line, draw, draw-rectangle, draw-angled-rectangle, select, split, union, setback, rotate, delete, undo, and redo buttons appears on the map. Use draw-point to place points, draw-line to draw lines, draw to create polygons, draw-rectangle to drop a rectangle with two clicks, or draw-angled-rectangle to draw one at any angle with three clicks.
+That's it! A toolbar with draw-point, draw-line, draw-polygon, draw-rectangle, draw-angled-rectangle, the input method toggle, select, split, cut, reshape, union, setback, rotate, delete, undo, redo, and style settings buttons appears on the map. Use draw-point to place points, draw-line to draw lines, draw-polygon to create polygons, draw-rectangle to drop a rectangle with two clicks, or draw-angled-rectangle to draw one at any angle with three clicks.
 
 > **Note:** LibreDraw does not require a separate CSS import. All styles (toolbar, map layers) are applied programmatically via JavaScript. Only `maplibre-gl.css` is needed for the base map.
 
 ### Try it
+
+The map below shows only the basic buttons. The full toolbar is on the [Live Demo](/examples/) page.
 
 <BasicDemo />
 
@@ -95,8 +97,8 @@ if (!rotated.ok) console.warn(rotated.reason); // e.g. 'not-rotatable' for a Poi
 draw.updateFeature(featureId, { properties: { crop: 'wheat' } });
 draw.undo(); // properties back, still rotated
 
-// The geometry operations of the split / setback / union modes are API
-// calls too, so a headless page (or an AI agent) can run them.
+// The geometry operations of the split / setback / union / cut / reshape
+// modes are API calls too, so a headless page (or an AI agent) can run them.
 const halves = draw.split(featureId, [
   [139.7, 35.65],
   [139.72, 35.67],
@@ -203,12 +205,12 @@ Always destroy the instance when you're done:
 
 ```ts
 draw.destroy();
-// After this, all methods will throw LibreDrawError
+// After this, every method except destroy() throws LibreDrawError
 ```
 
 ## Next Steps
 
-- Learn about [Modes](/guide/modes) (Idle, Draw Point, Draw Line, Draw, Draw Rectangle, Select, Split, Union, Setback, Rotate)
+- Learn about [Modes](/guide/modes) (Idle, Draw Point, Draw Line, Draw Polygon, Draw Rectangle, Draw Angled Rectangle, Select, Split, Cut, Reshape, Union, Setback, Rotate)
 - Drive it from your own code or an AI agent: [Programmatic API](/guide/programmatic-api)
 - See the full [API Reference](/api/)
 - Try the [Live Demo](/examples/)

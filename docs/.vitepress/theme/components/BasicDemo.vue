@@ -1,11 +1,12 @@
 <template>
   <ClientOnly>
-    <div class="demo-container">
+    <div class="demo-container vp-raw">
       <div v-if="error" class="demo-error">{{ error }}</div>
       <div ref="mapContainer" class="demo-map-compact"></div>
       <div class="demo-hint">
-        Click <strong>draw-point</strong> to place a point, or <strong>draw</strong> to add polygon
-        vertices and double-click to finish.
+        Click <strong>draw-point</strong> to place a point, or <strong>draw-line</strong> /
+        <strong>draw-polygon</strong> to add vertices and click the last vertex (or the first, for a
+        polygon) to finish. Switch to <strong>select</strong> to edit what you drew.
       </div>
     </div>
   </ClientOnly>
@@ -52,14 +53,24 @@ onMounted(async () => {
     const draw = new LibreDraw(map, {
       toolbar: {
         position: 'top-right',
+        // Only the basic buttons, so the toolbar fits the 400px map; omitted
+        // controls default to shown, so the others are turned off explicitly.
+        // The Live Demo page shows the full toolbar.
         controls: {
           drawPoint: true,
           drawLine: true,
           drawPolygon: true,
+          drawRectangle: false,
+          drawAngledRectangle: false,
+          inputMethod: false,
           select: true,
-          split: true,
-          setback: true,
-          rotate: true,
+          split: false,
+          cut: false,
+          reshape: false,
+          union: false,
+          setback: false,
+          rotate: false,
+          settings: false,
           delete: true,
           undo: true,
           redo: true,

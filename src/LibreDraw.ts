@@ -171,34 +171,57 @@ export class LibreDraw {
    * Create a new LibreDraw instance attached to a MapLibre GL JS map.
    *
    * Initializes all internal modules and sets up map integration.
-   * The instance is ready to use once the map's style is loaded.
+   * It may be created before the map's style has loaded, and every method
+   * works at once: the store, history, events, selection, modes, and
+   * `setStyle()` do not wait for the map, and the toolbar is shown. Until
+   * the style loads nothing is drawn and pointer input on the map is
+   * ignored; on load the sources and layers are added with the style set
+   * so far and every feature in the store is drawn.
    *
    * @param map - The MapLibre GL JS map instance to draw on.
    * @param options - Configuration options. Defaults to toolbar enabled,
    *   100-action history limit, snap enabled with 10px threshold,
-   *   keyboard shortcuts enabled, and English UI strings.
+   *   keyboard shortcuts enabled, English UI strings, and tap input.
    *
    * @throws {LibreDrawError} If `options.locale` is not a bundled locale.
    * @throws {LibreDrawError} If `options.inputMethod` is not `'tap'` or `'reticle'`.
    *
-   * @example
+   * @example Default settings:
    * ```ts
    * const draw = new LibreDraw(map);
-   * // Or with options:
+   * ```
+   *
+   * @example With options:
+   * ```ts
    * const draw = new LibreDraw(map, {
    *   toolbar: { position: 'top-right' },
    *   historyLimit: 50,
    *   snap: { threshold: 15 },
    * });
-   * // Disable snapping:
+   * ```
+   *
+   * @example Disable snapping:
+   * ```ts
    * const draw = new LibreDraw(map, { snap: false });
-   * // Disable the undo / redo keyboard shortcuts:
+   * ```
+   *
+   * @example Disable the undo / redo keyboard shortcuts:
+   * ```ts
    * const draw = new LibreDraw(map, { keyboard: false });
-   * // Japanese UI, with one label overridden:
+   * ```
+   *
+   * @example Japanese UI:
+   * ```ts
    * const draw = new LibreDraw(map, { locale: 'ja' });
-   * // Place points with the center reticle instead of taps:
+   * ```
+   *
+   * @example Place points with the center reticle instead of taps:
+   * ```ts
    * const draw = new LibreDraw(map, { inputMethod: 'reticle' });
-   * // Override individual strings (merged onto the selected locale):
+   * ```
+   *
+   * @example Override individual strings (merged onto the selected locale):
+   * ```ts
    * const draw = new LibreDraw(map, { messages: { setbackExecute: 'Run' } });
    * ```
    */
@@ -483,7 +506,10 @@ export class LibreDraw {
   /**
    * Get all features as an array.
    *
-   * Returns a snapshot of all polygon features currently in the store.
+   * Returns every feature (points, lines, and polygons) in the store, in
+   * the order they were added.
+   * Each call returns deep copies: changing them does not change the
+   * store or the map. Change a feature with {@link updateFeature}.
    *
    * @returns An array of all {@link LibreDrawFeature} objects.
    *
@@ -492,7 +518,7 @@ export class LibreDraw {
    * @example
    * ```ts
    * const features = draw.getFeatures();
-   * console.log(`${features.length} polygons on the map`);
+   * console.log(`${features.length} features on the map`);
    * ```
    */
   getFeatures(): LibreDrawFeature[] {
@@ -503,8 +529,10 @@ export class LibreDraw {
   /**
    * Export all features as a GeoJSON FeatureCollection.
    *
-   * Returns a standard GeoJSON FeatureCollection containing all polygon
-   * features currently in the store.
+   * Returns a standard GeoJSON FeatureCollection containing every feature
+   * (points, lines, and polygons) in the store.
+   * Each call returns deep copies: changing them does not change the
+   * store or the map. Change a feature with {@link updateFeature}.
    *
    * @returns A GeoJSON {@link FeatureCollection}.
    *
@@ -699,9 +727,10 @@ export class LibreDraw {
    * Get the IDs of currently selected features.
    *
    * Every mode shares one selection: select mode may hold several
-   * features, rotate / split / setback / union at most their one target,
-   * and drawing modes none (switching modes clears the selection).
-   * IDs are returned in the order they were selected.
+   * features, union the polygons picked for the merge, rotate / split /
+   * setback / cut / reshape at most their one target, and drawing modes
+   * none (switching modes clears the selection). IDs are returned in the
+   * order they were selected, in a new array each call.
    *
    * @returns An array of selected feature IDs.
    *
@@ -722,6 +751,9 @@ export class LibreDraw {
 
   /**
    * Get a feature by its ID.
+   *
+   * Each call returns deep copies: changing them does not change the
+   * store or the map. Change a feature with {@link updateFeature}.
    *
    * @param id - The unique identifier of the feature.
    * @returns The feature, or `undefined` if not found.
@@ -1300,7 +1332,8 @@ export class LibreDraw {
   /**
    * Get the current global render style.
    *
-   * @returns The full style configuration currently in use.
+   * @returns A deep copy of the full style configuration currently in use;
+   *   changing it has no effect (pass changes to {@link setStyle}).
    *
    * @throws {LibreDrawError} If this instance has been destroyed.
    */

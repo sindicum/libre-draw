@@ -14,14 +14,16 @@ Try the API methods directly. Use the mode buttons and action buttons to call Li
 
 Create a new LibreDraw instance attached to a MapLibre GL JS map.
 
-Initializes all internal modules and sets up map integration. The instance is ready to use once the map's style is loaded.
+Initializes all internal modules and sets up map integration.
+
+You can create it before the map's style has loaded (right after `new maplibregl.Map()`) and call any method at once: features, history, events, selection, modes, and [`setStyle()`](#setstyle-style) all work immediately, and the toolbar is shown. Until the style loads, nothing is drawn on the map and pointer input on the map is ignored. When it loads, LibreDraw adds its sources and layers with the style set so far and draws every feature already in the store; after `map.setStyle()` it adds them again the same way.
 
 **Parameters:**
 
-| Name      | Type                                              | Required | Description                                                                                                                                                                |
-| --------- | ------------------------------------------------- | -------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `map`     | `maplibregl.Map`                                  | Yes      | The MapLibre GL JS map instance to draw on                                                                                                                                 |
-| `options` | [`LibreDrawOptions`](/api/types#libredrawoptions) | No       | Configuration options. Defaults: toolbar enabled, 100-action history limit, built-in layer style, snapping enabled (10 px), keyboard shortcuts enabled, English UI strings |
+| Name      | Type                                              | Required | Description                                                                                                                                                                           |
+| --------- | ------------------------------------------------- | -------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `map`     | `maplibregl.Map`                                  | Yes      | The MapLibre GL JS map instance to draw on                                                                                                                                            |
+| `options` | [`LibreDrawOptions`](/api/types#libredrawoptions) | No       | Configuration options. Defaults: toolbar enabled, 100-action history limit, built-in layer style, snapping enabled (10 px), keyboard shortcuts enabled, English UI strings, tap input |
 
 **Example:**
 
@@ -38,7 +40,11 @@ const map = new maplibregl.Map({
 
 // Default — toolbar enabled, 100 history limit
 const draw = new LibreDraw(map);
+```
 
+Other configurations — each replaces the `new LibreDraw(map)` call above:
+
+```ts
 // With options
 const draw = new LibreDraw(map, {
   toolbar: {
@@ -66,16 +72,24 @@ const draw = new LibreDraw(map, {
     preview: { dasharray: [4, 1] },
   },
 });
+```
 
+```ts
 // Headless mode (no toolbar)
 const draw = new LibreDraw(map, { toolbar: false });
+```
 
+```ts
 // Keep the toolbar but turn off the undo / redo keyboard shortcuts
 const draw = new LibreDraw(map, { keyboard: false });
+```
 
+```ts
 // Japanese UI strings, with one label overridden
 const draw = new LibreDraw(map, { locale: 'ja', messages: { setbackExecute: '適用' } });
+```
 
+```ts
 // Place points with the center reticle instead of taps
 const draw = new LibreDraw(map, { inputMethod: 'reticle' });
 ```
@@ -184,7 +198,7 @@ Get how the drawing modes take a point.
 
 Get all features as an array.
 
-Returns a snapshot of all features (points, lines, and polygons) currently in the store.
+Returns all features (points, lines, and polygons) currently in the store, in the order they were added. Each call returns deep copies: changing the returned objects (coordinates, properties) does not change the store or the map. Change a feature with [`updateFeature()`](#updatefeature-id-patch) instead.
 
 **Returns:** [`LibreDrawFeature[]`](/api/types#libredrawfeature)
 
@@ -203,7 +217,7 @@ console.log(`${features.length} features on the map`);
 
 Export all features as a GeoJSON FeatureCollection.
 
-Returns a standard GeoJSON FeatureCollection containing all features (points, lines, and polygons) currently in the store, suitable for serialization or integration with other GeoJSON-compatible tools.
+Returns a standard GeoJSON FeatureCollection containing all features (points, lines, and polygons) currently in the store, suitable for serialization or integration with other GeoJSON-compatible tools. Each call returns deep copies: changing the returned objects (coordinates, properties) does not change the store or the map. Change a feature with [`updateFeature()`](#updatefeature-id-patch) instead.
 
 **Returns:** [`FeatureCollection`](/api/types#featurecollection)
 
@@ -351,6 +365,8 @@ if (!result.valid) {
 
 Get a feature by its ID.
 
+Each call returns deep copies: changing the returned objects (coordinates, properties) does not change the store or the map. Change a feature with [`updateFeature()`](#updatefeature-id-patch) instead.
+
 **Parameters:**
 
 | Name | Type     | Description                          |
@@ -399,8 +415,6 @@ if (deleted) {
 ```
 
 ---
-
-## Selection
 
 ### `updateFeature(id, patch)`
 
@@ -611,6 +625,8 @@ if (!result.ok) console.warn(result.reason);
 
 ---
 
+## Selection
+
 ### `selectFeature(id)`
 
 Programmatically select a feature by its ID.
@@ -668,7 +684,7 @@ if (draw.selectFeatures(['a', 'b'])) {
 
 Get the IDs of currently selected features.
 
-Every mode shares one selection: select mode may hold several features, union the polygons picked for the merge, rotate / split / setback / cut / reshape at most their one target, and drawing modes none (switching modes clears the selection). IDs are returned in the order they were selected.
+Every mode shares one selection: select mode may hold several features, union the polygons picked for the merge, rotate / split / setback / cut / reshape at most their one target, and drawing modes none (switching modes clears the selection). IDs are returned in the order they were selected, in a new array each call.
 
 **Returns:** `string[]`
 
@@ -746,7 +762,7 @@ draw.setStyle({
 
 Get the current global render style.
 
-Returns the full style configuration currently in use, including any overrides applied via the constructor `style` option or [`setStyle`](#setstyle-style).
+Returns the full style configuration currently in use, including any overrides applied via the constructor `style` option or [`setStyle`](#setstyle-style). The result is a deep copy: changing it has no effect. Pass changes to [`setStyle`](#setstyle-style) instead.
 
 **Returns:** [`StyleConfig`](/api/types#styleconfig)
 
@@ -835,7 +851,7 @@ if (draw.finishDrawing()) {
 
 Discard the in-progress draft of the active drawing mode.
 
-Clears the preview, resets the vertex list, and emits a [`draftchange`](/api/events#draftchange) event with `vertexCount: 0`. The mode remains active; call [`setMode`](#setmode-mode) afterwards to exit drawing entirely. In non-drawing modes this is a no-op.
+Clears the preview, resets the vertex list, and emits a [`draftchange`](/api/events#draftchange) event with `vertexCount: 0`. The mode remains active; call [`setMode`](#setmode-mode) afterwards to exit drawing entirely. In `'cut'` and `'reshape'` modes it discards the cutter or the line and keeps the target selected. In other modes, and in `'cut'` / `'reshape'` before a target is selected, this is a no-op.
 
 **Returns:** `void`
 
@@ -853,7 +869,7 @@ draw.cancelDrawing(); // discard in-progress polygon / line
 
 Get the number of vertices in the current draft.
 
-**Returns:** `number` — The draft vertex count for the active drawing mode, or `0` when no drawing mode is active. In `draw-rectangle` mode the count is `1` while the first corner is placed and `0` otherwise. In `draw-angled-rectangle` mode it is the number of placed base-edge points (`0`, `1`, or `2`).
+**Returns:** `number` — The draft vertex count for the active drawing mode (in `'cut'` / `'reshape'` mode: of the cutter or the line), or `0` when no drawing mode is active or no target is selected yet. In `draw-rectangle` mode the count is `1` while the first corner is placed and `0` otherwise. In `draw-angled-rectangle` mode it is the number of placed base-edge points (`0`, `1`, or `2`).
 
 **Throws:** [`LibreDrawError`](/api/types#libredrawerror) if this instance has been destroyed.
 

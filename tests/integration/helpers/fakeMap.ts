@@ -59,7 +59,13 @@ export class FakeMap {
   public setPaintProperty = vi.fn();
   public setLayoutProperty = vi.fn();
 
-  constructor() {
+  /**
+   * @param options.styleLoaded - `false` starts the map before its style
+   *   has loaded, as right after `new maplibregl.Map()`; call
+   *   {@link finishLoading} to complete the load.
+   */
+  constructor(options: { styleLoaded?: boolean } = {}) {
+    this.styleLoaded = options.styleLoaded ?? true;
     this.canvas = document.createElement('div');
     vi.spyOn(this.canvas, 'getBoundingClientRect').mockReturnValue({
       x: 0,
@@ -119,6 +125,13 @@ export class FakeMap {
     this.emit('styledata');
     this.styleLoaded = true;
     this.emit('styledata');
+  }
+
+  /** Finish the initial style load: emit `styledata` and `load` as MapLibre does. */
+  finishLoading(): void {
+    this.styleLoaded = true;
+    this.emit('styledata');
+    this.emit('load');
   }
 
   getCanvasContainer(): HTMLDivElement {
