@@ -56,6 +56,15 @@ export interface KeyboardOptions {
 }
 
 /**
+ * How the drawing modes take a point.
+ *
+ * - `'tap'`: a click or tap on the map places the point (default).
+ * - `'reticle'`: the point is placed at a crosshair fixed at the center of
+ *   the map by an "Add point" button; the map is moved underneath it.
+ */
+export type InputMethod = 'tap' | 'reticle';
+
+/**
  * Options for creating a LibreDraw instance.
  */
 export interface LibreDrawOptions {
@@ -78,4 +87,9 @@ export interface LibreDrawOptions {
   locale?: Locale;
   /** Overrides for individual UI strings, merged onto the selected locale. */
   messages?: Partial<Messages>;
+  /**
+   * How the drawing modes take a point. Defaults to `'tap'`.
+   * Can be changed later with `setInputMethod()`.
+   */
+  inputMethod?: InputMethod;
 }

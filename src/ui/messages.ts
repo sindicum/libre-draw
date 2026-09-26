@@ -30,6 +30,8 @@ export const MESSAGES_EN: Messages = {
   unionExecute: 'Merge',
   unionExecuteLabel: 'Merge selected polygons',
 
+  reticleAddPoint: 'Add point',
+
   styleFeatureSection: 'Feature style',
   styleSelectedSection: 'Selected style',
   styleGuideSection: 'Guide lines',
@@ -84,6 +86,8 @@ export const MESSAGES_JA: Messages = {
 
   unionExecute: '統合',
   unionExecuteLabel: '選択したポリゴンを統合',
+
+  reticleAddPoint: '点を追加',
 
   styleFeatureSection: '地物スタイル',
   styleSelectedSection: '選択時スタイル',

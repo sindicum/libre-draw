@@ -48,6 +48,10 @@ export interface Messages {
   /** aria-label of the execute button. */
   unionExecuteLabel: string;
 
+  // Center reticle action bar
+  /** Visible text and aria-label of the button that places a point at the reticle. */
+  reticleAddPoint: string;
+
   // Style settings panel: section headers
   styleFeatureSection: string;
   styleSelectedSection: string;

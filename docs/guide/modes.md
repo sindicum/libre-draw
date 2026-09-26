@@ -441,6 +441,36 @@ draw.on('rotate', (e) => console.log(`${e.originalFeature.id} rotated by ${e.ang
 - Map panning stays enabled; only a drag that starts on the selected feature is captured
 - MapLibre's box zoom (Shift + drag) is disabled during rotate mode so that Shift + drag only snaps the angle
 
+## Input Methods
+
+The drawing modes (`draw-point`, `draw-line`, `draw-polygon`, `draw-rectangle`, `draw-angled-rectangle`) take points in one of two ways. The choice is an input method, not a mode: it is kept when you switch modes.
+
+| Input method      | How a point is placed                                                                                  |
+| ----------------- | ------------------------------------------------------------------------------------------------------ |
+| `'tap'` (default) | Click or tap the map, as described for each mode above.                                                |
+| `'reticle'`       | Move the map until the crosshair at its center is on the spot, then press **Add point** at the bottom. |
+
+The center reticle is meant for fingers on a phone in the field: a finger hides the spot it taps and cannot hit it precisely, while the crosshair stays visible and the map can be positioned exactly.
+
+```ts
+// From the start
+const draw = new LibreDraw(map, { inputMethod: 'reticle' });
+
+// Or at any time, also while drawing (the draft is kept)
+draw.setInputMethod('reticle');
+draw.getInputMethod(); // 'reticle'
+```
+
+While the reticle is in use in a drawing mode:
+
+- A crosshair is shown at the center of the map and an action bar with an **Add point** button at the bottom center (44 px touch target). Both are shown with `toolbar: false` too.
+- The map always pans with drag and zooms with pinch — also in `draw-polygon` and `draw-line`, where dragging does not pan with tap input. Clicks and taps on the map place nothing.
+- **Add point** follows the same rules as a tap at the crosshair: it snaps to nearby vertices and edges, and adding on the first vertex (polygon) or the last vertex (polygon, line) finishes the drawing. Two points make a rectangle, three an angled rectangle.
+- The preview and the snap indicator follow the crosshair as the map moves, so you see the next edge before adding the point.
+- `finishDrawing()`, `cancelDrawing()` and Escape work as with tap input.
+
+Other modes (`select`, `split`, `union`, `setback`, `rotate`) show no crosshair and keep working with clicks and taps.
+
 ## Keyboard Shortcuts
 
 Undo / redo shortcuts work in every mode and do not depend on the toolbar (they are available in headless mode too). Like MapLibre's own keyboard navigation, they only fire while the map has focus: clicking the map focuses its canvas, and keys pressed elsewhere on the page are left alone. They are also ignored while an `<input>`, `<textarea>`, `<select>` or `contenteditable` element has focus, so typing into the toolbar's distance / angle fields is never interrupted. The browser default is suppressed only when something was actually undone or redone; with an empty history the key event passes through to your page.

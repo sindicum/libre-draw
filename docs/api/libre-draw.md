@@ -73,9 +73,12 @@ const draw = new LibreDraw(map, { keyboard: false });
 
 // Japanese UI strings, with one label overridden
 const draw = new LibreDraw(map, { locale: 'ja', messages: { setbackExecute: '適用' } });
+
+// Place points with the center reticle instead of taps
+const draw = new LibreDraw(map, { inputMethod: 'reticle' });
 ```
 
-**Throws:** [`LibreDrawError`](/api/types#libredrawerror) if `options.locale` is not `'en'` or `'ja'`.
+**Throws:** [`LibreDrawError`](/api/types#libredrawerror) if `options.locale` is not `'en'` or `'ja'`, or if `options.inputMethod` is not `'tap'` or `'reticle'`.
 
 ---
 
@@ -127,6 +130,49 @@ if (draw.getMode() === 'draw-polygon') {
   console.log('Currently drawing');
 }
 ```
+
+---
+
+## Input Method
+
+### `setInputMethod(method)`
+
+Choose how the drawing modes (`'draw-point'`, `'draw-line'`, `'draw-polygon'`, `'draw-rectangle'`, `'draw-angled-rectangle'`) take a point.
+
+- `'tap'` (default): a click or tap on the map places the point.
+- `'reticle'`: while a drawing mode is active, a crosshair is shown at the center of the map and an **Add point** button at the bottom. The map pans freely (also in `'draw-polygon'` / `'draw-line'`), clicks and taps on it place nothing, and the button places a point at the crosshair under the same rules as a tap: snapping applies, and adding on the first or last vertex finishes the polygon or line. The preview and the snap indicator follow the crosshair as the map moves. Other modes keep working with clicks and taps and show no crosshair.
+
+The setting is kept across mode changes, and changing it while drawing keeps the draft. The crosshair and the button do not depend on the toolbar, so they are also shown with `toolbar: false`. See [Input methods](/guide/modes#input-methods).
+
+**Parameters:**
+
+| Name     | Type                                    | Description            |
+| -------- | --------------------------------------- | ---------------------- |
+| `method` | [`InputMethod`](/api/types#inputmethod) | `'tap'` or `'reticle'` |
+
+**Returns:** `void`
+
+**Throws:**
+
+- [`LibreDrawError`](/api/types#libredrawerror) if this instance has been destroyed.
+- [`LibreDrawError`](/api/types#libredrawerror) if `method` is not `'tap'` or `'reticle'` (`Unsupported input method: <value>`). The current method stays.
+
+**Example:**
+
+```ts
+draw.setInputMethod('reticle');
+draw.setMode('draw-polygon');
+```
+
+---
+
+### `getInputMethod()`
+
+Get how the drawing modes take a point.
+
+**Returns:** [`InputMethod`](/api/types#inputmethod) — `'tap'` or `'reticle'`.
+
+**Throws:** [`LibreDrawError`](/api/types#libredrawerror) if this instance has been destroyed.
 
 ---
 

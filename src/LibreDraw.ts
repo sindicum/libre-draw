@@ -7,6 +7,7 @@ import type {
   ToolbarOptions,
   SnapConfig,
   KeyboardOptions,
+  InputMethod,
   StyleConfig,
   PartialStyleConfig,
   Messages,
@@ -57,11 +58,31 @@ import { RotateMode } from './modes/RotateMode';
 import type { MapInteractionConfig } from './modes/Mode';
 import { isDraftCapableMode } from './modes/Mode';
 import { InputHandler } from './input/InputHandler';
+import { ReticleInput } from './input/ReticleInput';
 import { SourceManager } from './rendering/SourceManager';
 import { RenderManager } from './rendering/RenderManager';
 import { Toolbar } from './ui/Toolbar';
+import { ReticleOverlay } from './ui/ReticleOverlay';
 import { getBuiltinMessages, isBuiltinLocale, resolveMessages } from './ui/messages';
 import { cloneFeature } from './utils/featureSnapshot';
+
+/**
+ * Modes that place points, and so the modes the center reticle drives.
+ */
+const DRAWING_MODES: ReadonlySet<ModeName> = new Set<ModeName>([
+  'draw-point',
+  'draw-line',
+  'draw-polygon',
+  'draw-rectangle',
+  'draw-angled-rectangle',
+]);
+
+/**
+ * Runtime check for values that bypass the type (plain JS callers, casts).
+ */
+function isInputMethod(value: unknown): value is InputMethod {
+  return value === 'tap' || value === 'reticle';
+}
 
 /**
  * The `id` an input object declares, if it is a string. Used to label a
@@ -97,6 +118,9 @@ export class LibreDraw {
   private sourceManager: SourceManager;
   private renderManager: RenderManager;
   private toolbar: Toolbar | null = null;
+  private reticleInput: ReticleInput;
+  private reticleOverlay: ReticleOverlay;
+  private inputMethod: InputMethod;
   /** Dependencies handed to modes; also the OperationContext for operations. */
   private modeContext: ModeContext;
   private selection: SelectionManager;
@@ -142,6 +166,7 @@ export class LibreDraw {
    *   keyboard shortcuts enabled, and English UI strings.
    *
    * @throws {LibreDrawError} If `options.locale` is not a bundled locale.
+   * @throws {LibreDrawError} If `options.inputMethod` is not `'tap'` or `'reticle'`.
    *
    * @example
    * ```ts
@@ -158,6 +183,8 @@ export class LibreDraw {
    * const draw = new LibreDraw(map, { keyboard: false });
    * // Japanese UI, with one label overridden:
    * const draw = new LibreDraw(map, { locale: 'ja' });
+   * // Place points with the center reticle instead of taps:
+   * const draw = new LibreDraw(map, { inputMethod: 'reticle' });
    * // Override individual strings (merged onto the selected locale):
    * const draw = new LibreDraw(map, { messages: { setbackExecute: 'Run' } });
    * ```
@@ -182,6 +209,14 @@ export class LibreDraw {
       throw new LibreDrawError(`Unsupported locale: ${String(locale)}. Use 'en' or 'ja'.`);
     }
     this.messages = resolveMessages(getBuiltinMessages(locale), options.messages);
+
+    const inputMethod = options.inputMethod === undefined ? 'tap' : options.inputMethod;
+    if (!isInputMethod(inputMethod)) {
+      throw new LibreDrawError(
+        `Unsupported input method: ${String(inputMethod)}. Use 'tap' or 'reticle'.`
+      );
+    }
+    this.inputMethod = inputMethod;
 
     // Rendering
     this.sourceManager = new SourceManager(map);
@@ -302,6 +337,7 @@ export class LibreDraw {
       if (currentMode) {
         this.applyMapInteractions(currentMode.mapInteractions());
       }
+      this.syncReticle();
     });
 
     const initialMode = this.modeManager.getCurrentMode();
@@ -323,7 +359,22 @@ export class LibreDraw {
             onUndo: () => this.performUndo(),
             onRedo: () => this.performRedo(),
           }
-        : undefined
+        : undefined,
+      () => this.isReticleActive()
+    );
+
+    // Center reticle: while it drives a drawing mode, map movement and the
+    // "Add point" button feed the mode instead of the pointer. The overlay
+    // does not depend on the toolbar, so it also works with toolbar: false.
+    this.reticleInput = new ReticleInput(
+      map,
+      () => this.modeManager.getCurrentMode(),
+      () => this.isReticleActive()
+    );
+    this.reticleOverlay = new ReticleOverlay(
+      map,
+      { onAddPoint: () => this.reticleInput.addPoint() },
+      this.messages
     );
 
     // Toolbar
@@ -1024,6 +1075,60 @@ export class LibreDraw {
   }
 
   /**
+   * Choose how the drawing modes take a point.
+   *
+   * - `'tap'` (default): a click or tap on the map places the point.
+   * - `'reticle'`: while a drawing mode (`'draw-point'`, `'draw-line'`,
+   *   `'draw-polygon'`, `'draw-rectangle'`, `'draw-angled-rectangle'`) is
+   *   active, a crosshair is shown at the center of the map and an
+   *   "Add point" button at the bottom. The map pans freely, clicks and taps
+   *   on it place nothing, and the button places a point at the crosshair
+   *   under the same rules as a tap (snapping; the first or last vertex
+   *   finishes). Other modes keep working with taps and clicks.
+   *
+   * The setting is kept across mode changes. Changing it while drawing keeps
+   * the draft.
+   *
+   * @param method - `'tap'` or `'reticle'`.
+   *
+   * @throws {LibreDrawError} If this instance has been destroyed.
+   * @throws {LibreDrawError} If `method` is not `'tap'` or `'reticle'`
+   *   (`Unsupported input method: <value>`). The current method stays.
+   *
+   * @example
+   * ```ts
+   * draw.setInputMethod('reticle');
+   * draw.setMode('draw-polygon');
+   * ```
+   */
+  setInputMethod(method: InputMethod): void {
+    this.assertNotDestroyed();
+    if (!isInputMethod(method)) {
+      throw new LibreDrawError(
+        `Unsupported input method: ${String(method)}. Use 'tap' or 'reticle'.`
+      );
+    }
+    if (method === this.inputMethod) return;
+    this.inputMethod = method;
+
+    const mode = this.modeManager.getCurrentMode();
+    if (mode) this.applyMapInteractions(mode.mapInteractions());
+    this.syncReticle();
+  }
+
+  /**
+   * Get how the drawing modes take a point.
+   *
+   * @returns `'tap'` or `'reticle'`.
+   *
+   * @throws {LibreDrawError} If this instance has been destroyed.
+   */
+  getInputMethod(): InputMethod {
+    this.assertNotDestroyed();
+    return this.inputMethod;
+  }
+
+  /**
    * Update the global render style at runtime.
    *
    * Merges the given partial overrides with the current style and
@@ -1185,6 +1290,8 @@ export class LibreDraw {
     this.map.off('styledata', this.handleStyleData);
     this.asApi(() => this.modeManager.setMode('idle'));
     this.inputHandler.destroy();
+    this.reticleInput.destroy();
+    this.reticleOverlay.destroy();
     this.renderManager.destroy();
     this.eventBus.removeAllListeners();
     this.historyManager.clear();
@@ -1285,9 +1392,11 @@ export class LibreDraw {
     this.renderManager.initialize();
     if (!this.inputEnabled) {
       this.inputHandler.enable();
+      this.reticleInput.enable();
       this.inputEnabled = true;
     }
     this.renderAllFeatures();
+    this.syncReticle();
   }
 
   /**
@@ -1391,7 +1500,8 @@ export class LibreDraw {
    * Apply map interaction settings declared by the active mode.
    */
   private applyMapInteractions(config: MapInteractionConfig): void {
-    if (config.dragPan) {
+    // The reticle is aimed by moving the map, so the map always pans.
+    if (config.dragPan || this.isReticleActive()) {
       this.map.dragPan.enable();
     } else {
       this.map.dragPan.disable();
@@ -1410,6 +1520,24 @@ export class LibreDraw {
     } else {
       this.map.boxZoom.disable();
     }
+  }
+
+  /**
+   * Whether the center reticle drives the active mode: the reticle input
+   * method is chosen and a drawing mode is active.
+   */
+  private isReticleActive(): boolean {
+    return this.inputMethod === 'reticle' && DRAWING_MODES.has(this.modeManager.getMode());
+  }
+
+  /**
+   * Show or hide the reticle UI for the current mode and input method, and
+   * move the preview to the reticle when it takes over.
+   */
+  private syncReticle(): void {
+    const active = this.isReticleActive();
+    this.reticleOverlay.setVisible(active);
+    if (active) this.reticleInput.syncPreview();
   }
 
   /**
