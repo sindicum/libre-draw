@@ -42,6 +42,12 @@ export interface Messages {
   /** aria-label of the execute button. */
   rotateExecuteLabel: string;
 
+  // Union execute popup
+  /** Visible text of the execute button. */
+  unionExecute: string;
+  /** aria-label of the execute button. */
+  unionExecuteLabel: string;
+
   // Style settings panel: section headers
   styleFeatureSection: string;
   styleSelectedSection: string;

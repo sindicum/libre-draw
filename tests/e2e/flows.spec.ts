@@ -121,7 +121,10 @@ test('rotate: dragging on the selected rectangle rotates it', async ({ page, has
   expect(await featureCount(page)).toBe(1);
 });
 
-test('union: tapping two overlapping polygons merges them', async ({ page, hasTouch }) => {
+test('union: tapping polygons adds them to the selection and the execute button merges them', async ({
+  page,
+  hasTouch,
+}) => {
   const pointer = new Pointer(page, hasTouch);
   await addPolygonFromScreen(page, [
     [100, 100],
@@ -139,18 +142,60 @@ test('union: tapping two overlapping polygons merges them', async ({ page, hasTo
   await recordEvents(page, ['union', 'unionfailed', 'selectionchange']);
   await setMode(page, 'union');
 
-  // First tap picks the first partner (observed via selectionchange), second merges.
+  const lastSelectionSize = async () => {
+    const events = await getEvents<{ selectedIds: string[] }>(page, 'selectionchange');
+    return events.at(-1)?.selectedIds.length ?? 0;
+  };
+  const execute = page.getByRole('button', { name: 'Merge selected polygons' });
+
+  // Taps toggle without a modifier key; nothing merges until the button.
   await pointer.tap(150, 150);
-  await expect
-    .poll(async () => {
-      const events = await getEvents<{ selectedIds: string[] }>(page, 'selectionchange');
-      return events.at(-1)?.selectedIds.length ?? 0;
-    })
-    .toBe(1);
+  await expect.poll(lastSelectionSize).toBe(1);
+  await expect(execute).toBeHidden();
   await pointer.tap(300, 300);
+  await expect.poll(lastSelectionSize).toBe(2);
+  expect(await getEvents(page, 'union')).toHaveLength(0);
+
+  // On touch the button is the only trigger, so it keeps the 44px target size.
+  const box = await execute.boundingBox();
+  expect(box?.width ?? 0).toBeGreaterThanOrEqual(44);
+  expect(box?.height ?? 0).toBeGreaterThanOrEqual(44);
+
+  if (hasTouch) {
+    await execute.tap();
+  } else {
+    await execute.click();
+  }
 
   await expect.poll(async () => (await getEvents(page, 'union')).length).toBe(1);
   expect(await getEvents(page, 'unionfailed')).toHaveLength(0);
+  expect(await featureCount(page)).toBe(1);
+  await expect(execute).toBeHidden();
+});
+
+test('union: Enter merges the selected polygons', async ({ page, hasTouch }) => {
+  test.skip(hasTouch, 'Enter needs a keyboard');
+  await addPolygonFromScreen(page, [
+    [100, 100],
+    [250, 100],
+    [250, 250],
+    [100, 250],
+  ]);
+  await addPolygonFromScreen(page, [
+    [200, 200],
+    [350, 200],
+    [350, 350],
+    [200, 350],
+  ]);
+  await recordEvents(page, ['union']);
+  await setMode(page, 'union');
+
+  await page.mouse.click(150, 150);
+  await page.mouse.click(300, 300);
+  // The click focused the map canvas, so the key reaches LibreDraw.
+  await page.keyboard.press('Enter');
+
+  await expect.poll(async () => (await getEvents(page, 'union')).length).toBe(1);
   expect(await featureCount(page)).toBe(1);
 });
 
@@ -219,6 +264,52 @@ test('select: Shift + click that lands a few pixels off does not zoom the map', 
 
   await page.mouse.click(120, 160);
   // A shaky Shift + click: the button is released 2px away from the press.
+  await page.keyboard.down('Shift');
+  await page.mouse.move(300, 160);
+  await page.mouse.down();
+  await page.mouse.move(302, 161);
+  await page.mouse.up();
+  await page.keyboard.up('Shift');
+
+  await expect
+    .poll(async () => {
+      const events = await getEvents<{ selectedIds: string[] }>(page, 'selectionchange');
+      return events.at(-1)?.selectedIds.length ?? 0;
+    })
+    .toBe(2);
+  // Give a box zoom animation time to start if it were going to.
+  await page.waitForTimeout(300);
+  const zoomAfter = await page.evaluate(() =>
+    (window as unknown as { map: { getZoom(): number } }).map.getZoom()
+  );
+  expect(zoomAfter).toBe(zoomBefore);
+});
+test('union: Shift + click that lands a few pixels off does not zoom the map', async ({
+  page,
+  hasTouch,
+}) => {
+  test.skip(hasTouch, 'Shift is a keyboard modifier');
+  await addPolygonFromScreen(page, [
+    [60, 100],
+    [180, 100],
+    [180, 220],
+    [60, 220],
+  ]);
+  await addPolygonFromScreen(page, [
+    [240, 100],
+    [360, 100],
+    [360, 220],
+    [240, 220],
+  ]);
+  await recordEvents(page, ['selectionchange']);
+  await setMode(page, 'union');
+  const zoomBefore = await page.evaluate(() =>
+    (window as unknown as { map: { getZoom(): number } }).map.getZoom()
+  );
+
+  await page.mouse.click(120, 160);
+  // Shift means nothing in union mode, but users hold it out of habit from
+  // select mode. A shaky Shift + click: released 2px away from the press.
   await page.keyboard.down('Shift');
   await page.mouse.move(300, 160);
   await page.mouse.down();

@@ -264,6 +264,51 @@ describe('geometry operation API (split / setback / union)', () => {
       expect(ids(draw)).toEqual([merged.id]);
     });
 
+    it('merges three features at once and restores all three with one undo', () => {
+      const draw = new LibreDraw(new FakeMap().asMap(), { toolbar: false });
+      draw.addFeatures([
+        makeSquare('a', 10, 10, 20),
+        makeSquare('b', 30, 10, 20),
+        makeSquare('c', 50, 10, 20),
+        makeSquare('far', 100, 50, 20),
+      ]);
+      const unionListener = vi.fn();
+      const failedListener = vi.fn();
+      const createListener = vi.fn();
+      draw.on('union', unionListener);
+      draw.on('unionfailed', failedListener);
+      draw.on('create', createListener);
+
+      // One polygon that does not connect fails the whole request.
+      expect(draw.union(['a', 'b', 'far'])).toEqual({ ok: false, reason: 'disjoint' });
+      expect(failedListener.mock.calls[0][0]).toMatchObject({
+        reason: 'disjoint',
+        featureIds: ['a', 'b', 'far'],
+        origin: 'api',
+      });
+      expect(ids(draw)).toEqual(['a', 'b', 'c', 'far']);
+
+      // 'a' and 'c' only connect through 'b'; the order does not matter.
+      const result = draw.union(['c', 'a', 'b']);
+      if (!result.ok) throw new Error('expected success');
+      const merged = result.created[0];
+      expect(merged.properties).toEqual({ name: 'c' });
+      expect(ids(draw)).toEqual([merged.id, 'far'].sort());
+      const event = unionListener.mock.calls[0][0] as UnionEvent;
+      expect(event.originalFeatures.map((f) => f.id)).toEqual(['c', 'a', 'b']);
+
+      expect(draw.undo()).toBe(true);
+      expect(ids(draw)).toEqual(['a', 'b', 'c', 'far']);
+      expect(createListener.mock.calls.map((call) => call[0].feature.id)).toEqual(['c', 'a', 'b']);
+
+      expect(draw.redo()).toBe(true);
+      expect(ids(draw)).toEqual([merged.id, 'far'].sort());
+      expect(unionListener).toHaveBeenCalledTimes(2);
+      expect(
+        (unionListener.mock.calls[1][0] as UnionEvent).originalFeatures.map((f) => f.id)
+      ).toEqual(['c', 'a', 'b']);
+    });
+
     it('produces the same geometry as the union mode', () => {
       const map = new FakeMap();
       const draw = new LibreDraw(map.asMap(), { toolbar: false });
@@ -271,7 +316,10 @@ describe('geometry operation API (split / setback / union)', () => {
 
       draw.setMode('union');
       clickAt(map, 20, 20); // first polygon
-      clickAt(map, 40, 20); // second polygon: commit
+      clickAt(map, 40, 20); // second polygon
+      map
+        .getCanvasContainer()
+        .dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true }));
       const uiMerged = draw.getFeatures();
       expect(uiMerged).toHaveLength(1);
       draw.undo();

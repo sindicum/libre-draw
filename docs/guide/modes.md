@@ -14,7 +14,7 @@ LibreDraw uses a mode-based architecture. Only one mode is active at a time, and
 | `draw-angled-rectangle` | Click a base edge, then a width point, to create a rectangle at any angle. | Toolbar angled rectangle button / `setMode('draw-angled-rectangle')` |
 | `select`                | Click to select, drag to edit vertices or move point/line/polygon.         | Toolbar select button / `setMode('select')`                          |
 | `split`                 | Split a polygon with a two-point line.                                     | Toolbar split button / `setMode('split')`                            |
-| `union`                 | Merge two touching or overlapping polygons into one.                       | Toolbar union button / `setMode('union')`                            |
+| `union`                 | Merge two or more touching or overlapping polygons into one.               | Toolbar union button / `setMode('union')`                            |
 | `setback`               | Apply inward edge setback with distance input.                             | Toolbar setback button / `setMode('setback')`                        |
 | `rotate`                | Rotate a polygon or line by dragging or by entering an angle.              | Toolbar rotate button / `setMode('rotate')`                          |
 
@@ -356,16 +356,18 @@ draw.on('splitfailed', (e) => console.warn(e.reason));
 
 ## Union Mode
 
-In union mode, you merge two touching or overlapping polygons into one polygon.
+In union mode, you select two or more touching or overlapping polygons and merge them into one polygon.
 
-| Action                           | Effect                                     |
-| -------------------------------- | ------------------------------------------ |
-| Click / tap a polygon            | Select the first polygon                   |
-| Click / tap another polygon      | Merge it with the selected polygon         |
-| Click / tap the selected polygon | Keep the selection (nothing happens)       |
-| Click / tap empty space          | Clear the selection                        |
-| Drag                             | Pan the map (the selection is unchanged)   |
-| Escape key                       | Clear the selection and stay in union mode |
+| Action                         | Effect                                                          |
+| ------------------------------ | --------------------------------------------------------------- |
+| Click / tap a polygon          | Add it to the selection (no modifier key needed, also on touch) |
+| Click / tap a selected polygon | Remove it from the selection                                    |
+| Click / tap empty space        | Clear the selection                                             |
+| Enter / execute button         | Merge the selected polygons (needs at least two)                |
+| Drag                           | Pan the map (the selection is unchanged)                        |
+| Escape key                     | Clear the selection and stay in union mode                      |
+
+The execute button appears next to the union toolbar button while two or more polygons are selected.
 
 ```ts
 draw.setMode('union');
@@ -383,9 +385,11 @@ draw.on('unionfailed', (e) => console.warn(e.reason));
 
 - Only polygons can be merged; points and lines are ignored
 - The merged polygon gets a new id and inherits the properties of the first selected polygon
-- Each union is one undo step. Undoing it restores both source polygons
-- The union succeeds only when the result is a single polygon without holes. Polygons that do not touch (`disjoint`), polygons with holes, and merges that would enclose a hole (`has-holes`) emit [`unionfailed`](/api/events#unionfailed) and keep the first polygon selected
-- Map panning stays enabled so the second polygon can be off screen when you start
+- All selected polygons are merged at once, so a polygon that only touches the others through a third one still joins; the selection order only decides whose properties survive
+- Each union is one undo step. Undoing it restores every source polygon
+- The union succeeds only when the result is a single polygon without holes. If any selected polygon does not connect to the others (`disjoint`), a polygon has holes, or the merge would enclose a hole (`has-holes`), nothing is merged, [`unionfailed`](/api/events#unionfailed) is emitted, and the selection is kept so you can adjust it
+- Map panning stays enabled so polygons off screen can be added to the selection
+- MapLibre's box zoom (Shift + drag) is disabled during union mode, so a Shift + click (as in select mode) never zooms the map. It is restored to the map's own setting when you leave the mode
 
 ## Setback Mode
 
@@ -465,6 +469,8 @@ The keys below are handled by the active mode, likewise only while the map has f
 | Escape             | draw-angled-rectangle    | Discard the whole draft                                                                                         |
 | Escape             | split                    | Cancel current split interaction                                                                                |
 | Escape             | union                    | Clear the selection and stay in union mode                                                                      |
+| Enter              | union                    | Merge the selected polygons (two or more)                                                                       |
+| Enter              | setback                  | Apply the setback being previewed                                                                               |
 | Escape             | setback                  | Cancel and reset                                                                                                |
 | Escape             | rotate                   | During a drag: restore the shape and keep the selection. Otherwise: discard the preview and clear the selection |
 | Delete / Backspace | select                   | Delete selected feature                                                                                         |

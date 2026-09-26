@@ -115,7 +115,7 @@ export interface SetbackFailedEvent {
  *
  * - `not-polygon`: one of the targets is not a Polygon
  * - `has-holes`: a target has an inner ring, or the merged shape would enclose a hole
- * - `disjoint`: the targets do not touch, so the result would be a MultiPolygon
+ * - `disjoint`: the targets do not all connect, so the result would be a MultiPolygon
  * - `invalid-result`: the geometry engine produced no usable polygon
  */
 export type UnionFailReason = 'not-polygon' | 'has-holes' | 'disjoint' | 'invalid-result';
@@ -123,13 +123,13 @@ export type UnionFailReason = 'not-polygon' | 'has-holes' | 'disjoint' | 'invali
 /**
  * Event payload for a successful union operation.
  *
- * `originalFeatures` are the two source polygons in selection order; the
- * result inherits the properties of the first one.
+ * `originalFeatures` are the source polygons (two or more) in the order
+ * they were given; the result inherits the properties of the first one.
  */
 export interface UnionEvent {
   /** Where the change came from. See {@link EventOrigin}. */
   origin: EventOrigin;
-  originalFeatures: [LibreDrawFeature, LibreDrawFeature];
+  originalFeatures: LibreDrawFeature[];
   feature: LibreDrawFeature;
 }
 
@@ -140,7 +140,8 @@ export interface UnionFailedEvent {
   /** Where the change came from. See {@link EventOrigin}. */
   origin: EventOrigin;
   reason: UnionFailReason;
-  featureIds: [string, string];
+  /** The ids of every polygon that was to be merged, in the order given. */
+  featureIds: string[];
 }
 
 /**

@@ -1,6 +1,6 @@
 import booleanPointInPolygon from '@turf/boolean-point-in-polygon';
 import { point as turfPoint } from '@turf/helpers';
-import type { Mode } from './Mode';
+import type { MapInteractionConfig, Mode } from './Mode';
 import type { ModeContext } from '../core/ModeContext';
 import type { LibreDrawFeature, Position } from '../types/features';
 import type { NormalizedInputEvent } from '../types/input';
@@ -8,13 +8,16 @@ import { LONG_PRESS_MS, clickTolerance, pointerTravel } from '../input/gestures'
 import { union } from '../operations/union';
 
 /**
- * Mode for merging two polygons into one.
+ * Mode for merging two or more polygons into one.
  *
- * The first click or tap on a polygon selects it; the second click on a
- * different polygon runs the union. A successful union replaces both
- * polygons with the merged one as a single history step and emits `union`.
+ * A click or tap on a polygon adds it to the selection, or removes it if
+ * it is already selected; no modifier key is needed, so touch works the
+ * same as a mouse. Clicking empty space clears the selection. Enter or the
+ * toolbar's execute button ({@link UnionMode.execute}) merges the selected
+ * polygons once at least two are selected. A successful union replaces
+ * them with the merged one as a single history step and emits `union`.
  * A failed union leaves the store untouched, emits `unionfailed`, and keeps
- * the first polygon selected so another partner can be picked.
+ * the selection so it can be adjusted and run again.
  *
  * Map panning stays enabled because the second polygon may be off screen:
  * a pointer that travels beyond the click tolerance is treated as a pan,
@@ -30,14 +33,15 @@ export class UnionMode implements Mode {
     this.context = context;
   }
 
-  private get selectedFeatureId(): string | null {
-    return this.context.selection.getSingleId() ?? null;
-  }
-
-  mapInteractions(): { dragPan: boolean; doubleClickZoom: boolean } {
+  mapInteractions(): MapInteractionConfig {
     return {
       dragPan: true,
       doubleClickZoom: false,
+      // Clicks here build a selection, and Shift + click is how select mode
+      // does that, so users hold Shift out of habit. With box zoom on, a
+      // click whose release lands even 1px away from the press zooms to
+      // that tiny box.
+      boxZoom: false,
     };
   }
 
@@ -93,38 +97,30 @@ export class UnionMode implements Mode {
 
   onKeyDown(key: string, _event: KeyboardEvent): void {
     if (!this.isActive) return;
-    if (key !== 'Escape') return;
 
-    this.resetInteractionState();
-  }
-
-  /** Pick the first target, or merge the selected target with the clicked one. */
-  private handleClick(event: NormalizedInputEvent): void {
-    const hit = this.hitTest([event.lngLat.lng, event.lngLat.lat]);
-    if (!hit) {
-      this.clearSelection();
+    if (key === 'Escape') {
+      this.resetInteractionState();
       return;
     }
 
-    if (!this.selectedFeatureId) {
-      this.selectFeature(hit.id);
-      return;
+    if (key === 'Enter') {
+      this.execute();
     }
-
-    if (hit.id === this.selectedFeatureId) return;
-
-    this.executeUnion(hit);
   }
 
   /**
-   * Merge the selected polygon with `second` through the `union` operation
-   * (one UnionAction, one `union` or `unionfailed` event). A failure keeps
-   * the first polygon selected so another partner can be picked.
+   * Merge the selected polygons, in selection order, through the `union`
+   * operation (one UnionAction, one `union` or `unionfailed` event). Called
+   * for Enter and by the toolbar's execute button. Does nothing with fewer
+   * than two polygons selected. A failure keeps the selection.
    */
-  private executeUnion(second: LibreDrawFeature): void {
-    if (!this.selectedFeatureId) return;
+  execute(): void {
+    if (!this.isActive) return;
 
-    const result = union(this.context, [this.selectedFeatureId, second.id]);
+    const ids = this.context.selection.getSelectedIds();
+    if (ids.length < 2) return;
+
+    const result = union(this.context, ids);
     if (!result.ok) {
       if (result.reason === 'not-found') this.resetInteractionState();
       return;
@@ -132,6 +128,17 @@ export class UnionMode implements Mode {
 
     this.clearSelection();
     this.context.render.renderFeatures();
+  }
+
+  /** Toggle the clicked polygon in the selection; empty space clears it. */
+  private handleClick(event: NormalizedInputEvent): void {
+    const hit = this.hitTest([event.lngLat.lng, event.lngLat.lat]);
+    if (!hit) {
+      this.clearSelection();
+      return;
+    }
+
+    this.context.selection.toggle(hit.id);
   }
 
   /** Find the topmost polygon at the given position. Points and lines are ignored. */
@@ -147,11 +154,6 @@ export class UnionMode implements Mode {
     }
 
     return undefined;
-  }
-
-  /** Highlight a feature as the first union target and notify listeners. */
-  private selectFeature(id: string): void {
-    this.context.selection.set([id]);
   }
 
   /** Remove the current selection highlight and notify listeners. */

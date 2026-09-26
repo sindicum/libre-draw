@@ -31,6 +31,14 @@ const right = () =>
     [10, 10],
     [10, 0],
   ]);
+const far = () =>
+  makeFeature('far', [
+    [20, 0],
+    [30, 0],
+    [30, 10],
+    [20, 10],
+    [20, 0],
+  ]);
 const merged = () =>
   makeFeature('merged', [
     [0, 0],
@@ -42,7 +50,7 @@ const merged = () =>
 
 describe('UnionAction', () => {
   it('has the union action type', () => {
-    expect(new UnionAction(left(), right(), merged()).type).toBe('union');
+    expect(new UnionAction([left(), right()], merged()).type).toBe('union');
   });
 
   it('apply removes both sources and adds the merged feature', () => {
@@ -50,7 +58,7 @@ describe('UnionAction', () => {
     store.add(left());
     store.add(right());
 
-    new UnionAction(left(), right(), merged()).apply(store);
+    new UnionAction([left(), right()], merged()).apply(store);
 
     expect(store.getById('left')).toBeUndefined();
     expect(store.getById('right')).toBeUndefined();
@@ -63,7 +71,7 @@ describe('UnionAction', () => {
     store.add(left());
     store.add(right());
 
-    const action = new UnionAction(left(), right(), merged());
+    const action = new UnionAction([left(), right()], merged());
     action.apply(store);
     action.revert(store);
 
@@ -77,14 +85,29 @@ describe('UnionAction', () => {
     const a = left();
     const b = right();
     const result = merged();
-    const action = new UnionAction(a, b, result);
+    const action = new UnionAction([a, b], result);
 
     a.properties.tag = 'changed';
     b.geometry.coordinates[0][0] = [99, 99];
     result.properties.tag = 'changed';
 
-    expect(action.featureA.properties.tag).toBe('left');
-    expect(action.featureB.geometry.coordinates[0][0]).toEqual([10, 0]);
+    expect(action.originalFeatures[0].properties.tag).toBe('left');
+    expect(action.originalFeatures[1].geometry.coordinates[0][0]).toEqual([10, 0]);
     expect(action.resultFeature.properties.tag).toBe('merged');
+  });
+
+  it('apply and revert handle three sources, restoring them in their original order', () => {
+    const store = new FeatureStore();
+    store.add(left());
+    store.add(right());
+    store.add(far());
+
+    const action = new UnionAction([left(), right(), far()], merged());
+    action.apply(store);
+    expect(store.getAll().map((f) => f.id)).toEqual(['merged']);
+
+    action.revert(store);
+    expect(store.getAll().map((f) => f.id)).toEqual(['left', 'right', 'far']);
+    expect(action.originalFeatures).toHaveLength(3);
   });
 });

@@ -38,7 +38,7 @@ function signedArea(ring: Position[]): number {
 describe('unionPolygons', () => {
   describe('when the polygons overlap', () => {
     it('returns one polygon whose area covers both inputs', () => {
-      const result = unionPolygons(square('a', 0, 0, 10), square('b', 5, 5, 10));
+      const result = unionPolygons([square('a', 0, 0, 10), square('b', 5, 5, 10)]);
 
       expect(result.type).toBe('success');
       if (result.type !== 'success') return;
@@ -51,7 +51,7 @@ describe('unionPolygons', () => {
     });
 
     it('returns a closed counter-clockwise outer ring', () => {
-      const result = unionPolygons(square('a', 0, 0, 10), square('b', 5, 5, 10));
+      const result = unionPolygons([square('a', 0, 0, 10), square('b', 5, 5, 10)]);
       if (result.type !== 'success') throw new Error('expected success');
 
       const ring = result.feature.geometry.coordinates[0] as Position[];
@@ -63,7 +63,7 @@ describe('unionPolygons', () => {
       const first = square('a', 0, 0, 10, { name: 'first', tags: ['x'] });
       const second = square('b', 5, 5, 10, { name: 'second' });
 
-      const result = unionPolygons(first, second);
+      const result = unionPolygons([first, second]);
       if (result.type !== 'success') throw new Error('expected success');
 
       expect(result.feature.id).not.toBe('a');
@@ -78,7 +78,7 @@ describe('unionPolygons', () => {
       const firstSnapshot = JSON.stringify(first);
       const secondSnapshot = JSON.stringify(second);
 
-      unionPolygons(first, second);
+      unionPolygons([first, second]);
 
       expect(JSON.stringify(first)).toBe(firstSnapshot);
       expect(JSON.stringify(second)).toBe(secondSnapshot);
@@ -87,7 +87,7 @@ describe('unionPolygons', () => {
 
   describe('when the polygons share an edge', () => {
     it('merges them into one rectangle without the shared edge', () => {
-      const result = unionPolygons(square('a', 0, 0, 10), square('b', 10, 0, 10));
+      const result = unionPolygons([square('a', 0, 0, 10), square('b', 10, 0, 10)]);
 
       expect(result.type).toBe('success');
       if (result.type !== 'success') return;
@@ -99,7 +99,7 @@ describe('unionPolygons', () => {
     });
 
     it('merges a polygon that shares only part of an edge', () => {
-      const result = unionPolygons(square('a', 0, 0, 10), square('b', 10, 5, 10));
+      const result = unionPolygons([square('a', 0, 0, 10), square('b', 10, 5, 10)]);
 
       expect(result.type).toBe('success');
       if (result.type !== 'success') return;
@@ -111,7 +111,7 @@ describe('unionPolygons', () => {
 
   describe('when the polygons do not touch', () => {
     it('fails with disjoint instead of producing a MultiPolygon', () => {
-      const result = unionPolygons(square('a', 0, 0, 10), square('b', 20, 20, 10));
+      const result = unionPolygons([square('a', 0, 0, 10), square('b', 20, 20, 10)]);
 
       expect(result).toEqual({ type: 'error', reason: 'disjoint' });
     });
@@ -143,7 +143,7 @@ describe('unionPolygons', () => {
         ],
       ]);
 
-      const result = unionPolygons(cShape, lid);
+      const result = unionPolygons([cShape, lid]);
 
       expect(result).toEqual({ type: 'error', reason: 'has-holes' });
     });
@@ -168,11 +168,11 @@ describe('unionPolygons', () => {
         ],
       ]);
 
-      expect(unionPolygons(holed, square('b', 5, 5, 10))).toEqual({
+      expect(unionPolygons([holed, square('b', 5, 5, 10)])).toEqual({
         type: 'error',
         reason: 'has-holes',
       });
-      expect(unionPolygons(square('b', 5, 5, 10), holed)).toEqual({
+      expect(unionPolygons([square('b', 5, 5, 10), holed])).toEqual({
         type: 'error',
         reason: 'has-holes',
       });
@@ -200,11 +200,11 @@ describe('unionPolygons', () => {
         properties: {},
       } as LibreDrawFeature;
 
-      expect(unionPolygons(point, square('b', 0, 0, 10))).toEqual({
+      expect(unionPolygons([point, square('b', 0, 0, 10)])).toEqual({
         type: 'error',
         reason: 'not-polygon',
       });
-      expect(unionPolygons(square('a', 0, 0, 10), line)).toEqual({
+      expect(unionPolygons([square('a', 0, 0, 10), line])).toEqual({
         type: 'error',
         reason: 'not-polygon',
       });
@@ -222,11 +222,174 @@ describe('unionPolygons', () => {
         ],
       ]);
 
-      expect(() => unionPolygons(degenerate, square('b', 0, 0, 10))).not.toThrow();
-      expect(unionPolygons(degenerate, square('b', 0, 0, 10))).toEqual({
+      expect(() => unionPolygons([degenerate, square('b', 0, 0, 10)])).not.toThrow();
+      expect(unionPolygons([degenerate, square('b', 0, 0, 10)])).toEqual({
         type: 'error',
         reason: 'invalid-result',
       });
+    });
+  });
+
+  describe('with three or more polygons', () => {
+    it('merges three squares in a row into one rectangle with the first properties', () => {
+      const result = unionPolygons([
+        square('a', 0, 0, 10, { tag: 'first' }),
+        square('b', 10, 0, 10, { tag: 'second' }),
+        square('c', 20, 0, 10, { tag: 'third' }),
+      ]);
+
+      expect(result.type).toBe('success');
+      if (result.type !== 'success') return;
+      const ring = result.feature.geometry.coordinates[0] as Position[];
+      expect(Math.abs(signedArea(ring))).toBeCloseTo(300);
+      expect(result.feature.properties).toEqual({ tag: 'first' });
+    });
+
+    it('succeeds regardless of order when a middle polygon bridges the other two', () => {
+      // 'a' and 'c' do not touch; 'b' connects them. Listing 'b' last must
+      // not fail with disjoint, because all polygons are merged at once.
+      const result = unionPolygons([
+        square('a', 0, 0, 10),
+        square('c', 20, 0, 10),
+        square('b', 10, 0, 10),
+      ]);
+
+      expect(result.type).toBe('success');
+    });
+
+    it('fails with disjoint when one of three polygons does not connect', () => {
+      const result = unionPolygons([
+        square('a', 0, 0, 10),
+        square('b', 10, 0, 10),
+        square('far', 100, 100, 10),
+      ]);
+
+      expect(result).toEqual({ type: 'error', reason: 'disjoint' });
+    });
+
+    it('fails with has-holes when four polygons enclose an area between them', () => {
+      // A frame of four bars around the empty square (10..20, 10..20).
+      const result = unionPolygons([
+        polygon('bottom', [
+          [
+            [0, 0],
+            [30, 0],
+            [30, 10],
+            [0, 10],
+            [0, 0],
+          ],
+        ]),
+        polygon('top', [
+          [
+            [0, 20],
+            [30, 20],
+            [30, 30],
+            [0, 30],
+            [0, 20],
+          ],
+        ]),
+        polygon('left', [
+          [
+            [0, 0],
+            [10, 0],
+            [10, 30],
+            [0, 30],
+            [0, 0],
+          ],
+        ]),
+        polygon('right', [
+          [
+            [20, 0],
+            [30, 0],
+            [30, 30],
+            [20, 30],
+            [20, 0],
+          ],
+        ]),
+      ]);
+
+      expect(result).toEqual({ type: 'error', reason: 'has-holes' });
+    });
+
+    it('succeeds when a later polygon fills the hole the earlier ones enclose', () => {
+      // Bottom, top, left and right bars would leave a hole at (10..20,
+      // 10..20); the last square fills it. Merging in order would fail with
+      // has-holes after the fourth bar.
+      const result = unionPolygons([
+        polygon('bottom', [
+          [
+            [0, 0],
+            [30, 0],
+            [30, 10],
+            [0, 10],
+            [0, 0],
+          ],
+        ]),
+        polygon('top', [
+          [
+            [0, 20],
+            [30, 20],
+            [30, 30],
+            [0, 30],
+            [0, 20],
+          ],
+        ]),
+        polygon('left', [
+          [
+            [0, 0],
+            [10, 0],
+            [10, 30],
+            [0, 30],
+            [0, 0],
+          ],
+        ]),
+        polygon('right', [
+          [
+            [20, 0],
+            [30, 0],
+            [30, 30],
+            [20, 30],
+            [20, 0],
+          ],
+        ]),
+        square('fill', 10, 10, 10),
+      ]);
+
+      expect(result.type).toBe('success');
+      if (result.type !== 'success') return;
+      expect(result.feature.geometry.coordinates).toHaveLength(1);
+      const ring = result.feature.geometry.coordinates[0] as Position[];
+      expect(Math.abs(signedArea(ring))).toBeCloseTo(900);
+    });
+
+    it('fails with not-polygon when any of the inputs is not a Polygon', () => {
+      const line = {
+        id: 'l',
+        type: 'Feature',
+        geometry: {
+          type: 'LineString',
+          coordinates: [
+            [0, 0],
+            [5, 5],
+          ],
+        },
+        properties: {},
+      } as LibreDrawFeature;
+
+      expect(unionPolygons([square('a', 0, 0, 10), square('b', 10, 0, 10), line])).toEqual({
+        type: 'error',
+        reason: 'not-polygon',
+      });
+    });
+  });
+
+  describe('with fewer than two polygons', () => {
+    it('fails with invalid-result', () => {
+      expect(unionPolygons([square('a', 0, 0, 10)])).toEqual({
+        type: 'error',
+        reason: 'invalid-result',
+      });
+      expect(unionPolygons([])).toEqual({ type: 'error', reason: 'invalid-result' });
     });
   });
 });

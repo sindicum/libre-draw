@@ -29,32 +29,39 @@ function normalizeRing(ring: number[][]): Position[] {
 }
 
 /**
- * Merge two polygons into one.
+ * Merge two or more polygons into one.
  *
- * Only a result that is a single Polygon without holes counts as success:
- * polygons that do not touch would produce a MultiPolygon (`disjoint`), and
- * polygons that enclose an area between them would produce an inner ring
- * (`has-holes`). Inputs that already have holes are rejected up front.
+ * All inputs are merged in a single pass, so whether the merge succeeds
+ * does not depend on their order: a polygon that only touches the others
+ * through a third one still joins. Only a result that is a single Polygon
+ * without holes counts as success: polygons that do not all connect would
+ * produce a MultiPolygon (`disjoint`), and polygons that enclose an area
+ * between them would produce an inner ring (`has-holes`). Inputs that
+ * already have holes are rejected up front.
  *
- * The result gets a fresh id and a deep copy of `first`'s properties.
- * Never throws: engine failures are reported as `invalid-result`.
+ * The result gets a fresh id and a deep copy of the first feature's
+ * properties. Never throws: engine failures (and fewer than two inputs)
+ * are reported as `invalid-result`.
  */
-export function unionPolygons(first: LibreDrawFeature, second: LibreDrawFeature): UnionResult {
-  if (first.geometry.type !== 'Polygon' || second.geometry.type !== 'Polygon') {
-    return fail('not-polygon');
+export function unionPolygons(features: readonly LibreDrawFeature[]): UnionResult {
+  if (features.length < 2) {
+    return fail('invalid-result');
   }
-  if (first.geometry.coordinates.length > 1 || second.geometry.coordinates.length > 1) {
+
+  const rings: Position[][][] = [];
+  for (const feature of features) {
+    if (feature.geometry.type !== 'Polygon') {
+      return fail('not-polygon');
+    }
+    rings.push(feature.geometry.coordinates);
+  }
+  if (rings.some((polygon) => polygon.length > 1)) {
     return fail('has-holes');
   }
 
   let merged: ReturnType<typeof union>;
   try {
-    merged = union(
-      featureCollection([
-        turfPolygon(first.geometry.coordinates),
-        turfPolygon(second.geometry.coordinates),
-      ])
-    );
+    merged = union(featureCollection(rings.map((polygon) => turfPolygon(polygon))));
   } catch {
     return fail('invalid-result');
   }
@@ -66,15 +73,15 @@ export function unionPolygons(first: LibreDrawFeature, second: LibreDrawFeature)
     return fail('disjoint');
   }
 
-  const rings = merged.geometry.coordinates;
-  if (rings.length > 1) {
+  const resultRings = merged.geometry.coordinates;
+  if (resultRings.length > 1) {
     return fail('has-holes');
   }
-  if (rings.length === 0) {
+  if (resultRings.length === 0) {
     return fail('invalid-result');
   }
 
-  const ring = normalizeRing(rings[0]);
+  const ring = normalizeRing(resultRings[0]);
   if (ring.length < 4) {
     return fail('invalid-result');
   }
@@ -85,7 +92,7 @@ export function unionPolygons(first: LibreDrawFeature, second: LibreDrawFeature)
       id: createFeatureId(),
       type: 'Feature',
       geometry: { type: 'Polygon', coordinates: [ring] },
-      properties: cloneProperties(first.properties),
+      properties: cloneProperties(features[0].properties),
     },
   };
 }

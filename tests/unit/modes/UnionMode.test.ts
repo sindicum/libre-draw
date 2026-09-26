@@ -110,6 +110,10 @@ function click(mode: UnionMode, lng: number, lat: number, inputType: InputType =
   mode.onPointerUp(pointerEvent(lng, lat, inputType));
 }
 
+function pressEnter(mode: UnionMode): void {
+  mode.onKeyDown('Enter', new KeyboardEvent('keydown', { key: 'Enter' }));
+}
+
 describe('UnionMode', () => {
   let harness: TestHarness;
   let mode: UnionMode;
@@ -129,11 +133,15 @@ describe('UnionMode', () => {
     mode.activate();
   });
 
-  it('keeps map panning enabled and disables double-click zoom', () => {
-    expect(mode.mapInteractions()).toEqual({ dragPan: true, doubleClickZoom: false });
+  it('keeps map panning enabled and disables double-click zoom and box zoom', () => {
+    expect(mode.mapInteractions()).toEqual({
+      dragPan: true,
+      doubleClickZoom: false,
+      boxZoom: false,
+    });
   });
 
-  describe('selecting the first target', () => {
+  describe('picking targets', () => {
     it('highlights the clicked polygon and emits selectionchange', () => {
       click(mode, 2, 2);
 
@@ -230,10 +238,60 @@ describe('UnionMode', () => {
     });
   });
 
-  describe('merging with the second target', () => {
-    it('replaces both polygons, pushes a UnionAction, and emits union', () => {
-      click(mode, 2, 2); // select 'a'
-      click(mode, 13, 13); // click 'b' (outside 'a')
+  describe('toggling the selection', () => {
+    it('adds each clicked polygon to the selection in click order without merging', () => {
+      click(mode, 2, 2); // 'a'
+      click(mode, 13, 13); // 'b' (outside 'a')
+
+      expect(harness.mocks.setSelectedIds).toHaveBeenLastCalledWith(['a', 'b']);
+      expect(harness.mocks.emit).toHaveBeenCalledWith('selectionchange', {
+        selectedIds: ['a', 'b'],
+      });
+      expect(harness.mocks.push).not.toHaveBeenCalled();
+    });
+
+    it('removes a selected polygon when it is clicked again', () => {
+      click(mode, 2, 2);
+      click(mode, 13, 13);
+      click(mode, 3, 3); // 'a' again
+
+      expect(harness.mocks.setSelectedIds).toHaveBeenLastCalledWith(['b']);
+      expect(harness.mocks.push).not.toHaveBeenCalled();
+    });
+
+    it('toggles on touch taps without a modifier key', () => {
+      click(mode, 2, 2, 'touch');
+      click(mode, 13, 13, 'touch');
+
+      expect(harness.mocks.setSelectedIds).toHaveBeenLastCalledWith(['a', 'b']);
+    });
+
+    it('clears the selection when clicking empty space', () => {
+      click(mode, 2, 2);
+      click(mode, 13, 13);
+      click(mode, 90, 90);
+
+      expect(harness.mocks.setSelectedIds).toHaveBeenLastCalledWith([]);
+      expect(harness.mocks.emit).toHaveBeenCalledWith('selectionchange', { selectedIds: [] });
+      expect(harness.mocks.push).not.toHaveBeenCalled();
+    });
+
+    it('does not add a polygon on a long press', () => {
+      click(mode, 2, 2, 'touch');
+      vi.useFakeTimers();
+      mode.onPointerDown(pointerEvent(13, 13, 'touch'));
+      vi.advanceTimersByTime(500);
+      mode.onPointerUp(pointerEvent(13, 13, 'touch'));
+
+      expect(harness.mocks.setSelectedIds).toHaveBeenLastCalledWith(['a']);
+    });
+  });
+
+  describe('executing the union', () => {
+    it('merges the selection on Enter: one UnionAction, union event, selection cleared', () => {
+      click(mode, 2, 2); // 'a'
+      click(mode, 13, 13); // 'b'
+      pressEnter(mode);
 
       expect(harness.mocks.remove).toHaveBeenCalledWith('a');
       expect(harness.mocks.remove).toHaveBeenCalledWith('b');
@@ -261,9 +319,26 @@ describe('UnionMode', () => {
       expect(harness.mocks.renderFeatures).toHaveBeenCalled();
     });
 
+    it('merges three selected polygons through execute() in selection order', () => {
+      // 'c' shares part of an edge with 'b' but does not touch 'a'.
+      harness.features.set('c', makeSquare('c', 15, 0));
+      click(mode, 13, 13); // 'b'
+      click(mode, 2, 2); // 'a'
+      click(mode, 20, 2); // 'c'
+      mode.execute();
+
+      const unionCall = harness.mocks.emit.mock.calls.find((call) => call[0] === 'union');
+      const originals = (unionCall?.[1].originalFeatures as LibreDrawFeature[]).map((f) => f.id);
+      expect(originals).toEqual(['b', 'a', 'c']);
+      expect(unionCall?.[1].feature.properties).toEqual({ name: 'b' });
+      expect(harness.features.size).toBe(2); // merged + far
+      expect(harness.mocks.push).toHaveBeenCalledTimes(1);
+    });
+
     it('emits a detached copy of the merged feature', () => {
       click(mode, 2, 2);
       click(mode, 13, 13);
+      pressEnter(mode);
 
       const unionCall = harness.mocks.emit.mock.calls.find((call) => call[0] === 'union');
       const emitted = unionCall?.[1].feature as LibreDrawFeature;
@@ -274,36 +349,49 @@ describe('UnionMode', () => {
       expect(emitted).toEqual(stored);
     });
 
-    it('emits unionfailed with disjoint and keeps the first selection', () => {
-      click(mode, 2, 2); // select 'a'
+    it('does nothing with fewer than two polygons selected', () => {
+      pressEnter(mode);
+      click(mode, 2, 2);
+      pressEnter(mode);
+      mode.execute();
+
+      expect(harness.mocks.push).not.toHaveBeenCalled();
+      expect(harness.mocks.emit).not.toHaveBeenCalledWith('unionfailed', expect.anything());
+      expect(harness.mocks.setSelectedIds).toHaveBeenLastCalledWith(['a']);
+    });
+
+    it('does nothing while inactive', () => {
+      click(mode, 2, 2);
+      click(mode, 13, 13);
+      mode.deactivate();
+      mode.execute();
+      pressEnter(mode);
+
+      expect(harness.mocks.push).not.toHaveBeenCalled();
+    });
+
+    it('emits unionfailed with disjoint and keeps the whole selection', () => {
+      click(mode, 2, 2); // 'a'
+      click(mode, 13, 13); // 'b'
+      click(mode, 45, 45); // 'far' touches neither
       harness.mocks.setSelectedIds.mockClear();
-      click(mode, 45, 45); // 'far' does not touch 'a'
+      pressEnter(mode);
 
       expect(harness.mocks.remove).not.toHaveBeenCalled();
       expect(harness.mocks.push).not.toHaveBeenCalled();
       expect(harness.mocks.emit).toHaveBeenCalledWith('unionfailed', {
         reason: 'disjoint',
-        featureIds: ['a', 'far'],
+        featureIds: ['a', 'b', 'far'],
       });
       expect(harness.mocks.setSelectedIds).not.toHaveBeenCalled();
 
-      // Still in the first-selected state: a valid partner merges right away.
-      click(mode, 13, 13);
+      // Dropping the stray polygon from the selection lets the rest merge.
+      click(mode, 45, 45);
+      pressEnter(mode);
       expect(harness.mocks.push).toHaveBeenCalledTimes(1);
     });
 
-    it('does not merge on a long press over the second polygon', () => {
-      click(mode, 2, 2, 'touch'); // select 'a'
-      vi.useFakeTimers();
-      mode.onPointerDown(pointerEvent(13, 13, 'touch'));
-      vi.advanceTimersByTime(500);
-      mode.onPointerUp(pointerEvent(13, 13, 'touch'));
-
-      expect(harness.mocks.push).not.toHaveBeenCalled();
-      expect(harness.features.size).toBe(3);
-    });
-
-    it('emits unionfailed with has-holes and keeps the first selection when a hole would form', () => {
+    it('emits unionfailed with has-holes and keeps the selection when a hole would form', () => {
       // A "C" shape whose open side is closed off by 'lid'.
       harness.features.clear();
       harness.features.set('c', {
@@ -329,9 +417,10 @@ describe('UnionMode', () => {
       });
       harness.features.set('lid', makeSquare('lid', 25, 5, 20));
 
-      click(mode, 5, 5); // select 'c'
-      harness.mocks.setSelectedIds.mockClear();
+      click(mode, 5, 5); // 'c'
       click(mode, 40, 15); // 'lid' (outside 'c')
+      harness.mocks.setSelectedIds.mockClear();
+      pressEnter(mode);
 
       expect(harness.mocks.emit).toHaveBeenCalledWith('unionfailed', {
         reason: 'has-holes',
@@ -342,30 +431,13 @@ describe('UnionMode', () => {
       expect(harness.features.size).toBe(2);
     });
 
-    it('ignores a second click on the already selected polygon', () => {
+    it('drops the selection if a selected polygon vanished from the store', () => {
       click(mode, 2, 2);
-      harness.mocks.emit.mockClear();
-      click(mode, 3, 3);
-
-      expect(harness.mocks.push).not.toHaveBeenCalled();
-      expect(harness.mocks.emit).not.toHaveBeenCalled();
-    });
-
-    it('clears the selection when clicking empty space', () => {
-      click(mode, 2, 2);
-      click(mode, 90, 90);
-
-      expect(harness.mocks.setSelectedIds).toHaveBeenLastCalledWith([]);
-      expect(harness.mocks.emit).toHaveBeenCalledWith('selectionchange', { selectedIds: [] });
-      expect(harness.mocks.push).not.toHaveBeenCalled();
-    });
-
-    it('drops the selection if the first polygon vanished from the store', () => {
-      click(mode, 2, 2);
+      click(mode, 13, 13);
       harness.features.delete('a');
       harness.mocks.setSelectedIds.mockClear();
 
-      click(mode, 13, 13);
+      pressEnter(mode);
 
       expect(harness.mocks.push).not.toHaveBeenCalled();
       expect(harness.mocks.setSelectedIds).toHaveBeenCalledWith([]);
@@ -391,9 +463,10 @@ describe('UnionMode', () => {
       click(mode, 2, 2);
       harness.mocks.setSelectedIds.mockClear();
 
-      mode.onKeyDown('Enter', new KeyboardEvent('keydown', { key: 'Enter' }));
+      mode.onKeyDown('Delete', new KeyboardEvent('keydown', { key: 'Delete' }));
 
       expect(harness.mocks.setSelectedIds).not.toHaveBeenCalled();
+      expect(harness.mocks.push).not.toHaveBeenCalled();
     });
   });
 

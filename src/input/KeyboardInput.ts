@@ -61,6 +61,11 @@ export function isEditableTarget(target: EventTarget | null): boolean {
   return attr !== null && attr.toLowerCase() !== 'false';
 }
 
+/** @returns `true` when the event target is a button, which Enter clicks. */
+function isButtonTarget(target: EventTarget | null): boolean {
+  return target instanceof HTMLElement && target.tagName === 'BUTTON';
+}
+
 /**
  * Handles keyboard input events for the drawing interface.
  *
@@ -70,8 +75,10 @@ export function isEditableTarget(target: EventTarget | null): boolean {
  * MapLibre's own keyboard handler and keeps the library from hijacking
  * keys meant for the rest of the page.
  *
- * Relevant keys (Escape, Delete, Backspace) are dispatched to the active
- * mode. When shortcut callbacks are provided, undo / redo key combinations
+ * Relevant keys (Escape, Delete, Backspace, Enter) are dispatched to the
+ * active mode. Enter is withheld while a text-editing element or a button
+ * has focus: there it already means "submit" or "click", and passing it on
+ * as well would run the same command twice. When shortcut callbacks are provided, undo / redo key combinations
  * are routed to them unless a text-editing element has focus, and the
  * browser default is suppressed only when the callback reports success.
  */
@@ -81,10 +88,11 @@ export class KeyboardInput {
   private shortcuts: KeyboardShortcutCallbacks | undefined;
 
   /** The set of keys that this handler cares about. */
-  private static readonly RELEVANT_KEYS = new Set(['Escape', 'Delete', 'Backspace']);
+  private static readonly RELEVANT_KEYS = new Set(['Escape', 'Delete', 'Backspace', 'Enter']);
 
   private handleKeyDown = (e: KeyboardEvent): void => {
     if (KeyboardInput.RELEVANT_KEYS.has(e.key)) {
+      if (e.key === 'Enter' && (isEditableTarget(e.target) || isButtonTarget(e.target))) return;
       this.callbacks.onKeyDown(e.key, e);
       return;
     }
@@ -102,7 +110,7 @@ export class KeyboardInput {
 
   /**
    * @param map - The map whose container receives key events.
-   * @param callbacks - Receives Escape / Delete / Backspace for the active mode.
+   * @param callbacks - Receives Escape / Delete / Backspace / Enter for the active mode.
    * @param shortcuts - Undo / redo callbacks. Omit to disable shortcut handling.
    */
   constructor(

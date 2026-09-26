@@ -362,6 +362,9 @@ interface Messages {
   rotateAngleInput: string;
   rotateExecute: string;
   rotateExecuteLabel: string;
+  // Union execute popup
+  unionExecute: string;
+  unionExecuteLabel: string;
   // Style settings panel
   styleFeatureSection: string;
   styleSelectedSection: string;
@@ -427,7 +430,7 @@ type ModeName =
 | `'draw-angled-rectangle'` | Create a rectangle at any angle: click/tap two points of a base edge, then a point that sets the width. |
 | `'select'`                | Select and edit existing features (points, lines, and polygons).                                        |
 | `'split'`                 | Split a polygon into two polygons with a two-point line.                                                |
-| `'union'`                 | Merge two touching or overlapping polygons into one by clicking them in turn.                           |
+| `'union'`                 | Merge two or more touching or overlapping polygons into one: click them, then press Enter or execute.   |
 | `'setback'`               | Apply inward edge setback with distance input and preview.                                              |
 | `'rotate'`                | Rotate a polygon or line around its center by dragging or angle input.                                  |
 
@@ -503,8 +506,7 @@ class SetbackAction implements Action {
 
 class UnionAction implements Action {
   readonly type: 'union';
-  readonly featureA: LibreDrawFeature;
-  readonly featureB: LibreDrawFeature;
+  readonly originalFeatures: LibreDrawFeature[];
   readonly resultFeature: LibreDrawFeature;
 }
 ```
@@ -718,10 +720,10 @@ Failure codes of [`union()`](/api/libre-draw#union-ids). The geometric codes are
 type UnionOperationFailReason = 'not-found' | 'unsupported-count' | UnionFailReason;
 ```
 
-| Value                 | Meaning                                           |
-| --------------------- | ------------------------------------------------- |
-| `'not-found'`         | One of the ids has no feature                     |
-| `'unsupported-count'` | `ids` does not name exactly two distinct features |
+| Value                 | Meaning                                      |
+| --------------------- | -------------------------------------------- |
+| `'not-found'`         | One of the ids has no feature                |
+| `'unsupported-count'` | `ids` names fewer than two distinct features |
 
 ---
 
