@@ -7,6 +7,8 @@
  * "vertex" or "point feature" in this library.
  */
 
+import { BRAND_COLOR } from '../types/style';
+
 export interface RasterImage {
   width: number;
   height: number;
@@ -22,7 +24,8 @@ const ARM_WIDTH_CSS_PX = 2;
 /** Width of the white halo around the arms in CSS pixels; keeps the marker readable on any basemap. */
 const HALO_WIDTH_CSS_PX = 1;
 
-const ARM_COLOR: [number, number, number] = [0x3b, 0xb2, 0xd0];
+// The map image is raw bytes, so the shared hex color is converted here.
+const ARM_COLOR = hexToRgb(BRAND_COLOR);
 const HALO_COLOR: [number, number, number] = [0xff, 0xff, 0xff];
 
 /**
@@ -54,4 +57,12 @@ export function createCrosshairImage(): RasterImage {
   }
 
   return { width: size, height: size, data };
+}
+
+/**
+ * Parse a `#rrggbb` color into its RGB bytes.
+ */
+function hexToRgb(hex: string): [number, number, number] {
+  const value = parseInt(hex.slice(1), 16);
+  return [(value >> 16) & 0xff, (value >> 8) & 0xff, value & 0xff];
 }

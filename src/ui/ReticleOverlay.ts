@@ -1,6 +1,7 @@
 import type { Map as MaplibreMap } from 'maplibre-gl';
 import type { Messages } from '../types/messages';
 import { MESSAGES_EN } from './messages';
+import { addHover, paintHover } from './hover';
 
 export interface ReticleOverlayCallbacks {
   onAddPoint(): void;
@@ -27,7 +28,7 @@ const RETICLE_SIZE_PX = 80;
  * short tick across each break, and a small dot on the exact point, all
  * black on a white halo. Nothing but the dot is drawn near the center, so
  * what is under the point stays visible; the ring and the colors keep it
- * apart from the cyan rotation center marker.
+ * apart from the small blue rotation center marker.
  */
 const RETICLE_SVG = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 80 80" width="${RETICLE_SIZE_PX}" height="${RETICLE_SIZE_PX}" fill="none" stroke-linecap="round"><g stroke="#ffffff" stroke-width="5"><path d="M71.41 46.11A32 32 0 0 1 46.11 71.41M33.89 71.41A32 32 0 0 1 8.59 46.11M8.59 33.89A32 32 0 0 1 33.89 8.59M46.11 8.59A32 32 0 0 1 71.41 33.89"/><path d="M40 3v12M40 65v12M3 40h12M65 40h12"/></g><g stroke="#1f2328" stroke-width="3"><path d="M71.41 46.11A32 32 0 0 1 46.11 71.41M33.89 71.41A32 32 0 0 1 8.59 46.11M8.59 33.89A32 32 0 0 1 33.89 8.59M46.11 8.59A32 32 0 0 1 71.41 33.89"/><path d="M40 3v12M40 65v12M3 40h12M65 40h12"/></g><circle cx="40" cy="40" r="2" fill="#1f2328" stroke="#ffffff" stroke-width="1"/></svg>`;
 
@@ -127,6 +128,7 @@ export class ReticleOverlay {
     button.textContent = label;
     button.setAttribute('aria-label', label);
     this.applyButtonStyles(button);
+    addHover(button);
     button.addEventListener('click', onClick);
     this.bar.appendChild(button);
     return button;
@@ -136,6 +138,7 @@ export class ReticleOverlay {
     button.disabled = disabled;
     button.style.opacity = disabled ? '0.4' : '1';
     button.style.cursor = disabled ? 'not-allowed' : 'pointer';
+    paintHover(button);
   }
 
   private applyReticleStyles(): void {

@@ -1,3 +1,6 @@
+import { BRAND_COLOR } from '../types/style';
+import { HOVER_COLOR } from './hover';
+
 /**
  * Options for creating a toolbar button.
  */
@@ -24,6 +27,8 @@ export class ToolbarButton {
   private element: HTMLButtonElement;
   private iconContainer: HTMLSpanElement;
   private options: ToolbarButtonOptions;
+  private isActive = false;
+  private isHovered = false;
 
   constructor(options: ToolbarButtonOptions) {
     this.options = options;
@@ -43,6 +48,18 @@ export class ToolbarButton {
     this.iconContainer.style.justifyContent = 'center';
     this.setIcon(options.icon);
     this.element.appendChild(this.iconContainer);
+
+    // Hover feedback for the mouse only: a touch device fires pointer
+    // events for a tap too, and the tint would stay after the finger lifts.
+    this.element.addEventListener('pointerenter', (e) => {
+      if (e.pointerType !== 'mouse') return;
+      this.isHovered = true;
+      this.applyColors();
+    });
+    this.element.addEventListener('pointerleave', () => {
+      this.isHovered = false;
+      this.applyColors();
+    });
 
     // Attach click handler
     this.element.addEventListener('click', (e) => {
@@ -66,13 +83,8 @@ export class ToolbarButton {
    * @param active - Whether the button should appear active.
    */
   setActive(active: boolean): void {
-    if (active) {
-      this.element.style.backgroundColor = '#3bb2d0';
-      this.element.style.color = '#ffffff';
-    } else {
-      this.element.style.backgroundColor = '#ffffff';
-      this.element.style.color = '#333333';
-    }
+    this.isActive = active;
+    this.applyColors();
     this.element.setAttribute('aria-pressed', String(active));
   }
 
@@ -84,6 +96,7 @@ export class ToolbarButton {
     this.element.disabled = disabled;
     this.element.style.opacity = disabled ? '0.4' : '1';
     this.element.style.cursor = disabled ? 'not-allowed' : 'pointer';
+    this.applyColors();
   }
 
   /**
@@ -91,6 +104,23 @@ export class ToolbarButton {
    */
   destroy(): void {
     this.element.remove();
+  }
+
+  /**
+   * Color the button for its state: MapLibre's brand blue while active, a
+   * pale tint of it under the mouse. An active button keeps its
+   * blue under the mouse so the current mode stays readable; a disabled one
+   * shows no hover because clicking it does nothing.
+   */
+  private applyColors(): void {
+    const s = this.element.style;
+    if (this.isActive) {
+      s.backgroundColor = BRAND_COLOR;
+      s.color = '#ffffff';
+    } else {
+      s.backgroundColor = this.isHovered && !this.element.disabled ? HOVER_COLOR : '#ffffff';
+      s.color = '#333333';
+    }
   }
 
   /**

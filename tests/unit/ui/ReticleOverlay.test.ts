@@ -172,4 +172,18 @@ describe('ReticleOverlay', () => {
     expect(callbacks.onUndoVertex).not.toHaveBeenCalled();
     expect(callbacks.onFinish).not.toHaveBeenCalled();
   });
+
+  it('tints every action bar button under the mouse, but not a disabled one', () => {
+    const { overlay, buttons, undo, button } = createOverlay();
+    overlay.setActionState({ canUndo: true, canFinish: true });
+    for (const b of buttons) {
+      b.dispatchEvent(new PointerEvent('pointerenter', { pointerType: 'mouse' }));
+      expect(b.style.backgroundColor).toBe('#d4dfee');
+    }
+
+    // Disabled while the mouse is over it: the tint goes away.
+    overlay.setActionState({ canUndo: false, canFinish: true });
+    expect(undo.style.backgroundColor).toBe('#ffffff');
+    expect(button.style.backgroundColor).toBe('#d4dfee');
+  });
 });

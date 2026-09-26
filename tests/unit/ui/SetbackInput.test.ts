@@ -160,4 +160,11 @@ describe('SetbackInput', () => {
       expect(getHTMLInput(input).getAttribute('aria-label')).toBe(MESSAGES_JA.setbackDistanceInput);
     });
   });
+
+  it('tints the apply button pale blue under the mouse', () => {
+    const { input } = createInput();
+    const button = input.getElement().querySelector('button')!;
+    button.dispatchEvent(new PointerEvent('pointerenter', { pointerType: 'mouse' }));
+    expect(button.style.backgroundColor).toBe('#d4dfee');
+  });
 });

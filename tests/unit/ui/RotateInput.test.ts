@@ -192,4 +192,11 @@ describe('RotateInput', () => {
       expect(getHTMLInput(input).getAttribute('aria-label')).toBe(MESSAGES_JA.rotateAngleInput);
     });
   });
+
+  it('tints the apply button pale blue under the mouse', () => {
+    const { input } = createInput();
+    const button = getExecuteButton(input);
+    button.dispatchEvent(new PointerEvent('pointerenter', { pointerType: 'mouse' }));
+    expect(button.style.backgroundColor).toBe('#d4dfee');
+  });
 });

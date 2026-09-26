@@ -81,4 +81,11 @@ describe('UnionExecute', () => {
     expect(parent.children).toHaveLength(0);
     expect(callbacks.onExecute).not.toHaveBeenCalled();
   });
+
+  it('tints the merge button pale blue under the mouse', () => {
+    const { execute } = createExecute();
+    const button = getButton(execute);
+    button.dispatchEvent(new PointerEvent('pointerenter', { pointerType: 'mouse' }));
+    expect(button.style.backgroundColor).toBe('#d4dfee');
+  });
 });

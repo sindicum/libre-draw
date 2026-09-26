@@ -104,34 +104,40 @@ export interface PartialStyleConfig {
 }
 
 /**
+ * MapLibre's brand blue (Primary). The default color of features, the
+ * active toolbar button and the rotation center marker.
+ */
+export const BRAND_COLOR = '#285daa';
+
+/**
  * Built-in default style used when options.style is omitted.
  */
 export const DEFAULT_STYLE_CONFIG: StyleConfig = {
   fill: {
-    color: '#3bb2d0',
+    color: BRAND_COLOR,
     opacity: 0.2,
     selectedColor: '#fbb03b',
     selectedOpacity: 0.4,
   },
   outline: {
-    color: '#3bb2d0',
+    color: BRAND_COLOR,
     width: 2,
     selectedColor: '#fbb03b',
   },
   vertex: {
     color: '#ffffff',
-    strokeColor: '#3bb2d0',
+    strokeColor: BRAND_COLOR,
     strokeWidth: 2,
     radius: 4,
   },
   preview: {
-    color: '#3bb2d0',
+    color: BRAND_COLOR,
     width: 2,
     dasharray: [2, 2],
   },
   editVertex: {
     color: '#ffffff',
-    strokeColor: '#3bb2d0',
+    strokeColor: BRAND_COLOR,
     strokeWidth: 2,
     radius: 5,
     highlightedColor: '#ff4444',
@@ -139,17 +145,17 @@ export const DEFAULT_STYLE_CONFIG: StyleConfig = {
     highlightedRadius: 7,
   },
   midpoint: {
-    color: '#3bb2d0',
+    color: BRAND_COLOR,
     opacity: 0.6,
     radius: 4,
   },
   point: {
-    color: '#3bb2d0',
+    color: BRAND_COLOR,
     radius: 6,
     selectedColor: '#fbb03b',
     selectedRadius: 8,
     hoverColor: '#fbb03b',
-    strokeColor: '#3bb2d0',
+    strokeColor: BRAND_COLOR,
     strokeWidth: 2,
   },
 };
