@@ -28,6 +28,7 @@ import {
   SplitAction,
   SetbackAction,
   UnionAction,
+  CutAction,
   BatchAction,
 } from './types/features';
 import { EventBus } from './core/EventBus';
@@ -44,6 +45,7 @@ import { rotate as rotateOperation } from './operations/rotate';
 import { split as splitOperation } from './operations/split';
 import { setback as setbackOperation } from './operations/setback';
 import { union as unionOperation } from './operations/union';
+import { cut as cutOperation } from './operations/cut';
 import { IdleMode } from './modes/IdleMode';
 import { DrawPolygonMode } from './modes/DrawPolygonMode';
 import { DrawRectangleMode } from './modes/DrawRectangleMode';
@@ -55,6 +57,7 @@ import { SplitMode } from './modes/SplitMode';
 import { SetbackMode } from './modes/SetbackMode';
 import { UnionMode } from './modes/UnionMode';
 import { RotateMode } from './modes/RotateMode';
+import { CutMode } from './modes/CutMode';
 import type { MapInteractionConfig } from './modes/Mode';
 import { isDraftCapableMode } from './modes/Mode';
 import { InputHandler } from './input/InputHandler';
@@ -128,6 +131,7 @@ export class LibreDraw {
   private setbackMode: SetbackMode;
   private rotateMode: RotateMode;
   private unionMode: UnionMode;
+  private cutMode: CutMode;
   private snapConfig: SnapConfig;
   private messages: Messages;
   private destroyed = false;
@@ -235,6 +239,9 @@ export class LibreDraw {
       );
       this.toolbar?.setUnionSelectionCount(selectedIds.length);
       this.modeManager.getCurrentMode()?.onSelectionChange?.(selectedIds);
+      // Cut mode drafts (and so hands over to the reticle) only while it
+      // has a target, which is the selection.
+      if (this.modeManager.getMode() === 'cut') this.syncInteractionsAndReticle();
     });
 
     // Mode setup
@@ -316,6 +323,7 @@ export class LibreDraw {
     this.unionMode = new UnionMode(modeContext);
     this.setbackMode = new SetbackMode(modeContext);
     this.rotateMode = new RotateMode(modeContext);
+    this.cutMode = new CutMode(modeContext);
 
     // Register modes
     this.modeManager.registerMode('idle', new IdleMode());
@@ -329,6 +337,7 @@ export class LibreDraw {
     this.modeManager.registerMode('union', this.unionMode);
     this.modeManager.registerMode('setback', this.setbackMode);
     this.modeManager.registerMode('rotate', this.rotateMode);
+    this.modeManager.registerMode('cut', this.cutMode);
 
     // Mode change event
     this.modeManager.setOnModeChange((mode, previousMode) => {
@@ -337,11 +346,7 @@ export class LibreDraw {
         this.toolbar.setActiveMode(mode);
       }
 
-      const currentMode = this.modeManager.getCurrentMode();
-      if (currentMode) {
-        this.applyMapInteractions(currentMode.mapInteractions());
-      }
-      this.syncReticle();
+      this.syncInteractionsAndReticle();
     });
 
     const initialMode = this.modeManager.getCurrentMode();
@@ -423,7 +428,7 @@ export class LibreDraw {
    * @param mode - `'idle'` (no interaction), `'draw-point'` / `'draw-line'` /
    *   `'draw-polygon'` / `'draw-rectangle'` / `'draw-angled-rectangle'` (create features),
    *   `'select'` (select/edit existing features), `'split'`, `'union'`,
-   *   `'setback'`, or `'rotate'`.
+   *   `'setback'`, `'rotate'`, or `'cut'`.
    *
    * @throws {LibreDrawError} If this instance has been destroyed.
    * @throws {LibreDrawError} If `mode` is not one of the names above
@@ -913,6 +918,49 @@ export class LibreDraw {
   }
 
   /**
+   * Cut the area of a ring out of a Polygon.
+   *
+   * Same computation as the [`cut` mode]: a cutter inside the polygon
+   * makes a hole, one across its boundary makes a notch, and one that cuts
+   * it apart leaves several pieces. One remaining piece keeps the
+   * polygon's id; several pieces get fresh ids and a copy of its
+   * properties each. Existing holes are kept (and grow or merge where the
+   * cutter meets them). Recorded as one undoable step and reported with a
+   * `'cut'` event (`origin: 'api'`); a geometric failure also emits
+   * `'cutfailed'` as the mode does. If the polygon is selected, the
+   * selection is dropped when it is replaced.
+   *
+   * @param id - The Polygon to cut.
+   * @param cutter - The ring to cut out, as positions; the closing position
+   *   may be omitted. It needs three distinct vertices and must not cross
+   *   itself.
+   * @returns `{ ok: true, updated: [piece] }` when one piece remains,
+   *   `{ ok: true, created: [...pieces], deleted: [original] }` when the
+   *   polygon was cut apart, or `{ ok: false, reason }` with `'not-found'`,
+   *   `'not-polygon'`, `'invalid-cutter'`, or a {@link CutFailReason}.
+   *   Nothing changes on failure.
+   *
+   * @throws {LibreDrawError} If this instance has been destroyed.
+   *
+   * @example
+   * ```ts
+   * const result = draw.cut('abc-123', [
+   *   [139.700, 35.660],
+   *   [139.702, 35.660],
+   *   [139.702, 35.662],
+   *   [139.700, 35.662],
+   * ]);
+   * if (result.ok) console.log(result.updated[0]?.geometry.coordinates.length); // 2: a hole
+   * ```
+   */
+  cut(id: string, cutter: Position[]): OperationResult {
+    this.assertNotDestroyed();
+    const result = this.asApi(() => cutOperation(this.modeContext, id, cutter));
+    if (result.ok) this.syncAfterExternalChange();
+    return result;
+  }
+
+  /**
    * Programmatically select a feature by its ID.
    *
    * Switches to select mode if not already active. When no feature has
@@ -1257,8 +1305,8 @@ export class LibreDraw {
    * Register an event listener.
    *
    * Supported events: `'create'`, `'update'`, `'delete'`, `'split'`,
-   * `'splitfailed'`, `'setback'`, `'setbackfailed'`, `'union'`, `'unionfailed'`, `'rotate'`,
-   * `'selectionchange'`, `'modechange'`, `'draftchange'`.
+   * `'splitfailed'`, `'setback'`, `'setbackfailed'`, `'union'`, `'unionfailed'`, `'cut'`,
+   * `'cutfailed'`, `'rotate'`, `'selectionchange'`, `'modechange'`, `'draftchange'`.
    *
    * @param type - The event type to listen for.
    * @param listener - The callback to invoke when the event fires.
@@ -1508,6 +1556,10 @@ export class LibreDraw {
         onSetbackDistanceChange: (distance) => {
           this.setbackMode.onDistanceChange(distance);
         },
+        onCutClick: () => {
+          const current = this.modeManager.getMode();
+          this.modeManager.setMode(current === 'cut' ? 'idle' : 'cut');
+        },
         onRotateClick: () => {
           const current = this.modeManager.getMode();
           this.modeManager.setMode(current === 'rotate' ? 'idle' : 'rotate');
@@ -1575,7 +1627,21 @@ export class LibreDraw {
    * method is chosen and a drawing mode is active.
    */
   private isReticleActive(): boolean {
-    return this.inputMethod === 'reticle' && DRAWING_MODES.has(this.modeManager.getMode());
+    if (this.inputMethod !== 'reticle') return false;
+    const mode = this.modeManager.getMode();
+    // Cut mode picks its target by tap; only the cutter is drafted with the reticle.
+    return DRAWING_MODES.has(mode) || (mode === 'cut' && this.cutMode.isDrafting());
+  }
+
+  /**
+   * Apply the active mode's map interactions and show or hide the reticle.
+   * Runs on every mode change, and in cut mode on every selection change
+   * (the target decides whether the reticle drives the mode).
+   */
+  private syncInteractionsAndReticle(): void {
+    const mode = this.modeManager.getCurrentMode();
+    if (mode) this.applyMapInteractions(mode.mapInteractions());
+    this.syncReticle();
   }
 
   /**
@@ -1691,6 +1757,18 @@ export class LibreDraw {
       for (const feature of action.originalFeatures) {
         this.eventBus.emit('create', { feature: cloneFeature(feature) });
       }
+    } else if (action instanceof CutAction) {
+      if (action.keepsId) {
+        this.eventBus.emit('update', {
+          feature: cloneFeature(action.originalFeature),
+          oldFeature: cloneFeature(action.resultFeatures[0]),
+        });
+      } else {
+        for (const feature of action.resultFeatures) {
+          this.eventBus.emit('delete', { feature: cloneFeature(feature) });
+        }
+        this.eventBus.emit('create', { feature: cloneFeature(action.originalFeature) });
+      }
     }
   }
 
@@ -1729,6 +1807,11 @@ export class LibreDraw {
       this.eventBus.emit('union', {
         originalFeatures: action.originalFeatures.map(cloneFeature),
         feature: cloneFeature(action.resultFeature),
+      });
+    } else if (action instanceof CutAction) {
+      this.eventBus.emit('cut', {
+        originalFeature: cloneFeature(action.originalFeature),
+        features: action.resultFeatures.map(cloneFeature),
       });
     }
   }

@@ -48,6 +48,7 @@ import type {
   SplitOperationFailReason,
   SetbackOperationFailReason,
   UnionOperationFailReason,
+  CutOperationFailReason,
 } from '@sindicum/libre-draw';
 ```
 
@@ -314,6 +315,7 @@ interface ToolbarControls {
   setback?: boolean;
   union?: boolean;
   rotate?: boolean;
+  cut?: boolean;
   settings?: boolean;
   delete?: boolean;
   undo?: boolean;
@@ -334,6 +336,7 @@ interface ToolbarControls {
 | `setback`             | `boolean` | `true`  | Show setback mode toggle button and distance input |
 | `union`               | `boolean` | `true`  | Show union mode toggle button                      |
 | `rotate`              | `boolean` | `true`  | Show rotate mode toggle button and angle input     |
+| `cut`                 | `boolean` | `true`  | Show cut mode toggle button                        |
 | `settings`            | `boolean` | `true`  | Show style settings button and panel               |
 | `delete`              | `boolean` | `true`  | Show delete button                                 |
 | `undo`                | `boolean` | `true`  | Show undo button                                   |
@@ -371,6 +374,7 @@ interface Messages {
   toolbarUnion: string;
   toolbarSetback: string;
   toolbarRotate: string;
+  toolbarCut: string;
   toolbarSettings: string;
   toolbarDelete: string;
   toolbarUndo: string;
@@ -442,7 +446,8 @@ type ModeName =
   | 'split'
   | 'setback'
   | 'union'
-  | 'rotate';
+  | 'rotate'
+  | 'cut';
 ```
 
 | Value                     | Description                                                                                             |
@@ -458,6 +463,7 @@ type ModeName =
 | `'union'`                 | Merge two or more touching or overlapping polygons into one: click them, then press Enter or execute.   |
 | `'setback'`               | Apply inward edge setback with distance input and preview.                                              |
 | `'rotate'`                | Rotate a polygon or line around its center by dragging or angle input.                                  |
+| `'cut'`                   | Cut an area out of a polygon: click the polygon, then draw the outline of the area to remove.           |
 
 ---
 
@@ -468,7 +474,7 @@ type ModeName =
 The type of history action.
 
 ```ts
-type ActionType = 'create' | 'update' | 'delete' | 'split' | 'setback' | 'union' | 'batch';
+type ActionType = 'create' | 'update' | 'delete' | 'split' | 'setback' | 'union' | 'cut' | 'batch';
 ```
 
 `'batch'` is used by [`BatchAction`](#batchaction), which groups several actions into one history step (for example, one [`addFeatures()`](/api/libre-draw#addfeatures-features) call).
@@ -533,6 +539,14 @@ class UnionAction implements Action {
   readonly type: 'union';
   readonly originalFeatures: LibreDrawFeature[];
   readonly resultFeature: LibreDrawFeature;
+}
+
+class CutAction implements Action {
+  readonly type: 'cut';
+  readonly originalFeature: LibreDrawFeature;
+  readonly resultFeatures: LibreDrawFeature[];
+  /** One piece that replaces the original under its id (a hole or a notch). */
+  readonly keepsId: boolean;
 }
 ```
 
@@ -749,6 +763,22 @@ type UnionOperationFailReason = 'not-found' | 'unsupported-count' | UnionFailRea
 | --------------------- | -------------------------------------------- |
 | `'not-found'`         | One of the ids has no feature                |
 | `'unsupported-count'` | `ids` names fewer than two distinct features |
+
+---
+
+### `CutOperationFailReason`
+
+Failure codes of [`cut()`](/api/libre-draw#cut-id-cutter). The geometric codes are the [`CutFailReason`](/api/events#payload-cutfailedevent) values of the `cutfailed` event, which is emitted alongside; the argument errors below emit no event.
+
+```ts
+type CutOperationFailReason = 'not-found' | 'not-polygon' | 'invalid-cutter' | CutFailReason;
+```
+
+| Value              | Meaning                                                                                           |
+| ------------------ | ------------------------------------------------------------------------------------------------- |
+| `'not-found'`      | No feature has that id                                                                            |
+| `'not-polygon'`    | The feature is not a Polygon                                                                      |
+| `'invalid-cutter'` | The cutter ring has fewer than three distinct vertices, a non-numeric position, or crosses itself |
 
 ---
 

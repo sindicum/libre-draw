@@ -38,6 +38,7 @@
   "dependencies": {
     "@turf/boolean-point-in-polygon": "^7.0.0",
     "@turf/destination": "^7.3.4",
+    "@turf/difference": "^7.4.0",
     "@turf/helpers": "^7.0.0",
     "@turf/union": "^7.4.0"
   },

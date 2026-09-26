@@ -14,6 +14,7 @@ LibreDraw uses a mode-based architecture. Only one mode is active at a time, and
 | `draw-angled-rectangle` | Click a base edge, then a width point, to create a rectangle at any angle. | Toolbar angled rectangle button / `setMode('draw-angled-rectangle')` |
 | `select`                | Click to select, drag to edit vertices or move point/line/polygon.         | Toolbar select button / `setMode('select')`                          |
 | `split`                 | Split a polygon with a two-point line.                                     | Toolbar split button / `setMode('split')`                            |
+| `cut`                   | Cut an area out of a polygon by drawing its outline.                       | Toolbar cut button / `setMode('cut')`                                |
 | `union`                 | Merge two or more touching or overlapping polygons into one.               | Toolbar union button / `setMode('union')`                            |
 | `setback`               | Apply inward edge setback with distance input.                             | Toolbar setback button / `setMode('setback')`                        |
 | `rotate`                | Rotate a polygon or line by dragging or by entering an angle.              | Toolbar rotate button / `setMode('rotate')`                          |
@@ -356,6 +357,42 @@ draw.on('split', (e) => console.log(e.originalFeature.id, e.features));
 draw.on('splitfailed', (e) => console.warn(e.reason));
 ```
 
+## Cut Mode
+
+In cut mode, you remove an area from a polygon: tap the polygon, then draw the outline of the area to remove, the same way as in draw-polygon mode.
+
+| Action                         | Effect                                               |
+| ------------------------------ | ---------------------------------------------------- |
+| Click on polygon               | Select the cut target (inside a hole does not count) |
+| Click                          | Add a vertex of the cutter                           |
+| Click the first or last vertex | Close the cutter and cut                             |
+| Long-press (touch)             | Take back the last cutter vertex                     |
+| Escape key                     | Discard the cutter and the target                    |
+
+The result depends on where the cutter lies:
+
+| Cutter                       | Result                                                                       |
+| ---------------------------- | ---------------------------------------------------------------------------- |
+| Inside the polygon           | The polygon gets a hole. It keeps its id                                     |
+| Across its boundary          | The outer ring gets a notch. It keeps its id                                 |
+| Across it, cutting it apart  | One new polygon per piece, each with a fresh id and a copy of the properties |
+| Covering it                  | Nothing changes; `cutfailed` with `'empty-result'`                           |
+| Outside it, or inside a hole | Nothing changes; `cutfailed` with `'no-overlap'`                             |
+
+```ts
+draw.setMode('cut');
+draw.on('cut', (e) => console.log(e.originalFeature.id, e.features));
+draw.on('cutfailed', (e) => console.warn(e.reason));
+```
+
+### Behavior
+
+- Snapping, the finish radius, and the rules against a self-crossing outline are those of draw-polygon mode
+- After a successful cut the target is deselected and the mode waits for the next target. After a failed cut the target stays selected and only the outline is discarded, so you can draw another one
+- `finishDrawing()`, `cancelDrawing()`, `getDraftVertexCount()`, `undoLastVertex()` and `draftchange` work on the cutter once a target is selected. `cancelDrawing()` keeps the target
+- Existing holes are kept. A cutter that overlaps a hole makes it larger, and one that bridges two holes merges them
+- Each cut is one undo step, and redo reports a `cut` event again
+
 ## Union Mode
 
 In union mode, you select two or more touching or overlapping polygons and merge them into one polygon.
@@ -465,7 +502,7 @@ draw.setInputMethod('reticle');
 draw.getInputMethod(); // 'reticle'
 ```
 
-While the reticle is in use in a drawing mode:
+While the reticle is in use in a drawing mode (or in cut mode once the target is selected):
 
 - A crosshair is shown at the center of the map and an action bar at the bottom center with three buttons (44 px touch targets). Both are shown with `toolbar: false` too.
 - The map always pans with drag and zooms with pinch — also in `draw-polygon` and `draw-line`, where dragging does not pan with tap input. Clicks and taps on the map place nothing.
@@ -479,7 +516,7 @@ While the reticle is in use in a drawing mode:
 | **Add point**  | Places a point at the crosshair                                                                                                                         | Always                                                                                                                                                                                             |
 | **Finish**     | Finishes the drawing, like `finishDrawing()`                                                                                                            | A polygon has 3+ vertices and would not cross itself when closed, or a line has 2+ vertices. Never in `draw-point`, `draw-rectangle` and `draw-angled-rectangle`, which finish on their last point |
 
-Other modes (`select`, `split`, `union`, `setback`, `rotate`) show no crosshair and keep working with clicks and taps.
+In cut mode the target is picked with a click or tap as usual; the crosshair appears once a target is selected and drafts the cutter, and disappears after the cut. Other modes (`select`, `split`, `union`, `setback`, `rotate`) show no crosshair and keep working with clicks and taps.
 
 ## Keyboard Shortcuts
 
@@ -508,6 +545,7 @@ The keys below are handled by the active mode, likewise only while the map has f
 | Escape             | draw-rectangle           | Discard the first corner                                                                                        |
 | Escape             | draw-angled-rectangle    | Discard the whole draft                                                                                         |
 | Escape             | split                    | Cancel current split interaction                                                                                |
+| Escape             | cut                      | Discard the cutter and the target                                                                               |
 | Escape             | union                    | Clear the selection and stay in union mode                                                                      |
 | Enter              | union                    | Merge the selected polygons (two or more)                                                                       |
 | Enter              | setback                  | Apply the setback being previewed                                                                               |

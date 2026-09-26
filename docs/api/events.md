@@ -15,6 +15,8 @@ interface LibreDrawEventMap {
   setbackfailed: SetbackFailedEvent;
   union: UnionEvent;
   unionfailed: UnionFailedEvent;
+  cut: CutEvent;
+  cutfailed: CutFailedEvent;
   rotate: RotateEvent;
   selectionchange: SelectionChangeEvent;
   modechange: ModeChangeEvent;
@@ -357,6 +359,78 @@ draw.on('unionfailed', (e) => {
 
 ---
 
+## `cut`
+
+Emitted when an area is cut out of a polygon, in `cut` mode or through [`cut()`](/api/libre-draw#cut-id-cutter). The cut is one history step. When one piece remains (a new hole or a notch) it keeps the polygon's id: undoing the cut emits an [`update`](#update) back to the original shape. When the polygon was cut apart, undoing emits a [`delete`](#delete) for each piece and a [`create`](#create) for the original. Redoing emits `cut` again.
+
+### Payload: `CutEvent`
+
+```ts
+interface CutEvent {
+  origin: EventOrigin;
+  originalFeature: LibreDrawFeature;
+  features: LibreDrawFeature[];
+}
+```
+
+| Property          | Type                                                | Description                                                                                                                      |
+| ----------------- | --------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------- |
+| `origin`          | [`EventOrigin`](#event-origin)                      | Who caused the change: `'api'` or `'user'`                                                                                       |
+| `originalFeature` | [`LibreDrawFeature`](/api/types#libredrawfeature)   | The polygon before the cut                                                                                                       |
+| `features`        | [`LibreDrawFeature`](/api/types#libredrawfeature)[] | The pieces that remain. One piece keeps the original's id; several pieces have fresh ids and a copy of the original's properties |
+
+### Example
+
+```ts
+draw.on('cut', (e) => {
+  const kept = e.features.length === 1 && e.features[0].id === e.originalFeature.id;
+  console.log(
+    kept ? 'Cut in place:' : 'Cut apart:',
+    e.features.map((f) => f.id)
+  );
+});
+```
+
+---
+
+## `cutfailed`
+
+Emitted when a cut fails for a geometric reason, in `cut` mode or through [`cut()`](/api/libre-draw#cut-id-cutter). Nothing changes; in the mode the target stays selected and only the cutter is discarded. Argument errors of the API (`'not-found'`, `'not-polygon'`, `'invalid-cutter'`) are only returned, not emitted.
+
+### Payload: `CutFailedEvent`
+
+```ts
+type CutFailReason = 'no-overlap' | 'empty-result' | 'invalid-result';
+
+interface CutFailedEvent {
+  origin: EventOrigin;
+  reason: CutFailReason;
+  featureId: string;
+}
+```
+
+| Property    | Type                           | Description                                |
+| ----------- | ------------------------------ | ------------------------------------------ |
+| `origin`    | [`EventOrigin`](#event-origin) | Who caused the change: `'api'` or `'user'` |
+| `reason`    | `CutFailReason`                | Reason of cut failure                      |
+| `featureId` | `string`                       | ID of the target polygon                   |
+
+| Reason             | Meaning                                                                                        |
+| ------------------ | ---------------------------------------------------------------------------------------------- |
+| `'no-overlap'`     | The cutter does not overlap the polygon (it misses it, only touches it, or lies inside a hole) |
+| `'empty-result'`   | The cutter covers the whole polygon                                                            |
+| `'invalid-result'` | The geometry engine failed, or a piece failed validation                                       |
+
+### Example
+
+```ts
+draw.on('cutfailed', (e) => {
+  console.warn('Cut failed:', e.reason, e.featureId);
+});
+```
+
+---
+
 ## `rotate`
 
 Emitted when a rotation is committed in `rotate` mode, either by releasing a drag or by executing the angle input. Each commit is one history step.
@@ -442,11 +516,11 @@ interface ModeChangeEvent {
 }
 ```
 
-| Property       | Type                              | Description                                                                                                                                                                                  |
-| -------------- | --------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `origin`       | [`EventOrigin`](#event-origin)    | Who caused the change: `'api'` or `'user'`                                                                                                                                                   |
-| `mode`         | [`ModeName`](/api/types#modename) | The new active mode (`'idle'`, `'draw-point'`, `'draw-line'`, `'draw-polygon'`, `'draw-rectangle'`, `'draw-angled-rectangle'`, `'select'`, `'split'`, `'setback'`, `'union'`, or `'rotate'`) |
-| `previousMode` | [`ModeName`](/api/types#modename) | The previous mode                                                                                                                                                                            |
+| Property       | Type                              | Description                                                                                                                                                                                           |
+| -------------- | --------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `origin`       | [`EventOrigin`](#event-origin)    | Who caused the change: `'api'` or `'user'`                                                                                                                                                            |
+| `mode`         | [`ModeName`](/api/types#modename) | The new active mode (`'idle'`, `'draw-point'`, `'draw-line'`, `'draw-polygon'`, `'draw-rectangle'`, `'draw-angled-rectangle'`, `'select'`, `'split'`, `'setback'`, `'union'`, `'rotate'`, or `'cut'`) |
+| `previousMode` | [`ModeName`](/api/types#modename) | The previous mode                                                                                                                                                                                     |
 
 ### Example
 

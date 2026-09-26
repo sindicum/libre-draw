@@ -21,6 +21,7 @@ export {
   SplitAction,
   SetbackAction,
   UnionAction,
+  CutAction,
   BatchAction,
 } from './features';
 
@@ -37,6 +38,9 @@ export type {
   UnionEvent,
   UnionFailedEvent,
   UnionFailReason,
+  CutEvent,
+  CutFailedEvent,
+  CutFailReason,
   RotateEvent,
   SelectionChangeEvent,
   ModeChangeEvent,
@@ -59,6 +63,7 @@ export type {
   SplitOperationFailReason,
   SetbackOperationFailReason,
   UnionOperationFailReason,
+  CutOperationFailReason,
 } from './operations';
 
 export type { Locale, Messages } from './messages';

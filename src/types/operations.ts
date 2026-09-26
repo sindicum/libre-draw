@@ -1,5 +1,5 @@
 import type { FeatureProperties, LibreDrawFeature, LibreDrawGeometry } from './features';
-import type { SetbackFailReason, SplitFailReason, UnionFailReason } from './events';
+import type { CutFailReason, SetbackFailReason, SplitFailReason, UnionFailReason } from './events';
 
 /**
  * Result of a successful editing operation.
@@ -153,3 +153,15 @@ export type SetbackOperationFailReason =
  * - `unsupported-count`: `ids` names fewer than two distinct features
  */
 export type UnionOperationFailReason = 'not-found' | 'unsupported-count' | UnionFailReason;
+
+/**
+ * Failure codes of {@link LibreDraw.cut}. Geometric failures reuse the
+ * `CutFailReason` codes of the `cutfailed` event and emit that event; the
+ * argument errors below emit nothing.
+ *
+ * - `not-found`: no feature has that id
+ * - `not-polygon`: the feature is not a Polygon
+ * - `invalid-cutter`: the cutter ring has fewer than three distinct
+ *   vertices, a non-numeric position, or a self-intersection
+ */
+export type CutOperationFailReason = 'not-found' | 'not-polygon' | 'invalid-cutter' | CutFailReason;
