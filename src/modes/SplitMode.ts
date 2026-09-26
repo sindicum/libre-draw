@@ -10,6 +10,10 @@ type SplitState = 'idle' | 'first-point' | 'second-point';
 
 /**
  * Mode for splitting a selected polygon with a two-point line.
+ *
+ * The first point is marked like a draft vertex of the drawing modes. The
+ * dashed preview to the pointer only appears while the pointer hovers, so
+ * on touch the marker is the only sign of where the line starts.
  */
 export class SplitMode implements Mode {
   private context: ModeContext;
@@ -64,6 +68,7 @@ export class SplitMode implements Mode {
       this.lineStart = [event.lngLat.lng, event.lngLat.lat];
       this.state = 'second-point';
       this.context.render.renderPreview([this.lineStart, this.lineStart]);
+      this.context.render.renderVertices([this.lineStart], []);
       return;
     }
 
@@ -128,11 +133,13 @@ export class SplitMode implements Mode {
       this.state = this.context.store.getById(this.selectedFeatureId) ? 'first-point' : 'idle';
       this.lineStart = null;
       this.context.render.clearPreview();
+      this.context.render.clearVertices();
       return;
     }
 
     this.clearSelection();
     this.context.render.clearPreview();
+    this.context.render.clearVertices();
     this.context.render.renderFeatures();
 
     this.state = 'idle';
@@ -202,6 +209,7 @@ export class SplitMode implements Mode {
     this.state = 'idle';
     this.lineStart = null;
     this.context.render.clearPreview();
+    this.context.render.clearVertices();
 
     if (clearSelection) {
       this.clearSelection();

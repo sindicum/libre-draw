@@ -25,12 +25,16 @@ function makeSquare(id: string): LibreDrawFeature {
   };
 }
 
-function pointerEvent(lng: number, lat: number): NormalizedInputEvent {
+function pointerEvent(
+  lng: number,
+  lat: number,
+  inputType: NormalizedInputEvent['inputType'] = 'mouse'
+): NormalizedInputEvent {
   return {
     lngLat: { lng, lat },
     point: { x: lng * 10, y: lat * 10 },
     originalEvent: new MouseEvent('click'),
-    inputType: 'mouse',
+    inputType,
   };
 }
 
@@ -279,5 +283,74 @@ describe('SplitMode', () => {
     mode.onPointerDown(pointerEvent(5, 11)); // second point: the split runs
 
     expect(harness.mocks.push).toHaveBeenCalledTimes(1);
+  });
+
+  describe('first point marker', () => {
+    function placeFirstPoint(): void {
+      mode.activate();
+      mode.onPointerDown(pointerEvent(5, 5)); // select target
+      harness.mocks.renderVertices.mockClear();
+      harness.mocks.clearVertices.mockClear();
+      mode.onPointerDown(pointerEvent(5, -1)); // first split point
+    }
+
+    it('marks the first point like a draft vertex, visible without hover', () => {
+      placeFirstPoint();
+
+      expect(harness.mocks.renderVertices).toHaveBeenCalledWith([[5, -1]], []);
+      expect(harness.mocks.clearVertices).not.toHaveBeenCalled();
+    });
+
+    it('marks the first tap on touch, where no pointer move ever arrives', () => {
+      mode.activate();
+      mode.onPointerDown(pointerEvent(5, 5, 'touch')); // select target
+      mode.onPointerDown(pointerEvent(5, -1, 'touch')); // first split point
+
+      expect(harness.mocks.renderVertices).toHaveBeenCalledWith([[5, -1]], []);
+
+      mode.onPointerDown(pointerEvent(5, 11, 'touch')); // second point: split
+      expect(harness.mocks.push).toHaveBeenCalledTimes(1);
+      expect(harness.mocks.clearVertices).toHaveBeenCalled();
+    });
+
+    it('does not mark anything when only the target is picked', () => {
+      mode.activate();
+      mode.onPointerDown(pointerEvent(5, 5));
+
+      expect(harness.mocks.renderVertices).not.toHaveBeenCalled();
+    });
+
+    it('clears the marker after a successful split', () => {
+      placeFirstPoint();
+      mode.onPointerDown(pointerEvent(5, 11));
+
+      expect(harness.mocks.push).toHaveBeenCalledTimes(1);
+      expect(harness.mocks.clearVertices).toHaveBeenCalled();
+    });
+
+    it('clears the marker after a failed split, and marks the next first point', () => {
+      placeFirstPoint();
+      mode.onPointerDown(pointerEvent(8, -2)); // stays below the polygon: splitfailed
+
+      expect(harness.mocks.push).not.toHaveBeenCalled();
+      expect(harness.mocks.clearVertices).toHaveBeenCalled();
+      mode.onPointerDown(pointerEvent(6, -1));
+      expect(harness.mocks.renderVertices).toHaveBeenLastCalledWith([[6, -1]], []);
+    });
+
+    it('clears the marker on Escape, an outside deselection, and leaving the mode', () => {
+      placeFirstPoint();
+      mode.onKeyDown('Escape', new KeyboardEvent('keydown', { key: 'Escape' }));
+      expect(harness.mocks.clearVertices).toHaveBeenCalledTimes(1);
+
+      placeFirstPoint();
+      harness.context.selection.clear();
+      mode.onSelectionChange([]);
+      expect(harness.mocks.clearVertices).toHaveBeenCalledTimes(1);
+
+      placeFirstPoint();
+      mode.deactivate();
+      expect(harness.mocks.clearVertices).toHaveBeenCalledTimes(1);
+    });
   });
 });
