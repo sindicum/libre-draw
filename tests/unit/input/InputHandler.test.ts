@@ -227,3 +227,87 @@ describe('InputHandler', () => {
     expect(mode.onLongPress).toHaveBeenCalledOnce();
   });
 });
+
+describe('InputHandler pointer suppression (center reticle)', () => {
+  let canvas: HTMLDivElement;
+  let handler: InputHandler;
+  let suppressed: boolean;
+  let mode: Record<
+    | 'onPointerDown'
+    | 'onPointerMove'
+    | 'onPointerUp'
+    | 'onDoubleClick'
+    | 'onLongPress'
+    | 'onKeyDown',
+    ReturnType<typeof vi.fn>
+  >;
+
+  beforeEach(() => {
+    vi.useFakeTimers();
+    canvas = document.createElement('div');
+    vi.spyOn(canvas, 'getBoundingClientRect').mockReturnValue(createRect());
+    document.body.appendChild(canvas);
+    suppressed = true;
+    mode = {
+      onPointerDown: vi.fn(),
+      onPointerMove: vi.fn(),
+      onPointerUp: vi.fn(),
+      onDoubleClick: vi.fn(),
+      onLongPress: vi.fn(),
+      onKeyDown: vi.fn(),
+    };
+    handler = new InputHandler(
+      createMapMock(canvas),
+      () => mode as unknown as Mode,
+      undefined,
+      () => suppressed
+    );
+    handler.enable();
+  });
+
+  afterEach(() => {
+    handler.destroy();
+    canvas.remove();
+    vi.useRealTimers();
+  });
+
+  it('should not dispatch mouse or touch input while suppressed', () => {
+    canvas.dispatchEvent(new MouseEvent('mousedown', { bubbles: true, clientX: 10, clientY: 10 }));
+    canvas.dispatchEvent(new MouseEvent('mousemove', { bubbles: true, clientX: 12, clientY: 10 }));
+    window.dispatchEvent(new MouseEvent('mouseup', { bubbles: true, clientX: 12, clientY: 10 }));
+    canvas.dispatchEvent(new MouseEvent('dblclick', { bubbles: true, clientX: 12, clientY: 10 }));
+    vi.advanceTimersByTime(800);
+    dispatchTap(canvas, 100, 50);
+    dispatchTouchEvent(canvas, 'touchstart', 10, 10);
+    vi.advanceTimersByTime(600);
+
+    expect(mode.onPointerDown).not.toHaveBeenCalled();
+    expect(mode.onPointerMove).not.toHaveBeenCalled();
+    expect(mode.onPointerUp).not.toHaveBeenCalled();
+    expect(mode.onDoubleClick).not.toHaveBeenCalled();
+    expect(mode.onLongPress).not.toHaveBeenCalled();
+  });
+
+  it('should keep dispatching keys while suppressed', () => {
+    const event = new KeyboardEvent('keydown', { key: 'Escape' });
+    canvas.dispatchEvent(event);
+
+    expect(mode.onKeyDown).toHaveBeenCalledWith('Escape', event);
+  });
+
+  it('should keep dropping the mouse echo of a touch made while suppressed', () => {
+    dispatchTouchEvent(canvas, 'touchstart', 10, 10);
+    dispatchTouchEvent(canvas, 'touchend', 10, 10);
+    suppressed = false;
+    canvas.dispatchEvent(new MouseEvent('mousedown', { bubbles: true, clientX: 10, clientY: 10 }));
+
+    expect(mode.onPointerDown).not.toHaveBeenCalled();
+  });
+
+  it('should dispatch again as soon as the predicate turns false', () => {
+    suppressed = false;
+    canvas.dispatchEvent(new MouseEvent('mousedown', { bubbles: true, clientX: 10, clientY: 10 }));
+
+    expect(mode.onPointerDown).toHaveBeenCalledOnce();
+  });
+});

@@ -500,3 +500,38 @@ describe('DrawAngledRectangleMode', () => {
     });
   });
 });
+
+describe('DrawAngledRectangleMode undoLastVertex / canFinishDrawing', () => {
+  let context: ModeContext;
+  let mode: DrawAngledRectangleMode;
+
+  beforeEach(() => {
+    context = createMockContext();
+    mode = new DrawAngledRectangleMode(context);
+  });
+
+  it('steps the base edge back 2 → 1 → 0, emitting draftchange each time', () => {
+    mode.activate();
+    click(mode, 0, 0);
+    click(mode, 10, 0);
+
+    expect(mode.undoLastVertex()).toBe(true);
+    expect(lastDraftCount(context)).toBe(1);
+    expect(mode.undoLastVertex()).toBe(true);
+    expect(lastDraftCount(context)).toBe(0);
+    expect(mode.getDraftVertexCount()).toBe(0);
+  });
+
+  it('returns false when the draft is empty or the mode is inactive', () => {
+    expect(mode.undoLastVertex()).toBe(false);
+    mode.activate();
+    expect(mode.undoLastVertex()).toBe(false);
+  });
+
+  it('never offers a finish: the width point finishes', () => {
+    mode.activate();
+    click(mode, 0, 0);
+    click(mode, 10, 0);
+    expect(mode.canFinishDrawing()).toBe(false);
+  });
+});

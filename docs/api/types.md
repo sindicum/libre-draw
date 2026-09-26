@@ -15,6 +15,7 @@ import type {
   LibreDrawOptions,
   KeyboardOptions,
   SnapConfig,
+  InputMethod,
   ToolbarOptions,
   ToolbarPosition,
   ToolbarControls,
@@ -202,18 +203,35 @@ interface LibreDrawOptions {
   snap?: boolean | SnapConfig;
   locale?: Locale;
   messages?: Partial<Messages>;
+  inputMethod?: InputMethod;
 }
 ```
 
-| Property       | Type                         | Default         | Description                                                                                                 |
-| -------------- | ---------------------------- | --------------- | ----------------------------------------------------------------------------------------------------------- |
-| `toolbar`      | `boolean \| ToolbarOptions`  | `true`          | Whether to show the toolbar, or toolbar configuration. Set to `false` for headless mode.                    |
-| `keyboard`     | `boolean \| KeyboardOptions` | `true`          | Whether to enable keyboard shortcuts, or shortcut configuration. See [`KeyboardOptions`](#keyboardoptions). |
-| `historyLimit` | `number`                     | `100`           | Maximum number of undo/redo history entries                                                                 |
-| `style`        | `PartialStyleConfig`         | `default style` | Partial overrides for map layer styling (fill / outline / preview / edit handles / midpoints / points).     |
-| `snap`         | `boolean \| SnapConfig`      | `true`          | Whether to enable snapping, or snap configuration ([`SnapConfig`](#snapconfig)). Set to `false` to disable. |
-| `locale`       | [`Locale`](#locale)          | `'en'`          | Language of the toolbar and its popups. Throws `LibreDrawError` for an unknown value.                       |
-| `messages`     | `Partial<Messages>`          | `{}`            | Overrides for individual UI strings, merged onto the selected locale. See [`Messages`](#messages).          |
+| Property       | Type                          | Default         | Description                                                                                                 |
+| -------------- | ----------------------------- | --------------- | ----------------------------------------------------------------------------------------------------------- |
+| `toolbar`      | `boolean \| ToolbarOptions`   | `true`          | Whether to show the toolbar, or toolbar configuration. Set to `false` for headless mode.                    |
+| `keyboard`     | `boolean \| KeyboardOptions`  | `true`          | Whether to enable keyboard shortcuts, or shortcut configuration. See [`KeyboardOptions`](#keyboardoptions). |
+| `historyLimit` | `number`                      | `100`           | Maximum number of undo/redo history entries                                                                 |
+| `style`        | `PartialStyleConfig`          | `default style` | Partial overrides for map layer styling (fill / outline / preview / edit handles / midpoints / points).     |
+| `snap`         | `boolean \| SnapConfig`       | `true`          | Whether to enable snapping, or snap configuration ([`SnapConfig`](#snapconfig)). Set to `false` to disable. |
+| `locale`       | [`Locale`](#locale)           | `'en'`          | Language of the toolbar and its popups. Throws `LibreDrawError` for an unknown value.                       |
+| `messages`     | `Partial<Messages>`           | `{}`            | Overrides for individual UI strings, merged onto the selected locale. See [`Messages`](#messages).          |
+| `inputMethod`  | [`InputMethod`](#inputmethod) | `'tap'`         | How the drawing modes take a point. Throws `LibreDrawError` for an unknown value.                           |
+
+---
+
+### `InputMethod`
+
+How the drawing modes (`draw-point`, `draw-line`, `draw-polygon`, `draw-rectangle`, `draw-angled-rectangle`) take a point. Set with the `inputMethod` option or [`setInputMethod()`](/api/libre-draw#setinputmethod-method).
+
+```ts
+type InputMethod = 'tap' | 'reticle';
+```
+
+| Value       | Description                                                                                                                                                                                                                                           |
+| ----------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `'tap'`     | A click or tap on the map places the point (default).                                                                                                                                                                                                 |
+| `'reticle'` | A crosshair is fixed at the center of the map and an action bar (**Undo point**, **Add point**, **Finish**) at the bottom. The map pans underneath the crosshair; the button places the point there. See [Input methods](/guide/modes#input-methods). |
 
 ---
 
@@ -290,6 +308,7 @@ interface ToolbarControls {
   drawPolygon?: boolean;
   drawRectangle?: boolean;
   drawAngledRectangle?: boolean;
+  inputMethod?: boolean;
   select?: boolean;
   split?: boolean;
   setback?: boolean;
@@ -309,6 +328,7 @@ interface ToolbarControls {
 | `drawPolygon`         | `boolean` | `true`  | Show draw-polygon mode toggle button               |
 | `drawRectangle`       | `boolean` | `true`  | Show draw-rectangle mode toggle button             |
 | `drawAngledRectangle` | `boolean` | `true`  | Show draw-angled-rectangle mode toggle button      |
+| `inputMethod`         | `boolean` | `true`  | Show the tap / center reticle input method toggle  |
 | `select`              | `boolean` | `true`  | Show select mode toggle button                     |
 | `split`               | `boolean` | `true`  | Show split mode toggle button                      |
 | `setback`             | `boolean` | `true`  | Show setback mode toggle button and distance input |
@@ -345,6 +365,7 @@ interface Messages {
   toolbarDrawPolygon: string;
   toolbarDrawRectangle: string;
   toolbarDrawAngledRectangle: string;
+  toolbarInputMethod: string;
   toolbarSelect: string;
   toolbarSplit: string;
   toolbarUnion: string;
@@ -365,6 +386,10 @@ interface Messages {
   // Union execute popup
   unionExecute: string;
   unionExecuteLabel: string;
+  // Center reticle action bar
+  reticleAddPoint: string; // visible text and aria-label of the "Add point" button
+  reticleUndoVertex: string; // ... of the "Undo point" button
+  reticleFinish: string; // ... of the "Finish" button
   // Style settings panel
   styleFeatureSection: string;
   styleSelectedSection: string;

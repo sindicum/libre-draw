@@ -738,3 +738,170 @@ describe('DrawPolygonMode', () => {
     });
   });
 });
+
+describe('DrawPolygonMode undoLastVertex / canFinishDrawing', () => {
+  let context: ModeContext;
+  let mode: DrawPolygonMode;
+
+  beforeEach(() => {
+    context = createMockContext();
+    mode = new DrawPolygonMode(context);
+  });
+
+  it('removes the last vertex and emits draftchange', () => {
+    mode.activate();
+    clickAt(mode, 0, 0);
+    clickAt(mode, 10, 0);
+    vi.mocked(context.events.emit).mockClear();
+
+    expect(mode.undoLastVertex()).toBe(true);
+
+    expect(mode.getDraftVertexCount()).toBe(1);
+    expect(context.events.emit).toHaveBeenCalledWith('draftchange', { vertexCount: 1 });
+  });
+
+  it('clears the preview when the last remaining vertex is removed', () => {
+    mode.activate();
+    clickAt(mode, 0, 0);
+
+    expect(mode.undoLastVertex()).toBe(true);
+
+    expect(mode.getDraftVertexCount()).toBe(0);
+    expect(context.render.clearPreview).toHaveBeenCalled();
+    expect(context.render.clearVertices).toHaveBeenCalled();
+  });
+
+  it('returns false without emitting when the draft is empty or the mode is inactive', () => {
+    expect(mode.undoLastVertex()).toBe(false);
+    mode.activate();
+    vi.mocked(context.events.emit).mockClear();
+
+    expect(mode.undoLastVertex()).toBe(false);
+    expect(context.events.emit).not.toHaveBeenCalled();
+  });
+
+  it('can finish from three vertices on, and not when inactive', () => {
+    expect(mode.canFinishDrawing()).toBe(false);
+    mode.activate();
+    clickAt(mode, 0, 0);
+    clickAt(mode, 10, 0);
+    expect(mode.canFinishDrawing()).toBe(false);
+
+    clickAt(mode, 10, 10);
+    expect(mode.canFinishDrawing()).toBe(true);
+    expect(mode.finishDrawing()).toBe(true);
+    expect(mode.canFinishDrawing()).toBe(false);
+  });
+
+  it('cannot finish when closing the ring would cross an edge', () => {
+    mode.activate();
+    // (0,0) → (10,0) → (0,10) → (10,10): the closing edge crosses (10,0)–(0,10).
+    clickAt(mode, 0, 0);
+    clickAt(mode, 10, 0);
+    clickAt(mode, 0, 10);
+    clickAt(mode, 10, 10);
+    expect(mode.getDraftVertexCount()).toBe(4);
+
+    expect(mode.canFinishDrawing()).toBe(false);
+    expect(mode.finishDrawing()).toBe(false);
+  });
+
+  it('removes the last vertex on a long press through the same path', () => {
+    mode.activate();
+    clickAt(mode, 0, 0);
+    clickAt(mode, 10, 0);
+
+    mode.onLongPress(createPointerEvent(50, 50, { inputType: 'touch' }));
+
+    expect(mode.getDraftVertexCount()).toBe(1);
+  });
+});
+
+describe('DrawPolygonMode undoLastVertex clears the snap indicator', () => {
+  it('drops an indicator that may point at the removed vertex', () => {
+    const context = createMockContext();
+    const mode = new DrawPolygonMode(context);
+    mode.activate();
+    clickAt(mode, 0, 0);
+    vi.mocked(context.render.clearSnapIndicator).mockClear();
+
+    mode.undoLastVertex();
+
+    expect(context.render.clearSnapIndicator).toHaveBeenCalled();
+  });
+});
+
+describe('DrawPolygonMode guards and hover', () => {
+  let context: ModeContext;
+  let mode: DrawPolygonMode;
+
+  beforeEach(() => {
+    context = createMockContext();
+    mode = new DrawPolygonMode(context);
+  });
+
+  it('ignores every input and API call while inactive', () => {
+    mode.onPointerMove(createPointerEvent(5, 5));
+    mode.onPointerUp(createPointerEvent(5, 5));
+    mode.onDoubleClick(createPointerEvent(5, 5));
+    mode.onLongPress(createPointerEvent(5, 5));
+    mode.onKeyDown('Escape', new KeyboardEvent('keydown', { key: 'Escape' }));
+    mode.cancelDrawing();
+
+    expect(context.events.emit).not.toHaveBeenCalled();
+    expect(context.render.renderPreview).not.toHaveBeenCalled();
+    expect(context.render.clearPreview).not.toHaveBeenCalled();
+    expect(context.store.add).not.toHaveBeenCalled();
+  });
+
+  it('ignores a pointer up without a pointer down and keys other than Escape', () => {
+    mode.activate();
+    clickAt(mode, 0, 0);
+    vi.mocked(context.events.emit).mockClear();
+
+    mode.onPointerUp(createPointerEvent(3, 3));
+    mode.onKeyDown('Enter', new KeyboardEvent('keydown', { key: 'Enter' }));
+
+    expect(mode.getDraftVertexCount()).toBe(1);
+    expect(context.events.emit).not.toHaveBeenCalled();
+  });
+
+  it('still counts a press as a click after a wobble within the tolerance', () => {
+    mode.activate();
+    mode.onPointerDown(createPointerEvent(0, 0));
+    // 0.1 unit = 1px on screen, inside the 3px mouse tolerance.
+    mode.onPointerMove(createPointerEvent(0.1, 0));
+    mode.onPointerUp(createPointerEvent(0.1, 0));
+
+    expect(mode.getDraftVertexCount()).toBe(1);
+  });
+
+  it('shows the snap indicator while hovering near a feature, with the default threshold', () => {
+    // Snap enabled without a threshold: the 10px default applies.
+    context.getSnapConfig = () => ({ enabled: true });
+    vi.mocked(context.store.getAll).mockReturnValue([
+      {
+        id: 'f',
+        type: 'Feature',
+        properties: {},
+        geometry: {
+          type: 'Polygon',
+          coordinates: [
+            [
+              [5, 5],
+              [9, 5],
+              [9, 9],
+              [5, 5],
+            ],
+          ],
+        },
+      },
+    ]);
+    mode.activate();
+    clickAt(mode, 0, 0);
+
+    mode.onPointerMove(createPointerEvent(5.05, 5));
+
+    expect(context.render.renderSnapIndicator).toHaveBeenLastCalledWith([5, 5]);
+  });
+});

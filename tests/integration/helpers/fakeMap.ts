@@ -25,6 +25,11 @@ export class FakeMap {
   private layers: Map<string, unknown> = new Map();
   private images: Map<string, unknown> = new Map();
   private listeners: Map<string, Set<(...args: unknown[]) => void>> = new Map();
+  /**
+   * Geographic offset of the view: screen (x, y) shows (x + dx, y + dy).
+   * Zero by default, which keeps project / unproject the identity.
+   */
+  private offset = { dx: 0, dy: 0 };
 
   public dragPan = {
     enable: vi.fn(),
@@ -67,6 +72,9 @@ export class FakeMap {
       bottom: 600,
       toJSON: () => ({}),
     } as DOMRect);
+    // Layout size, which MapLibre (and the center reticle) sizes the view by.
+    Object.defineProperty(this.canvas, 'clientWidth', { value: 1000 });
+    Object.defineProperty(this.canvas, 'clientHeight', { value: 600 });
   }
 
   asMap(): MaplibreMap {
@@ -122,11 +130,20 @@ export class FakeMap {
   }
 
   unproject(point: [number, number]): { lng: number; lat: number } {
-    return { lng: point[0], lat: point[1] };
+    return { lng: point[0] + this.offset.dx, lat: point[1] + this.offset.dy };
   }
 
   project(point: [number, number]): { x: number; y: number } {
-    return { x: point[0], y: point[1] };
+    return { x: point[0] - this.offset.dx, y: point[1] - this.offset.dy };
+  }
+
+  /**
+   * Pan the view so that screen (x, y) shows (x + dx, y + dy), and emit
+   * `move` as a real map does while it pans.
+   */
+  panTo(dx: number, dy: number): void {
+    this.offset = { dx, dy };
+    this.emit('move');
   }
 
   getBounds(): { getWest(): number; getSouth(): number; getEast(): number; getNorth(): number } {

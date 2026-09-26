@@ -60,6 +60,7 @@ export type {
   ToolbarControls,
   KeyboardOptions,
   SnapConfig,
+  InputMethod,
   StyleConfig,
   PartialStyleConfig,
   PointStyle,

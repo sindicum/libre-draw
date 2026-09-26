@@ -330,3 +330,125 @@ test('union: Shift + click that lands a few pixels off does not zoom the map', a
   );
   expect(zoomAfter).toBe(zoomBefore);
 });
+
+test('reticle: panning the map and pressing "Add point" draws a polygon', async ({
+  page,
+  hasTouch,
+}) => {
+  const pointer = new Pointer(page, hasTouch);
+  await recordEvents(page, ['create', 'draftchange']);
+  await page.evaluate(() => {
+    const w = window as unknown as { draw: { setInputMethod(m: string): void } };
+    w.draw.setInputMethod('reticle');
+  });
+  await setMode(page, 'draw-polygon');
+
+  const reticle = page.locator('.libre-draw-reticle');
+  const addPoint = page.getByRole('button', { name: 'Add point' });
+  await expect(reticle).toBeVisible();
+  await expect(addPoint).toBeVisible();
+  const box = await addPoint.boundingBox();
+  expect(box?.width ?? 0).toBeGreaterThanOrEqual(44);
+  expect(box?.height ?? 0).toBeGreaterThanOrEqual(44);
+
+  type MapLike = {
+    getCenter(): { lng: number; lat: number };
+    isMoving(): boolean;
+    jumpTo(o: { center: { lng: number; lat: number } }): void;
+  };
+  const mapIsMoving = () =>
+    page.evaluate(() => (window as unknown as { map: MapLike }).map.isMoving());
+  const press = async () => {
+    // Wait for the pan (and its inertia) to settle so the point lands where the map stopped.
+    await expect.poll(mapIsMoving).toBe(false);
+    if (hasTouch) await addPoint.tap();
+    else await addPoint.click();
+  };
+
+  // A tap on the map places nothing while the reticle is in use.
+  await pointer.tap(100, 150);
+  await page.waitForTimeout(100);
+  expect(
+    await page.evaluate(() =>
+      (window as unknown as { draw: { getDraftVertexCount(): number } }).draw.getDraftVertexCount()
+    )
+  ).toBe(0);
+
+  const start = await page.evaluate(() => (window as unknown as { map: MapLike }).map.getCenter());
+  await press();
+  await expect.poll(() => lastDraftVertexCount(page)).toBe(1);
+
+  // Pressing again without moving would land on the only vertex and add
+  // nothing, so each step up proves the drag panned the map.
+  await pointer.drag([300, 300], [180, 300]);
+  await press();
+  await expect.poll(() => lastDraftVertexCount(page)).toBe(2);
+  await pointer.drag([200, 380], [260, 260]);
+  await press();
+  await expect.poll(() => lastDraftVertexCount(page)).toBe(3);
+
+  // Aim back at the first vertex exactly and close the ring there.
+  await page.evaluate((center) => {
+    (window as unknown as { map: MapLike }).map.jumpTo({ center });
+  }, start);
+  await press();
+
+  await expect.poll(() => featureCount(page)).toBe(1);
+  expect(await getEvents(page, 'create')).toHaveLength(1);
+  expect(await lastDraftVertexCount(page)).toBe(0);
+});
+
+test('reticle: undo the last point, then finish with the button', async ({ page, hasTouch }) => {
+  const pointer = new Pointer(page, hasTouch);
+  await recordEvents(page, ['create', 'draftchange']);
+  const press = async (name: string) => {
+    const button = page.getByRole('button', { name });
+    if (hasTouch) await button.tap();
+    else await button.click();
+  };
+  const mapIsMoving = () =>
+    page.evaluate(() => (window as unknown as { map: { isMoving(): boolean } }).map.isMoving());
+  const addPoint = async () => {
+    await expect.poll(mapIsMoving).toBe(false);
+    await press('Add point');
+  };
+
+  // Switch with the toolbar toggle, the way a user in the field would.
+  await press('Place points with the center reticle');
+  await expect(
+    page.getByRole('button', { name: 'Place points with the center reticle' })
+  ).toHaveAttribute('aria-pressed', 'true');
+  await setMode(page, 'draw-polygon');
+
+  const undo = page.getByRole('button', { name: 'Undo point' });
+  const finish = page.getByRole('button', { name: 'Finish' });
+  await expect(undo).toBeDisabled();
+  await expect(finish).toBeDisabled();
+
+  await addPoint();
+  await expect.poll(() => lastDraftVertexCount(page)).toBe(1);
+  await pointer.drag([300, 300], [180, 300]);
+  await addPoint();
+  await expect.poll(() => lastDraftVertexCount(page)).toBe(2);
+  await pointer.drag([200, 380], [260, 260]);
+  await addPoint();
+  await expect.poll(() => lastDraftVertexCount(page)).toBe(3);
+  await pointer.drag([200, 300], [300, 300]);
+  await addPoint();
+  await expect.poll(() => lastDraftVertexCount(page)).toBe(4);
+
+  await press('Undo point');
+  await expect.poll(() => lastDraftVertexCount(page)).toBe(3);
+  await expect(finish).toBeEnabled();
+  await press('Finish');
+
+  await expect.poll(() => featureCount(page)).toBe(1);
+  const [create] = await getEvents<{
+    feature: { geometry: { type: string; coordinates: number[][][] } };
+  }>(page, 'create');
+  expect(create.feature.geometry.type).toBe('Polygon');
+  // Three vertices plus the closing position: the undone point is gone.
+  expect(create.feature.geometry.coordinates[0]).toHaveLength(4);
+  await expect(undo).toBeDisabled();
+  await expect(finish).toBeDisabled();
+});

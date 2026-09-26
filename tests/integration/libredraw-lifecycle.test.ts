@@ -981,6 +981,7 @@ describe('LibreDraw lifecycle integration', () => {
         'draw-polygon',
         'draw-rectangle',
         'draw-angled-rectangle',
+        'input-method',
         'select',
         'split',
         'union',

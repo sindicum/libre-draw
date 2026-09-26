@@ -4,6 +4,7 @@ import type {
   EventOrigin,
   FeatureStoreInterface,
   FeatureValidationResult,
+  InputMethod,
   OperationResult,
   SnapConfig,
   SplitFailReason,
@@ -20,6 +21,7 @@ import * as api from '../../src';
 describe('package root exports', () => {
   it('should expose the documented type-only exports', () => {
     const snap: SnapConfig = { enabled: true, threshold: 10 };
+    const inputMethod: InputMethod = 'reticle';
     const reason: SplitFailReason = 'has-holes';
     const origin: EventOrigin = 'api';
     const failed: SplitFailedEvent = { reason, featureId: 'f1', origin };
@@ -34,6 +36,7 @@ describe('package root exports', () => {
     };
 
     expect(snap.threshold).toBe(10);
+    expect(inputMethod).toBe('reticle');
     expect(failed.reason).toBe('has-holes');
     expect(failed.origin).toBe('api');
     expect(operation.ok).toBe(false);

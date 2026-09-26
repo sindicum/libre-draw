@@ -168,18 +168,7 @@ export class DrawLineMode implements DraftCapableMode {
   onLongPress(_event: NormalizedInputEvent): void {
     if (!this.isActive) return;
     this.resetPointer();
-
-    // Remove the last vertex (undo last point)
-    if (this.vertices.length > 0) {
-      this.vertices.pop();
-      if (this.vertices.length === 0) {
-        this.context.render.clearPreview();
-      } else {
-        this.context.render.renderPreview(this.buildPreviewCoordinates());
-      }
-      this.renderDraftVertices();
-      this.emitDraftChange();
-    }
+    this.undoLastVertex();
   }
 
   onKeyDown(key: string, _event: KeyboardEvent): void {
@@ -219,6 +208,32 @@ export class DrawLineMode implements DraftCapableMode {
    */
   getDraftVertexCount(): number {
     return this.isActive ? this.vertices.length : 0;
+  }
+
+  /**
+   * Remove the last placed vertex (undo last point).
+   * @returns `true` when a vertex was removed.
+   */
+  undoLastVertex(): boolean {
+    if (!this.isActive || this.vertices.length === 0) return false;
+    this.vertices.pop();
+    // The indicator may point at the vertex just removed.
+    this.context.render.clearSnapIndicator();
+    if (this.vertices.length === 0) {
+      this.context.render.clearPreview();
+    } else {
+      this.context.render.renderPreview(this.buildPreviewCoordinates());
+    }
+    this.renderDraftVertices();
+    this.emitDraftChange();
+    return true;
+  }
+
+  /**
+   * @returns Whether {@link finishDrawing} would create a feature now.
+   */
+  canFinishDrawing(): boolean {
+    return this.isActive && this.vertices.length >= MIN_VERTICES;
   }
 
   /**

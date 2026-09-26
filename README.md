@@ -24,6 +24,7 @@ A point, line, and polygon drawing and editing library for [MapLibre GL JS](http
 - **Undo / Redo** — Full history support for all operations
 - **GeoJSON in/out** — Import and export standard GeoJSON FeatureCollections (Point, LineString, Polygon)
 - **Touch-first** — Designed for mobile with proper touch targets (44px+), long-press support, and gesture handling
+- **Center reticle input** — Optionally place points with a crosshair fixed at the map center and "Add point" / "Undo point" / "Finish" buttons, instead of tapping where a finger hides the spot. Switch from the toolbar or the API
 - **Self-intersection prevention** — Invalid polygon geometries are rejected during editing
 - **Framework-agnostic** — Works with vanilla JS, React, Vue, or any framework
 - **TypeScript** — Full type definitions included
@@ -72,6 +73,11 @@ new LibreDraw(map: maplibregl.Map, options?: LibreDrawOptions)
 | ----------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `setMode(mode)`                     | Set active mode: `'idle'`, `'draw-point'`, `'draw-line'`, `'draw-polygon'`, `'draw-rectangle'`, `'draw-angled-rectangle'`, `'select'`, `'split'`, `'union'`, `'setback'`, or `'rotate'` |
 | `getMode()`                         | Get the current mode                                                                                                                                                                    |
+| `setInputMethod(method)`            | How the drawing modes take a point: `'tap'` (click / tap the map) or `'reticle'` (center crosshair and an "Add point" button)                                                           |
+| `getInputMethod()`                  | Get the current input method                                                                                                                                                            |
+| `finishDrawing()`                   | Finish the in-progress line or polygon                                                                                                                                                  |
+| `cancelDrawing()`                   | Discard the in-progress draft                                                                                                                                                           |
+| `undoLastVertex()`                  | Take back the last placed point of the draft                                                                                                                                            |
 | `getFeatures()`                     | Get all features as an array                                                                                                                                                            |
 | `toGeoJSON()`                       | Export all features as a GeoJSON FeatureCollection                                                                                                                                      |
 | `getFeatureById(id)`                | Get a single feature by ID                                                                                                                                                              |
@@ -127,6 +133,7 @@ interface LibreDrawOptions {
           drawPolygon?: boolean;
           drawRectangle?: boolean;
           drawAngledRectangle?: boolean;
+          inputMethod?: boolean; // tap / center reticle toggle
           select?: boolean;
           split?: boolean;
           union?: boolean;
@@ -142,6 +149,7 @@ interface LibreDrawOptions {
   snap?: boolean | { enabled?: boolean; threshold?: number }; // Default: true
   locale?: 'en' | 'ja'; // UI language. Default: 'en'
   messages?: Partial<Messages>; // Override individual UI strings
+  inputMethod?: 'tap' | 'reticle'; // How drawing modes take a point. Default: 'tap'
 }
 ```
 

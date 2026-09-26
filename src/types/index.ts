@@ -70,6 +70,7 @@ export type {
   ToolbarControls,
   ToolbarOptions,
   LibreDrawOptions,
+  InputMethod,
 } from './options';
 
 export type {

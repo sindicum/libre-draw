@@ -33,6 +33,7 @@ export class InputHandler {
   private touchInput: TouchInput;
   private keyboardInput: KeyboardInput;
   private getActiveMode: GetActiveModeCallback;
+  private getPointerMode: GetActiveModeCallback;
 
   /** Timestamp of the last touch event, used to drop compatibility mouse events. */
   private lastTouchAt = 0;
@@ -43,55 +44,61 @@ export class InputHandler {
    * @param shortcuts - Undo / redo shortcut callbacks (each returns whether
    *   it acted). Omit to disable shortcut handling (mode key dispatch is
    *   unaffected).
+   * @param isPointerSuppressed - Checked on every pointer event; while it
+   *   returns `true`, mouse and touch events are not dispatched to the mode
+   *   (the center reticle feeds it instead). Keyboard input is unaffected.
    */
   constructor(
     map: MaplibreMap,
     getActiveMode: GetActiveModeCallback,
-    shortcuts?: KeyboardShortcutCallbacks
+    shortcuts?: KeyboardShortcutCallbacks,
+    isPointerSuppressed: () => boolean = () => false
   ) {
     this.getActiveMode = getActiveMode;
+    // Pointer events go to the active mode unless the reticle feeds it.
+    this.getPointerMode = () => (isPointerSuppressed() ? undefined : getActiveMode());
 
     // Touch wins: every touch event stamps the clock, and mouse events that
     // land inside the suppression window are the browser's echo of it.
     const touchCallbacks = {
       onPointerDown: (event: NormalizedInputEvent) => {
         this.markTouch();
-        this.getActiveMode()?.onPointerDown(event);
+        this.getPointerMode()?.onPointerDown(event);
       },
       onPointerMove: (event: NormalizedInputEvent) => {
         this.markTouch();
-        this.getActiveMode()?.onPointerMove(event);
+        this.getPointerMode()?.onPointerMove(event);
       },
       onPointerUp: (event: NormalizedInputEvent) => {
         this.markTouch();
-        this.getActiveMode()?.onPointerUp(event);
+        this.getPointerMode()?.onPointerUp(event);
       },
       onDoubleClick: (event: NormalizedInputEvent) => {
         this.markTouch();
-        this.getActiveMode()?.onDoubleClick(event);
+        this.getPointerMode()?.onDoubleClick(event);
       },
       onLongPress: (event: NormalizedInputEvent) => {
         this.markTouch();
-        this.getActiveMode()?.onLongPress(event);
+        this.getPointerMode()?.onLongPress(event);
       },
     };
 
     const mouseCallbacks = {
       onPointerDown: (event: NormalizedInputEvent) => {
         if (this.isTouchEcho()) return;
-        this.getActiveMode()?.onPointerDown(event);
+        this.getPointerMode()?.onPointerDown(event);
       },
       onPointerMove: (event: NormalizedInputEvent) => {
         if (this.isTouchEcho()) return;
-        this.getActiveMode()?.onPointerMove(event);
+        this.getPointerMode()?.onPointerMove(event);
       },
       onPointerUp: (event: NormalizedInputEvent) => {
         if (this.isTouchEcho()) return;
-        this.getActiveMode()?.onPointerUp(event);
+        this.getPointerMode()?.onPointerUp(event);
       },
       onDoubleClick: (event: NormalizedInputEvent) => {
         if (this.isTouchEcho()) return;
-        this.getActiveMode()?.onDoubleClick(event);
+        this.getPointerMode()?.onDoubleClick(event);
       },
     };
 

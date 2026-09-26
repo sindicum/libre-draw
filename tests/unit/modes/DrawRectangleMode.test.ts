@@ -599,3 +599,115 @@ describe('DrawRectangleMode', () => {
     expect(mode.getDraftVertexCount()).toBe(0);
   });
 });
+
+describe('DrawRectangleMode undoLastVertex / canFinishDrawing', () => {
+  let context: ModeContext;
+  let mode: DrawRectangleMode;
+
+  beforeEach(() => {
+    context = createMockContext();
+    mode = new DrawRectangleMode(context);
+  });
+
+  it('discards the first corner and emits draftchange', () => {
+    mode.activate();
+    click(mode, 0, 0);
+    vi.mocked(context.events.emit).mockClear();
+
+    expect(mode.undoLastVertex()).toBe(true);
+
+    expect(mode.getDraftVertexCount()).toBe(0);
+    expect(context.events.emit).toHaveBeenCalledWith('draftchange', { vertexCount: 0 });
+  });
+
+  it('returns false without emitting when there is no first corner or the mode is inactive', () => {
+    expect(mode.undoLastVertex()).toBe(false);
+    mode.activate();
+    vi.mocked(context.events.emit).mockClear();
+
+    expect(mode.undoLastVertex()).toBe(false);
+    expect(context.events.emit).not.toHaveBeenCalled();
+  });
+
+  it('never offers a finish: the second corner finishes', () => {
+    mode.activate();
+    expect(mode.canFinishDrawing()).toBe(false);
+    click(mode, 0, 0);
+    expect(mode.canFinishDrawing()).toBe(false);
+  });
+});
+
+describe('DrawRectangleMode guards and hover', () => {
+  let context: ModeContext;
+  let mode: DrawRectangleMode;
+
+  beforeEach(() => {
+    context = createMockContext();
+    mode = new DrawRectangleMode(context);
+  });
+
+  it('ignores every input and API call while inactive', () => {
+    mode.onPointerMove(createPointerEvent(5, 5));
+    mode.onPointerUp(createPointerEvent(5, 5));
+    mode.onDoubleClick(createPointerEvent(5, 5));
+    mode.onLongPress(createPointerEvent(5, 5));
+    mode.onKeyDown('Escape', new KeyboardEvent('keydown', { key: 'Escape' }));
+    mode.cancelDrawing();
+
+    expect(context.events.emit).not.toHaveBeenCalled();
+    expect(context.render.renderPreview).not.toHaveBeenCalled();
+    expect(context.render.clearPreview).not.toHaveBeenCalled();
+    expect(context.store.add).not.toHaveBeenCalled();
+  });
+
+  it('ignores a pointer up without a pointer down and keys other than Escape', () => {
+    mode.activate();
+    click(mode, 0, 0);
+    vi.mocked(context.events.emit).mockClear();
+
+    mode.onPointerUp(createPointerEvent(3, 3));
+    mode.onKeyDown('Enter', new KeyboardEvent('keydown', { key: 'Enter' }));
+
+    expect(mode.getDraftVertexCount()).toBe(1);
+    expect(context.events.emit).not.toHaveBeenCalled();
+  });
+
+  it('still counts a press as a click after a wobble within the tolerance', () => {
+    mode.activate();
+    mode.onPointerDown(createPointerEvent(0, 0));
+    // 0.1 unit = 1px on screen, inside the 3px mouse tolerance.
+    mode.onPointerMove(createPointerEvent(0.1, 0));
+    mode.onPointerUp(createPointerEvent(0.1, 0));
+
+    expect(mode.getDraftVertexCount()).toBe(1);
+  });
+
+  it('shows the snap indicator while hovering near a feature, with the default threshold', () => {
+    // Snap enabled without a threshold: the 10px default applies.
+    context.getSnapConfig = () => ({ enabled: true });
+    vi.mocked(context.store.getAll).mockReturnValue([
+      {
+        id: 'f',
+        type: 'Feature',
+        properties: {},
+        geometry: {
+          type: 'Polygon',
+          coordinates: [
+            [
+              [5, 5],
+              [9, 5],
+              [9, 9],
+              [5, 5],
+            ],
+          ],
+        },
+      },
+    ]);
+    mode.activate();
+    click(mode, 0, 0);
+
+    mode.onPointerMove(createPointerEvent(5.05, 5));
+
+    expect(context.render.renderSnapIndicator).toHaveBeenLastCalledWith([5, 5]);
+  });
+});
