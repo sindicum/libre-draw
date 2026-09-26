@@ -24,7 +24,9 @@ function setup(options: ConstructorParameters<typeof LibreDraw>[1] = {}) {
   const container = map.getContainer();
   const reticle = () => container.querySelector<HTMLDivElement>('.libre-draw-reticle')!;
   const bar = () => container.querySelector<HTMLDivElement>('.libre-draw-reticle-bar')!;
-  const addPoint = () => bar().querySelector('button')!.click();
+  const button = (label: string) =>
+    bar().querySelector<HTMLButtonElement>(`button[aria-label="${label}"]`)!;
+  const addPoint = () => button('Add point').click();
   /** Aim the reticle at (lng, lat) and press "Add point". */
   const addPointAt = (lng: number, lat: number) => {
     map.panTo(lng - CENTER.x, lat - CENTER.y);
@@ -35,7 +37,7 @@ function setup(options: ConstructorParameters<typeof LibreDraw>[1] = {}) {
     canvas.dispatchEvent(new MouseEvent('mousedown', { bubbles: true, clientX: x, clientY: y }));
     window.dispatchEvent(new MouseEvent('mouseup', { bubbles: true, clientX: x, clientY: y }));
   };
-  return { map, draw, creates, drafts, reticle, bar, addPoint, addPointAt, click };
+  return { map, draw, creates, drafts, reticle, bar, button, addPoint, addPointAt, click };
 }
 
 describe('Center reticle input (F-028)', () => {
@@ -315,6 +317,253 @@ describe('Center reticle input (F-028)', () => {
       'Unsupported input method: touch'
     );
     expect(draw.getInputMethod()).toBe('reticle');
+  });
+
+  describe('undo point and finish (item X)', () => {
+    it('finishes a polygon with the finish button, as finishDrawing() does', () => {
+      const { draw, creates, button, addPointAt } = start();
+      draw.setMode('draw-polygon');
+      addPointAt(10, 10);
+      addPointAt(60, 10);
+      addPointAt(35, 60);
+
+      button('Finish').click();
+
+      expect(creates).toHaveLength(1);
+      expect(creates[0].origin).toBe('user');
+      expect(creates[0].feature.geometry.type).toBe('Polygon');
+      expect(draw.getDraftVertexCount()).toBe(0);
+    });
+
+    it('takes back the last point with the undo button and emits draftchange', () => {
+      const { draw, drafts, button, addPointAt } = start();
+      draw.setMode('draw-polygon');
+      addPointAt(10, 10);
+      addPointAt(60, 10);
+      drafts.length = 0;
+
+      button('Undo point').click();
+
+      expect(draw.getDraftVertexCount()).toBe(1);
+      expect(drafts).toEqual([{ vertexCount: 1, origin: 'user' }]);
+    });
+
+    it('leaves no indicator on a removed vertex and points the preview at the reticle', () => {
+      const { map, draw, button, addPointAt } = start();
+      const indicator = () => map.getSourceData(SOURCE_IDS.SNAP_INDICATOR)?.features ?? [];
+      const preview = () => map.getSourceData(SOURCE_IDS.PREVIEW)?.features[0]?.geometry;
+
+      draw.setMode('draw-line');
+      addPointAt(10, 10);
+      addPointAt(60, 40);
+      // The reticle sits on the last vertex, so the indicator marks it.
+      expect(indicator()).toHaveLength(1);
+
+      button('Undo point').click();
+      // The reticle (still at (60, 40)) is back to being the hover point.
+      expect(preview()).toEqual({
+        type: 'LineString',
+        coordinates: [
+          [10, 10],
+          [60, 40],
+        ],
+      });
+      map.panTo(30 - CENTER.x, 50 - CENTER.y);
+      expect(indicator()).toHaveLength(0);
+
+      addPointAt(10, 10);
+      button('Undo point').click();
+      button('Undo point').click();
+      expect(draw.getDraftVertexCount()).toBe(0);
+      expect(indicator()).toHaveLength(0);
+    });
+
+    it('re-aims the preview after undoLastVertex() too', () => {
+      const { map, draw, addPointAt } = start();
+      draw.setMode('draw-line');
+      addPointAt(10, 10);
+      addPointAt(60, 40);
+      map.panTo(30 - CENTER.x, 50 - CENTER.y);
+
+      draw.undoLastVertex();
+
+      expect(map.getSourceData(SOURCE_IDS.PREVIEW)?.features[0]?.geometry).toEqual({
+        type: 'LineString',
+        coordinates: [
+          [10, 10],
+          [30, 50],
+        ],
+      });
+    });
+
+    it('enables the buttons as the polygon draft grows and shrinks', () => {
+      const { draw, button, addPointAt } = start();
+      const state = () => [button('Undo point').disabled, button('Finish').disabled];
+      draw.setMode('draw-polygon');
+      expect(state()).toEqual([true, true]);
+
+      addPointAt(10, 10);
+      expect(state()).toEqual([false, true]);
+      addPointAt(60, 10);
+      expect(state()).toEqual([false, true]);
+      addPointAt(35, 60);
+      expect(state()).toEqual([false, false]);
+
+      button('Undo point').click();
+      expect(state()).toEqual([false, true]);
+
+      addPointAt(35, 60);
+      button('Finish').click();
+      expect(state()).toEqual([true, true]);
+    });
+
+    it('enables finish for a line from two points', () => {
+      const { draw, creates, button, addPointAt } = start();
+      draw.setMode('draw-line');
+      addPointAt(10, 10);
+      expect(button('Finish').disabled).toBe(true);
+      addPointAt(60, 40);
+      expect(button('Finish').disabled).toBe(false);
+
+      button('Finish').click();
+
+      expect(creates).toHaveLength(1);
+      expect(creates[0].feature.geometry.type).toBe('LineString');
+    });
+
+    it('never enables finish in point and rectangle modes, and undoes their draft points', () => {
+      const { draw, button, addPointAt } = start();
+
+      draw.setMode('draw-point');
+      addPointAt(20, 30);
+      expect(button('Finish').disabled).toBe(true);
+      expect(button('Undo point').disabled).toBe(true);
+
+      draw.setMode('draw-rectangle');
+      addPointAt(10, 10);
+      expect(button('Finish').disabled).toBe(true);
+      expect(button('Undo point').disabled).toBe(false);
+      button('Undo point').click();
+      expect(draw.getDraftVertexCount()).toBe(0);
+      expect(button('Undo point').disabled).toBe(true);
+
+      draw.setMode('draw-angled-rectangle');
+      addPointAt(10, 10);
+      addPointAt(60, 35);
+      expect(button('Finish').disabled).toBe(true);
+      button('Undo point').click();
+      expect(draw.getDraftVertexCount()).toBe(1);
+      button('Undo point').click();
+      expect(draw.getDraftVertexCount()).toBe(0);
+      expect(button('Undo point').disabled).toBe(true);
+    });
+
+    it('resets the buttons when the mode changes and when the reticle comes back', () => {
+      const { draw, button, addPointAt } = start();
+      draw.setMode('draw-polygon');
+      addPointAt(10, 10);
+      addPointAt(60, 10);
+      addPointAt(35, 60);
+
+      draw.setMode('draw-line');
+      expect(button('Undo point').disabled).toBe(true);
+      expect(button('Finish').disabled).toBe(true);
+
+      addPointAt(10, 10);
+      addPointAt(60, 40);
+      draw.setInputMethod('tap');
+      draw.setInputMethod('reticle');
+      expect(button('Undo point').disabled).toBe(false);
+      expect(button('Finish').disabled).toBe(false);
+    });
+  });
+
+  describe('undoLastVertex() (item X)', () => {
+    it('takes back the last polygon point, stamped origin api', () => {
+      const { draw, drafts, addPointAt } = start({ inputMethod: 'tap' });
+      draw.setMode('draw-polygon');
+      draw.setInputMethod('reticle');
+      addPointAt(10, 10);
+      addPointAt(60, 10);
+      drafts.length = 0;
+
+      expect(draw.undoLastVertex()).toBe(true);
+      expect(draw.getDraftVertexCount()).toBe(1);
+      expect(drafts).toEqual([{ vertexCount: 1, origin: 'api' }]);
+
+      expect(draw.undoLastVertex()).toBe(true);
+      expect(draw.undoLastVertex()).toBe(false);
+    });
+
+    it('returns false in modes without a draft', () => {
+      const { draw } = start();
+
+      draw.setMode('draw-point');
+      expect(draw.undoLastVertex()).toBe(false);
+      draw.setMode('select');
+      expect(draw.undoLastVertex()).toBe(false);
+      draw.setMode('idle');
+      expect(draw.undoLastVertex()).toBe(false);
+    });
+  });
+
+  describe('toolbar toggle (item X)', () => {
+    const toggle = (map: FakeMap) =>
+      map
+        .getContainer()
+        .querySelector<HTMLButtonElement>('button[data-libre-draw-button="input-method"]');
+
+    it('switches the input method and shows it as pressed', () => {
+      const { map, draw, reticle } = start({ toolbar: true, inputMethod: 'tap' });
+      draw.setMode('draw-polygon');
+      const button = toggle(map)!;
+      expect(button.getAttribute('aria-pressed')).toBe('false');
+
+      button.click();
+      expect(draw.getInputMethod()).toBe('reticle');
+      expect(button.getAttribute('aria-pressed')).toBe('true');
+      expect(reticle().style.display).toBe('block');
+
+      button.click();
+      expect(draw.getInputMethod()).toBe('tap');
+      expect(button.getAttribute('aria-pressed')).toBe('false');
+      expect(reticle().style.display).toBe('none');
+    });
+
+    it('follows changes made through the public method and the option', () => {
+      const { map, draw } = start({ toolbar: true });
+      const button = toggle(map)!;
+      expect(button.getAttribute('aria-pressed')).toBe('true');
+
+      draw.setInputMethod('tap');
+      expect(button.getAttribute('aria-pressed')).toBe('false');
+    });
+
+    it('can be hidden with controls, leaving the option and methods working', () => {
+      const { map, draw } = start({ toolbar: { controls: { inputMethod: false } } });
+
+      expect(toggle(map)).toBeNull();
+      expect(draw.getInputMethod()).toBe('reticle');
+      draw.setInputMethod('tap');
+      expect(draw.getInputMethod()).toBe('tap');
+    });
+
+    it('is labelled from the locale and the messages option', () => {
+      const ja = start({ toolbar: true, locale: 'ja' });
+      expect(toggle(ja.map)!.getAttribute('aria-label')).toBe('中央十字で打点');
+      expect(ja.button('完了')).not.toBeNull();
+      expect(ja.button('1 つ戻す')).not.toBeNull();
+      ja.draw.destroy();
+      ja.map.getContainer().remove();
+      current = null;
+
+      const custom = start({
+        toolbar: true,
+        messages: { toolbarInputMethod: 'Crosshair', reticleFinish: 'Done' },
+      });
+      expect(toggle(custom.map)!.title).toBe('Crosshair');
+      expect(custom.button('Done')).not.toBeNull();
+    });
   });
 
   it('removes the reticle and stops following the map on destroy', () => {

@@ -254,7 +254,11 @@ export class LibreDraw {
       },
       selection: this.selection,
       events: {
-        emit: (type, payload) => this.eventBus.emit(type, payload),
+        emit: (type, payload) => {
+          this.eventBus.emit(type, payload);
+          // The reticle's undo / finish buttons follow the draft.
+          if (type === 'draftchange') this.syncReticleActions();
+        },
       },
       render: {
         renderFeatures: () => this.renderAllFeatures(),
@@ -371,9 +375,23 @@ export class LibreDraw {
       () => this.modeManager.getCurrentMode(),
       () => this.isReticleActive()
     );
+    // The buttons call the modes directly (not the public methods) so
+    // their events are stamped origin: 'user', like the toolbar's.
     this.reticleOverlay = new ReticleOverlay(
       map,
-      { onAddPoint: () => this.reticleInput.addPoint() },
+      {
+        onAddPoint: () => this.reticleInput.addPoint(),
+        onUndoVertex: () => {
+          const mode = this.modeManager.getCurrentMode();
+          if (isDraftCapableMode(mode) && mode.undoLastVertex()) {
+            this.reticleInput.syncPreview();
+          }
+        },
+        onFinish: () => {
+          const mode = this.modeManager.getCurrentMode();
+          if (isDraftCapableMode(mode)) mode.finishDrawing();
+        },
+      },
       this.messages
     );
 
@@ -1108,12 +1126,37 @@ export class LibreDraw {
         `Unsupported input method: ${String(method)}. Use 'tap' or 'reticle'.`
       );
     }
-    if (method === this.inputMethod) return;
-    this.inputMethod = method;
+    this.applyInputMethod(method);
+  }
 
+  /**
+   * Take back the last placed point of the in-progress draft, as a touch
+   * long press does.
+   *
+   * - `'draw-polygon'` / `'draw-line'`: removes the last vertex.
+   * - `'draw-rectangle'`: discards the first corner.
+   * - `'draw-angled-rectangle'`: removes the last base-edge point (2 → 1 → 0).
+   *
+   * Emits `'draftchange'` when a point was removed. The mode stays active.
+   *
+   * @returns `true` when a point was removed; `false` when the draft is
+   *   empty or no drawing mode with a draft is active.
+   *
+   * @throws {LibreDrawError} If this instance has been destroyed.
+   *
+   * @example
+   * ```ts
+   * undoButton.onclick = () => draw.undoLastVertex();
+   * ```
+   */
+  undoLastVertex(): boolean {
+    this.assertNotDestroyed();
     const mode = this.modeManager.getCurrentMode();
-    if (mode) this.applyMapInteractions(mode.mapInteractions());
-    this.syncReticle();
+    if (!isDraftCapableMode(mode)) return false;
+    const removed = this.asApi(() => mode.undoLastVertex());
+    // Point the preview at the reticle again (no-op with tap input).
+    if (removed) this.reticleInput.syncPreview();
+    return removed;
   }
 
   /**
@@ -1436,6 +1479,9 @@ export class LibreDraw {
             current === 'draw-angled-rectangle' ? 'idle' : 'draw-angled-rectangle'
           );
         },
+        onInputMethodClick: () => {
+          this.applyInputMethod(this.inputMethod === 'reticle' ? 'tap' : 'reticle');
+        },
         onSelectClick: () => {
           const current = this.modeManager.getMode();
           this.modeManager.setMode(current === 'select' ? 'idle' : 'select');
@@ -1493,6 +1539,7 @@ export class LibreDraw {
 
     // Set initial states
     this.toolbar.setActiveMode(this.modeManager.getMode());
+    this.toolbar.setInputMethod(this.inputMethod);
     this.toolbar.setHistoryState(this.historyManager.canUndo(), this.historyManager.canRedo());
   }
 
@@ -1531,13 +1578,45 @@ export class LibreDraw {
   }
 
   /**
-   * Show or hide the reticle UI for the current mode and input method, and
-   * move the preview to the reticle when it takes over.
+   * Switch the input method (already validated) and bring the map
+   * interactions, the reticle UI and the toolbar toggle in line.
+   */
+  private applyInputMethod(method: InputMethod): void {
+    if (method === this.inputMethod) return;
+    this.inputMethod = method;
+
+    const mode = this.modeManager.getCurrentMode();
+    if (mode) this.applyMapInteractions(mode.mapInteractions());
+    this.toolbar?.setInputMethod(method);
+    this.syncReticle();
+  }
+
+  /**
+   * Show or hide the reticle UI for the current mode and input method, move
+   * the preview to the reticle when it takes over, and set the buttons.
    */
   private syncReticle(): void {
     const active = this.isReticleActive();
     this.reticleOverlay.setVisible(active);
-    if (active) this.reticleInput.syncPreview();
+    if (!active) return;
+    this.reticleInput.syncPreview();
+    this.syncReticleActions();
+  }
+
+  /**
+   * Enable the reticle's undo / finish buttons for the current draft. Kept
+   * apart from {@link syncReticle} because it also runs on `draftchange`,
+   * in the middle of a mode's own handler, where feeding the mode a pointer
+   * move would re-enter it.
+   */
+  private syncReticleActions(): void {
+    if (!this.isReticleActive()) return;
+    const mode = this.modeManager.getCurrentMode();
+    const draft = isDraftCapableMode(mode) ? mode : null;
+    this.reticleOverlay.setActionState({
+      canUndo: (draft?.getDraftVertexCount() ?? 0) > 0,
+      canFinish: draft?.canFinishDrawing() ?? false,
+    });
   }
 
   /**

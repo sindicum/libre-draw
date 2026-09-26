@@ -4,6 +4,16 @@ import { MESSAGES_EN } from './messages';
 
 export interface ReticleOverlayCallbacks {
   onAddPoint(): void;
+  onUndoVertex(): void;
+  onFinish(): void;
+}
+
+/**
+ * Which action bar buttons can do something right now.
+ */
+export interface ReticleActionState {
+  canUndo: boolean;
+  canFinish: boolean;
 }
 
 /**
@@ -24,7 +34,8 @@ const RETICLE_SVG = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 80 80"
 /**
  * The on-map UI of the center reticle input method: a crosshair fixed at
  * the center of the map and an action bar at the bottom center with the
- * "Add point" button.
+ * "Undo point", "Add point" and "Finish" buttons (the main action in the
+ * middle).
  *
  * Mounted directly on the map container rather than in the toolbar, so it
  * is available with `toolbar: false` too. The action bar sits at the bottom
@@ -35,7 +46,9 @@ const RETICLE_SVG = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 80 80"
 export class ReticleOverlay {
   private reticle: HTMLDivElement;
   private bar: HTMLDivElement;
+  private undoButton: HTMLButtonElement;
   private addPointButton: HTMLButtonElement;
+  private finishButton: HTMLButtonElement;
   private callbacks: ReticleOverlayCallbacks;
 
   constructor(
@@ -56,13 +69,10 @@ export class ReticleOverlay {
     this.bar.className = 'libre-draw-reticle-bar';
     this.applyBarStyles();
 
-    this.addPointButton = document.createElement('button');
-    this.addPointButton.type = 'button';
-    this.addPointButton.textContent = messages.reticleAddPoint;
-    this.addPointButton.setAttribute('aria-label', messages.reticleAddPoint);
-    this.applyButtonStyles(this.addPointButton);
-    this.addPointButton.addEventListener('click', this.handleAddPoint);
-    this.bar.appendChild(this.addPointButton);
+    this.undoButton = this.createButton(messages.reticleUndoVertex, this.handleUndoVertex);
+    this.addPointButton = this.createButton(messages.reticleAddPoint, this.handleAddPoint);
+    this.finishButton = this.createButton(messages.reticleFinish, this.handleFinish);
+    this.setActionState({ canUndo: false, canFinish: false });
 
     const container = map.getContainer();
     container.appendChild(this.reticle);
@@ -76,17 +86,57 @@ export class ReticleOverlay {
     this.bar.style.display = visible ? 'flex' : 'none';
   }
 
+  /**
+   * Enable or disable the buttons whose action depends on the draft.
+   * "Add point" is always enabled while the bar is shown.
+   */
+  setActionState(state: ReticleActionState): void {
+    this.setDisabled(this.undoButton, !state.canUndo);
+    this.setDisabled(this.finishButton, !state.canFinish);
+  }
+
   destroy(): void {
+    this.undoButton.removeEventListener('click', this.handleUndoVertex);
     this.addPointButton.removeEventListener('click', this.handleAddPoint);
+    this.finishButton.removeEventListener('click', this.handleFinish);
     this.reticle.remove();
     this.bar.remove();
   }
 
+  private handleUndoVertex = (e: MouseEvent): void => {
+    this.handleClick(e, () => this.callbacks.onUndoVertex());
+  };
+
   private handleAddPoint = (e: MouseEvent): void => {
+    this.handleClick(e, () => this.callbacks.onAddPoint());
+  };
+
+  private handleFinish = (e: MouseEvent): void => {
+    this.handleClick(e, () => this.callbacks.onFinish());
+  };
+
+  private handleClick(e: MouseEvent, action: () => void): void {
     e.preventDefault();
     e.stopPropagation();
-    this.callbacks.onAddPoint();
-  };
+    action();
+  }
+
+  private createButton(label: string, onClick: (e: MouseEvent) => void): HTMLButtonElement {
+    const button = document.createElement('button');
+    button.type = 'button';
+    button.textContent = label;
+    button.setAttribute('aria-label', label);
+    this.applyButtonStyles(button);
+    button.addEventListener('click', onClick);
+    this.bar.appendChild(button);
+    return button;
+  }
+
+  private setDisabled(button: HTMLButtonElement, disabled: boolean): void {
+    button.disabled = disabled;
+    button.style.opacity = disabled ? '0.4' : '1';
+    button.style.cursor = disabled ? 'not-allowed' : 'pointer';
+  }
 
   private applyReticleStyles(): void {
     const s = this.reticle.style;
@@ -122,7 +172,8 @@ export class ReticleOverlay {
 
   private applyButtonStyles(button: HTMLButtonElement): void {
     const s = button.style;
-    // The touch target size (F-014): this is the only way to place a point.
+    // The touch target size (F-014): these are the only way to place,
+    // take back and finish points while the reticle is in use.
     s.minWidth = '44px';
     s.height = '44px';
     s.padding = '0 16px';

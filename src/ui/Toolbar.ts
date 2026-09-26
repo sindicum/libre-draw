@@ -1,5 +1,5 @@
 import type { Map as MaplibreMap } from 'maplibre-gl';
-import type { ToolbarOptions, ToolbarControls } from '../types/options';
+import type { ToolbarOptions, ToolbarControls, InputMethod } from '../types/options';
 import type { PartialStyleConfig } from '../types/style';
 import type { Messages } from '../types/messages';
 import { MESSAGES_EN } from './messages';
@@ -9,6 +9,7 @@ import { drawLineIcon } from './icons/draw-line';
 import { drawPolygonIcon } from './icons/draw-polygon';
 import { drawRectangleIcon } from './icons/draw-rectangle';
 import { drawAngledRectangleIcon } from './icons/draw-angled-rectangle';
+import { inputMethodIcon } from './icons/input-method';
 import { selectIcon } from './icons/select';
 import { splitIcon } from './icons/split';
 import { unionIcon } from './icons/union';
@@ -32,6 +33,7 @@ const DEFAULT_CONTROLS: Required<ToolbarControls> = {
   drawPolygon: true,
   drawRectangle: true,
   drawAngledRectangle: true,
+  inputMethod: true,
   select: true,
   split: true,
   union: true,
@@ -52,6 +54,7 @@ export interface ToolbarCallbacks {
   onDrawPolygonClick(): void;
   onDrawRectangleClick(): void;
   onDrawAngledRectangleClick(): void;
+  onInputMethodClick(): void;
   onSelectClick(): void;
   onSplitClick(): void;
   onUnionClick(): void;
@@ -165,6 +168,15 @@ export class Toolbar {
     }
     this.updateRotateInputVisibility();
     this.updateUnionExecuteVisibility();
+  }
+
+  /**
+   * Show the input method on the toggle: pressed while the center reticle
+   * is chosen. The facade calls this for every change, from the toggle or
+   * from the public API, so the toolbar holds no state of its own.
+   */
+  setInputMethod(method: InputMethod): void {
+    this.buttons.get('input-method')?.setActive(method === 'reticle');
   }
 
   /**
@@ -309,6 +321,19 @@ export class Toolbar {
         this.messages.toolbarDrawAngledRectangle,
         () => {
           this.callbacks.onDrawAngledRectangleClick();
+        },
+        true
+      );
+    }
+
+    // Right after the drawing modes: the input method only applies to them.
+    if (controls.inputMethod) {
+      this.addButton(
+        'input-method',
+        inputMethodIcon,
+        this.messages.toolbarInputMethod,
+        () => {
+          this.callbacks.onInputMethodClick();
         },
         true
       );

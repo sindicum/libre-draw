@@ -173,8 +173,7 @@ export class DrawRectangleMode implements DraftCapableMode {
 
   onLongPress(_event: NormalizedInputEvent): void {
     if (!this.isActive) return;
-    // Touch equivalent of "undo last point": discard the first corner.
-    this.cancelDrawing();
+    this.undoLastVertex();
   }
 
   onKeyDown(key: string, _event: KeyboardEvent): void {
@@ -214,6 +213,23 @@ export class DrawRectangleMode implements DraftCapableMode {
    */
   getDraftVertexCount(): number {
     return this.isActive && this.firstCorner !== null ? 1 : 0;
+  }
+
+  /**
+   * "Undo last point" for a rectangle: discard the first corner.
+   * @returns `true` when a first corner was discarded.
+   */
+  undoLastVertex(): boolean {
+    if (!this.isActive || this.firstCorner === null) return false;
+    this.cancelDrawing();
+    return true;
+  }
+
+  /**
+   * @returns Always `false`: the second corner finishes the rectangle.
+   */
+  canFinishDrawing(): boolean {
+    return false;
   }
 
   /**

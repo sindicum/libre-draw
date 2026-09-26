@@ -25,6 +25,8 @@ export interface ToolbarControls {
   drawPolygon?: boolean;
   drawRectangle?: boolean;
   drawAngledRectangle?: boolean;
+  /** Toggle between tap input and the center reticle (`InputMethod`). */
+  inputMethod?: boolean;
   select?: boolean;
   split?: boolean;
   setback?: boolean;

@@ -91,6 +91,20 @@ export interface DraftCapableMode extends Mode {
    *   `0` when the mode is inactive.
    */
   getDraftVertexCount(): number;
+
+  /**
+   * Take back the last placed point of the draft, as a touch long press
+   * does. Emits `draftchange` when something was removed.
+   * @returns `true` when a point was removed, `false` when the draft was
+   *   empty or the mode is inactive.
+   */
+  undoLastVertex(): boolean;
+
+  /**
+   * @returns Whether {@link finishDrawing} would succeed now. Modes that
+   *   finish on their last point (rectangles) always return `false`.
+   */
+  canFinishDrawing(): boolean;
 }
 
 /**
@@ -102,6 +116,8 @@ export function isDraftCapableMode(mode: Mode | undefined): mode is DraftCapable
   return (
     typeof candidate.finishDrawing === 'function' &&
     typeof candidate.cancelDrawing === 'function' &&
-    typeof candidate.getDraftVertexCount === 'function'
+    typeof candidate.getDraftVertexCount === 'function' &&
+    typeof candidate.undoLastVertex === 'function' &&
+    typeof candidate.canFinishDrawing === 'function'
   );
 }

@@ -16,6 +16,8 @@ export interface Messages {
   toolbarDrawPolygon: string;
   toolbarDrawRectangle: string;
   toolbarDrawAngledRectangle: string;
+  /** Toggle between tap input and the center reticle. */
+  toolbarInputMethod: string;
   toolbarSelect: string;
   toolbarSplit: string;
   toolbarUnion: string;
@@ -51,6 +53,10 @@ export interface Messages {
   // Center reticle action bar
   /** Visible text and aria-label of the button that places a point at the reticle. */
   reticleAddPoint: string;
+  /** Visible text and aria-label of the button that takes back the last point. */
+  reticleUndoVertex: string;
+  /** Visible text and aria-label of the button that finishes the line or polygon. */
+  reticleFinish: string;
 
   // Style settings panel: section headers
   styleFeatureSection: string;

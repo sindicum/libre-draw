@@ -9,6 +9,7 @@ export const MESSAGES_EN: Messages = {
   toolbarDrawPolygon: 'Draw polygon',
   toolbarDrawRectangle: 'Draw rectangle',
   toolbarDrawAngledRectangle: 'Draw angled rectangle',
+  toolbarInputMethod: 'Place points with the center reticle',
   toolbarSelect: 'Select feature',
   toolbarSplit: 'Split feature',
   toolbarUnion: 'Union polygons',
@@ -31,6 +32,8 @@ export const MESSAGES_EN: Messages = {
   unionExecuteLabel: 'Merge selected polygons',
 
   reticleAddPoint: 'Add point',
+  reticleUndoVertex: 'Undo point',
+  reticleFinish: 'Finish',
 
   styleFeatureSection: 'Feature style',
   styleSelectedSection: 'Selected style',
@@ -66,6 +69,7 @@ export const MESSAGES_JA: Messages = {
   toolbarDrawPolygon: 'ポリゴンを描く',
   toolbarDrawRectangle: '矩形を描く',
   toolbarDrawAngledRectangle: '角度付き矩形を描く',
+  toolbarInputMethod: '中央十字で打点',
   toolbarSelect: '地物を選択',
   toolbarSplit: '地物を分割',
   toolbarUnion: 'ポリゴンを統合',
@@ -88,6 +92,8 @@ export const MESSAGES_JA: Messages = {
   unionExecuteLabel: '選択したポリゴンを統合',
 
   reticleAddPoint: '点を追加',
+  reticleUndoVertex: '1 つ戻す',
+  reticleFinish: '完了',
 
   styleFeatureSection: '地物スタイル',
   styleSelectedSection: '選択時スタイル',

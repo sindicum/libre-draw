@@ -149,13 +149,7 @@ export class DrawAngledRectangleMode implements DraftCapableMode {
   onLongPress(_event: NormalizedInputEvent): void {
     if (!this.isActive) return;
     this.resetPointer();
-    // Touch equivalent of "undo last point", as in the polygon and line modes.
-    if (this.points.length === 0) return;
-    this.points.pop();
-    this.context.render.clearPreview();
-    this.context.render.clearSnapIndicator();
-    this.renderPoints();
-    this.emitDraftChange();
+    this.undoLastVertex();
   }
 
   onKeyDown(key: string, _event: KeyboardEvent): void {
@@ -193,6 +187,28 @@ export class DrawAngledRectangleMode implements DraftCapableMode {
    */
   getDraftVertexCount(): number {
     return this.isActive ? this.points.length : 0;
+  }
+
+  /**
+   * Remove the last placed base-edge point (2 → 1 → 0), as in the polygon
+   * and line modes.
+   * @returns `true` when a point was removed.
+   */
+  undoLastVertex(): boolean {
+    if (!this.isActive || this.points.length === 0) return false;
+    this.points.pop();
+    this.context.render.clearPreview();
+    this.context.render.clearSnapIndicator();
+    this.renderPoints();
+    this.emitDraftChange();
+    return true;
+  }
+
+  /**
+   * @returns Always `false`: the width point finishes the rectangle.
+   */
+  canFinishDrawing(): boolean {
+    return false;
   }
 
   /**

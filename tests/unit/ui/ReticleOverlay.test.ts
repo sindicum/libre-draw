@@ -7,12 +7,13 @@ function createOverlay(messages?: typeof MESSAGES_JA) {
   const container = document.createElement('div');
   document.body.appendChild(container);
   const map = { getContainer: () => container } as unknown as MaplibreMap;
-  const callbacks = { onAddPoint: vi.fn() };
+  const callbacks = { onAddPoint: vi.fn(), onUndoVertex: vi.fn(), onFinish: vi.fn() };
   const overlay = new ReticleOverlay(map, callbacks, messages);
   const reticle = container.querySelector<HTMLDivElement>('.libre-draw-reticle')!;
   const bar = container.querySelector<HTMLDivElement>('.libre-draw-reticle-bar')!;
-  const button = bar.querySelector('button')!;
-  return { container, overlay, callbacks, reticle, bar, button };
+  const buttons = Array.from(bar.querySelectorAll('button'));
+  const [undo, button, finish] = buttons;
+  return { container, overlay, callbacks, reticle, bar, buttons, undo, button, finish };
 }
 
 describe('ReticleOverlay', () => {
@@ -88,14 +89,87 @@ describe('ReticleOverlay', () => {
     expect(mapClick).not.toHaveBeenCalled();
   });
 
+  it('orders the buttons undo, add point, finish, each a 44px touch target', () => {
+    const { buttons } = createOverlay();
+
+    expect(buttons.map((b) => b.getAttribute('aria-label'))).toEqual([
+      'Undo point',
+      'Add point',
+      'Finish',
+    ]);
+    for (const b of buttons) {
+      expect(b.type).toBe('button');
+      expect(b.textContent).toBe(b.getAttribute('aria-label'));
+      expect(b.style.height).toBe('44px');
+      expect(b.style.minWidth).toBe('44px');
+    }
+  });
+
+  it('labels all three buttons from the given messages', () => {
+    const { buttons } = createOverlay(MESSAGES_JA);
+
+    expect(buttons.map((b) => b.textContent)).toEqual(['1 つ戻す', '点を追加', '完了']);
+  });
+
+  it('starts with undo and finish disabled and add point enabled', () => {
+    const { undo, button, finish } = createOverlay();
+
+    expect(undo.disabled).toBe(true);
+    expect(finish.disabled).toBe(true);
+    expect(button.disabled).toBe(false);
+  });
+
+  it('enables undo and finish independently from the action state', () => {
+    const { overlay, undo, button, finish } = createOverlay();
+
+    overlay.setActionState({ canUndo: true, canFinish: false });
+    expect(undo.disabled).toBe(false);
+    expect(undo.style.opacity).toBe('1');
+    expect(finish.disabled).toBe(true);
+    expect(finish.style.opacity).toBe('0.4');
+
+    overlay.setActionState({ canUndo: false, canFinish: true });
+    expect(undo.disabled).toBe(true);
+    expect(finish.disabled).toBe(false);
+    expect(button.disabled).toBe(false);
+  });
+
+  it('calls onUndoVertex and onFinish on click without reaching the map', () => {
+    const { container, overlay, undo, finish, callbacks } = createOverlay();
+    const mapClick = vi.fn();
+    container.addEventListener('click', mapClick);
+    overlay.setActionState({ canUndo: true, canFinish: true });
+
+    undo.click();
+    finish.click();
+
+    expect(callbacks.onUndoVertex).toHaveBeenCalledOnce();
+    expect(callbacks.onFinish).toHaveBeenCalledOnce();
+    expect(callbacks.onAddPoint).not.toHaveBeenCalled();
+    expect(mapClick).not.toHaveBeenCalled();
+  });
+
+  it('does not call a disabled button', () => {
+    const { undo, finish, callbacks } = createOverlay();
+
+    undo.click();
+    finish.click();
+
+    expect(callbacks.onUndoVertex).not.toHaveBeenCalled();
+    expect(callbacks.onFinish).not.toHaveBeenCalled();
+  });
+
   it('removes its elements and stops listening on destroy', () => {
-    const { container, overlay, button, callbacks } = createOverlay();
+    const { container, overlay, buttons, callbacks } = createOverlay();
+    overlay.setActionState({ canUndo: true, canFinish: true });
 
     overlay.destroy();
-    button.click();
+    buttons.forEach((b) => b.click());
 
     expect(container.querySelector('.libre-draw-reticle')).toBeNull();
     expect(container.querySelector('.libre-draw-reticle-bar')).toBeNull();
     expect(callbacks.onAddPoint).not.toHaveBeenCalled();
+    expect(callbacks.onUndoVertex).not.toHaveBeenCalled();
+    expect(callbacks.onFinish).not.toHaveBeenCalled();
   });
 });

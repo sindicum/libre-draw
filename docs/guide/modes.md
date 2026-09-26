@@ -450,6 +450,8 @@ The drawing modes (`draw-point`, `draw-line`, `draw-polygon`, `draw-rectangle`, 
 | `'tap'` (default) | Click or tap the map, as described for each mode above.                                                |
 | `'reticle'`       | Move the map until the crosshair at its center is on the spot, then press **Add point** at the bottom. |
 
+Switch with the input method toggle in the toolbar (next to the drawing mode buttons; pressed while the reticle is in use), with the `inputMethod` option, or with `setInputMethod()`. Hide the toggle with `toolbar: { controls: { inputMethod: false } }`.
+
 The center reticle is meant for fingers on a phone in the field: a finger hides the spot it taps and cannot hit it precisely, while the crosshair stays visible and the map can be positioned exactly.
 
 ```ts
@@ -463,11 +465,17 @@ draw.getInputMethod(); // 'reticle'
 
 While the reticle is in use in a drawing mode:
 
-- A crosshair is shown at the center of the map and an action bar with an **Add point** button at the bottom center (44 px touch target). Both are shown with `toolbar: false` too.
+- A crosshair is shown at the center of the map and an action bar at the bottom center with three buttons (44 px touch targets). Both are shown with `toolbar: false` too.
 - The map always pans with drag and zooms with pinch — also in `draw-polygon` and `draw-line`, where dragging does not pan with tap input. Clicks and taps on the map place nothing.
 - **Add point** follows the same rules as a tap at the crosshair: it snaps to nearby vertices and edges, and adding on the first vertex (polygon) or the last vertex (polygon, line) finishes the drawing. Two points make a rectangle, three an angled rectangle.
 - The preview and the snap indicator follow the crosshair as the map moves, so you see the next edge before adding the point.
 - `finishDrawing()`, `cancelDrawing()` and Escape work as with tap input.
+
+| Button         | Action                                                                                                                                                  | Enabled when                                                                                                                                                                                       |
+| -------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Undo point** | Takes back the last point, like a long press with tap input: the last vertex, a rectangle's first corner, or an angled rectangle's last base-edge point | The draft has a point                                                                                                                                                                              |
+| **Add point**  | Places a point at the crosshair                                                                                                                         | Always                                                                                                                                                                                             |
+| **Finish**     | Finishes the drawing, like `finishDrawing()`                                                                                                            | A polygon has 3+ vertices and would not cross itself when closed, or a line has 2+ vertices. Never in `draw-point`, `draw-rectangle` and `draw-angled-rectangle`, which finish on their last point |
 
 Other modes (`select`, `split`, `union`, `setback`, `rotate`) show no crosshair and keep working with clicks and taps.
 
