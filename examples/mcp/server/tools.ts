@@ -58,7 +58,7 @@ export const TOOLS = {
   },
   union: {
     description:
-      'Merge two or more touching Polygons into one (ids in the order that decides whose properties survive; fails without changes if any polygon does not connect to the others). Returns an OperationResult.',
+      'Merge two or more touching Polygons into one. The merged polygon gets a new id and keeps the properties of the first id in ids. Fails without changes if any polygon does not connect to the others. Returns an OperationResult.',
     inputSchema: z.object({ ids: z.array(z.string()) }),
   },
   select_feature: {
