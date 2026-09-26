@@ -674,3 +674,51 @@ describe('DrawLineMode guards and hover', () => {
     expect(context.render.renderSnapIndicator).toHaveBeenLastCalledWith([5, 5]);
   });
 });
+
+describe('DrawLineMode with an onComplete hook', () => {
+  function twoPoints(mode: DrawLineMode): void {
+    clickAt(mode, 0, 0);
+    clickAt(mode, 10, 0);
+  }
+
+  it('hands the line to the hook instead of creating a feature', () => {
+    const context = createMockContext();
+    const onComplete = vi.fn(() => true);
+    const mode = new DrawLineMode(context, { onComplete });
+    mode.activate();
+    twoPoints(mode);
+
+    expect(mode.finishDrawing()).toBe(true);
+
+    expect(onComplete).toHaveBeenCalledWith([
+      [0, 0],
+      [10, 0],
+    ]);
+    expect(context.store.add).not.toHaveBeenCalled();
+    expect(context.history.push).not.toHaveBeenCalled();
+    expect(context.events.emit).not.toHaveBeenCalledWith('create', expect.anything());
+    expect(mode.getDraftVertexCount()).toBe(0);
+  });
+
+  it('returns the hook result and clears the draft even when the hook fails', () => {
+    const context = createMockContext();
+    const mode = new DrawLineMode(context, { onComplete: () => false });
+    mode.activate();
+    twoPoints(mode);
+
+    expect(mode.finishDrawing()).toBe(false);
+
+    expect(mode.getDraftVertexCount()).toBe(0);
+    expect(context.events.emit).toHaveBeenLastCalledWith('draftchange', { vertexCount: 0 });
+  });
+
+  it('does not call the hook when the draft cannot be finished', () => {
+    const onComplete = vi.fn(() => true);
+    const mode = new DrawLineMode(createMockContext(), { onComplete });
+    mode.activate();
+    clickAt(mode, 0, 0);
+
+    expect(mode.finishDrawing()).toBe(false);
+    expect(onComplete).not.toHaveBeenCalled();
+  });
+});

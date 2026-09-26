@@ -1,5 +1,11 @@
 import type { FeatureProperties, LibreDrawFeature, LibreDrawGeometry } from './features';
-import type { CutFailReason, SetbackFailReason, SplitFailReason, UnionFailReason } from './events';
+import type {
+  CutFailReason,
+  ReshapeFailReason,
+  SetbackFailReason,
+  SplitFailReason,
+  UnionFailReason,
+} from './events';
 
 /**
  * Result of a successful editing operation.
@@ -44,7 +50,7 @@ export interface OperationFailure {
  *
  * Operations never throw for a geometric or validation failure; they
  * return this instead. Returned by `setFeatures`, `updateFeature`,
- * `rotate`, `split`, `setback`, and `union`.
+ * `rotate`, `split`, `setback`, `union`, `cut`, and `reshape`.
  */
 export type OperationResult = OperationSuccess | OperationFailure;
 
@@ -165,3 +171,19 @@ export type UnionOperationFailReason = 'not-found' | 'unsupported-count' | Union
  *   vertices, a non-numeric position, or a self-intersection
  */
 export type CutOperationFailReason = 'not-found' | 'not-polygon' | 'invalid-cutter' | CutFailReason;
+
+/**
+ * Failure codes of {@link LibreDraw.reshape}. Geometric failures reuse the
+ * `ReshapeFailReason` codes of the `reshapefailed` event and emit that
+ * event; the argument errors below emit nothing.
+ *
+ * - `not-found`: no feature has that id
+ * - `not-polygon`: the feature is not a Polygon
+ * - `invalid-line`: the line has fewer than two positions, or a
+ *   non-numeric position
+ */
+export type ReshapeOperationFailReason =
+  | 'not-found'
+  | 'not-polygon'
+  | 'invalid-line'
+  | ReshapeFailReason;

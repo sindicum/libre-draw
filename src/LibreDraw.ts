@@ -46,6 +46,7 @@ import { split as splitOperation } from './operations/split';
 import { setback as setbackOperation } from './operations/setback';
 import { union as unionOperation } from './operations/union';
 import { cut as cutOperation } from './operations/cut';
+import { reshape as reshapeOperation } from './operations/reshape';
 import { IdleMode } from './modes/IdleMode';
 import { DrawPolygonMode } from './modes/DrawPolygonMode';
 import { DrawRectangleMode } from './modes/DrawRectangleMode';
@@ -58,6 +59,7 @@ import { SetbackMode } from './modes/SetbackMode';
 import { UnionMode } from './modes/UnionMode';
 import { RotateMode } from './modes/RotateMode';
 import { CutMode } from './modes/CutMode';
+import { ReshapeMode } from './modes/ReshapeMode';
 import type { MapInteractionConfig } from './modes/Mode';
 import { isDraftCapableMode } from './modes/Mode';
 import { InputHandler } from './input/InputHandler';
@@ -79,6 +81,12 @@ const DRAWING_MODES: ReadonlySet<ModeName> = new Set<ModeName>([
   'draw-rectangle',
   'draw-angled-rectangle',
 ]);
+
+/**
+ * Modes that pick a target polygon by tap and then draft on it; the center
+ * reticle drives them only once the target is set.
+ */
+const TARGETED_DRAFT_MODES: ReadonlySet<ModeName> = new Set<ModeName>(['cut', 'reshape']);
 
 /**
  * Runtime check for values that bypass the type (plain JS callers, casts).
@@ -132,6 +140,7 @@ export class LibreDraw {
   private rotateMode: RotateMode;
   private unionMode: UnionMode;
   private cutMode: CutMode;
+  private reshapeMode: ReshapeMode;
   private snapConfig: SnapConfig;
   private messages: Messages;
   private destroyed = false;
@@ -239,9 +248,11 @@ export class LibreDraw {
       );
       this.toolbar?.setUnionSelectionCount(selectedIds.length);
       this.modeManager.getCurrentMode()?.onSelectionChange?.(selectedIds);
-      // Cut mode drafts (and so hands over to the reticle) only while it
-      // has a target, which is the selection.
-      if (this.modeManager.getMode() === 'cut') this.syncInteractionsAndReticle();
+      // Cut and reshape modes draft (and so hand over to the reticle) only
+      // while they have a target, which is the selection.
+      if (TARGETED_DRAFT_MODES.has(this.modeManager.getMode())) {
+        this.syncInteractionsAndReticle();
+      }
     });
 
     // Mode setup
@@ -324,6 +335,7 @@ export class LibreDraw {
     this.setbackMode = new SetbackMode(modeContext);
     this.rotateMode = new RotateMode(modeContext);
     this.cutMode = new CutMode(modeContext);
+    this.reshapeMode = new ReshapeMode(modeContext);
 
     // Register modes
     this.modeManager.registerMode('idle', new IdleMode());
@@ -338,6 +350,7 @@ export class LibreDraw {
     this.modeManager.registerMode('setback', this.setbackMode);
     this.modeManager.registerMode('rotate', this.rotateMode);
     this.modeManager.registerMode('cut', this.cutMode);
+    this.modeManager.registerMode('reshape', this.reshapeMode);
 
     // Mode change event
     this.modeManager.setOnModeChange((mode, previousMode) => {
@@ -428,7 +441,7 @@ export class LibreDraw {
    * @param mode - `'idle'` (no interaction), `'draw-point'` / `'draw-line'` /
    *   `'draw-polygon'` / `'draw-rectangle'` / `'draw-angled-rectangle'` (create features),
    *   `'select'` (select/edit existing features), `'split'`, `'union'`,
-   *   `'setback'`, `'rotate'`, or `'cut'`.
+   *   `'setback'`, `'rotate'`, `'cut'`, or `'reshape'`.
    *
    * @throws {LibreDrawError} If this instance has been destroyed.
    * @throws {LibreDrawError} If `mode` is not one of the names above
@@ -961,6 +974,45 @@ export class LibreDraw {
   }
 
   /**
+   * Replace part of a Polygon's outer ring with a line.
+   *
+   * Same computation as the [`reshape` mode]: the line must cross the
+   * outer ring exactly twice, and the ring between the two crossings is
+   * replaced by the line. A line running outside the polygon adds area; one
+   * running inside removes it, keeping the larger piece. The ends of the
+   * line beyond the crossings are ignored, and may also end exactly on the
+   * ring. The polygon keeps its id, properties, and holes (which must still
+   * fit inside). Recorded as one undoable step and reported with a
+   * `'reshape'` event (`origin: 'api'`); undo and redo report `'update'`.
+   * A geometric failure also emits `'reshapefailed'` as the mode does.
+   *
+   * @param id - The Polygon to reshape.
+   * @param line - The new stretch of boundary, as at least two positions.
+   * @returns `{ ok: true, updated: [reshaped] }`, or `{ ok: false, reason }`
+   *   with `'not-found'`, `'not-polygon'`, `'invalid-line'`, or a
+   *   {@link ReshapeFailReason}. Nothing changes on failure.
+   *
+   * @throws {LibreDrawError} If this instance has been destroyed.
+   *
+   * @example
+   * ```ts
+   * // Push the east side of a square out to a point.
+   * const result = draw.reshape('abc-123', [
+   *   [139.701, 35.6605],
+   *   [139.704, 35.661],
+   *   [139.701, 35.6615],
+   * ]);
+   * if (!result.ok) console.warn(result.reason);
+   * ```
+   */
+  reshape(id: string, line: Position[]): OperationResult {
+    this.assertNotDestroyed();
+    const result = this.asApi(() => reshapeOperation(this.modeContext, id, line));
+    if (result.ok) this.syncAfterExternalChange();
+    return result;
+  }
+
+  /**
    * Programmatically select a feature by its ID.
    *
    * Switches to select mode if not already active. When no feature has
@@ -1306,7 +1358,8 @@ export class LibreDraw {
    *
    * Supported events: `'create'`, `'update'`, `'delete'`, `'split'`,
    * `'splitfailed'`, `'setback'`, `'setbackfailed'`, `'union'`, `'unionfailed'`, `'cut'`,
-   * `'cutfailed'`, `'rotate'`, `'selectionchange'`, `'modechange'`, `'draftchange'`.
+   * `'cutfailed'`, `'reshape'`, `'reshapefailed'`, `'rotate'`, `'selectionchange'`,
+   * `'modechange'`, `'draftchange'`.
    *
    * @param type - The event type to listen for.
    * @param listener - The callback to invoke when the event fires.
@@ -1560,6 +1613,10 @@ export class LibreDraw {
           const current = this.modeManager.getMode();
           this.modeManager.setMode(current === 'cut' ? 'idle' : 'cut');
         },
+        onReshapeClick: () => {
+          const current = this.modeManager.getMode();
+          this.modeManager.setMode(current === 'reshape' ? 'idle' : 'reshape');
+        },
         onRotateClick: () => {
           const current = this.modeManager.getMode();
           this.modeManager.setMode(current === 'rotate' ? 'idle' : 'rotate');
@@ -1629,14 +1686,19 @@ export class LibreDraw {
   private isReticleActive(): boolean {
     if (this.inputMethod !== 'reticle') return false;
     const mode = this.modeManager.getMode();
-    // Cut mode picks its target by tap; only the cutter is drafted with the reticle.
-    return DRAWING_MODES.has(mode) || (mode === 'cut' && this.cutMode.isDrafting());
+    // Cut and reshape modes pick their target by tap; only the cutter or the
+    // line is drafted with the reticle.
+    return (
+      DRAWING_MODES.has(mode) ||
+      (mode === 'cut' && this.cutMode.isDrafting()) ||
+      (mode === 'reshape' && this.reshapeMode.isDrafting())
+    );
   }
 
   /**
    * Apply the active mode's map interactions and show or hide the reticle.
-   * Runs on every mode change, and in cut mode on every selection change
-   * (the target decides whether the reticle drives the mode).
+   * Runs on every mode change, and in cut and reshape modes on every
+   * selection change (the target decides whether the reticle drives the mode).
    */
   private syncInteractionsAndReticle(): void {
     const mode = this.modeManager.getCurrentMode();

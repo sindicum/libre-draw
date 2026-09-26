@@ -50,6 +50,7 @@ const draw = new LibreDraw(map, {
       select: true,
       split: true,
       cut: true,
+      reshape: true,
       union: true,
       setback: true,
       rotate: true,
@@ -93,9 +94,9 @@ Switching modes deactivates the current mode (clearing any in-progress state) an
 
 **Parameters:**
 
-| Name   | Type                              | Description                                                                                                                                                                     |
-| ------ | --------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `mode` | [`ModeName`](/api/types#modename) | `'idle'`, `'draw-point'`, `'draw-line'`, `'draw-polygon'`, `'draw-rectangle'`, `'draw-angled-rectangle'`, `'select'`, `'split'`, `'union'`, `'setback'`, `'rotate'`, or `'cut'` |
+| Name   | Type                              | Description                                                                                                                                                                                  |
+| ------ | --------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `mode` | [`ModeName`](/api/types#modename) | `'idle'`, `'draw-point'`, `'draw-line'`, `'draw-polygon'`, `'draw-rectangle'`, `'draw-angled-rectangle'`, `'select'`, `'split'`, `'union'`, `'setback'`, `'rotate'`, `'cut'`, or `'reshape'` |
 
 **Returns:** `void`
 
@@ -120,7 +121,7 @@ draw.on('modechange', (e) => {
 
 Get the current drawing mode.
 
-**Returns:** [`ModeName`](/api/types#modename) — `'idle'`, `'draw-point'`, `'draw-line'`, `'draw-polygon'`, `'draw-rectangle'`, `'draw-angled-rectangle'`, `'select'`, `'split'`, `'union'`, `'setback'`, `'rotate'`, or `'cut'`.
+**Returns:** [`ModeName`](/api/types#modename) — `'idle'`, `'draw-point'`, `'draw-line'`, `'draw-polygon'`, `'draw-rectangle'`, `'draw-angled-rectangle'`, `'select'`, `'split'`, `'union'`, `'setback'`, `'rotate'`, `'cut'`, or `'reshape'`.
 
 **Throws:** [`LibreDrawError`](/api/types#libredrawerror) if this instance has been destroyed.
 
@@ -141,7 +142,7 @@ if (draw.getMode() === 'draw-polygon') {
 Choose how the drawing modes (`'draw-point'`, `'draw-line'`, `'draw-polygon'`, `'draw-rectangle'`, `'draw-angled-rectangle'`) take a point.
 
 - `'tap'` (default): a click or tap on the map places the point.
-- `'reticle'`: while a drawing mode is active, a crosshair is shown at the center of the map and an **Add point** button at the bottom. The map pans freely (also in `'draw-polygon'` / `'draw-line'`), clicks and taps on it place nothing, and the button places a point at the crosshair under the same rules as a tap: snapping applies, and adding on the first or last vertex finishes the polygon or line. The preview and the snap indicator follow the crosshair as the map moves. In `'cut'` mode the target is picked by click or tap, and the crosshair drafts the cutter once a target is selected. Other modes keep working with clicks and taps and show no crosshair.
+- `'reticle'`: while a drawing mode is active, a crosshair is shown at the center of the map and an **Add point** button at the bottom. The map pans freely (also in `'draw-polygon'` / `'draw-line'`), clicks and taps on it place nothing, and the button places a point at the crosshair under the same rules as a tap: snapping applies, and adding on the first or last vertex finishes the polygon or line. The preview and the snap indicator follow the crosshair as the map moves. In `'cut'` and `'reshape'` modes the target is picked by click or tap, and the crosshair drafts the cutter or the line once a target is selected. Other modes keep working with clicks and taps and show no crosshair.
 
 The setting is kept across mode changes, and changing it while drawing keeps the draft. The toolbar's input method toggle calls the same switch and shows the current method as pressed, also after a call to this method. The crosshair and the action bar (**Undo point**, **Add point**, **Finish**) do not depend on the toolbar, so they are also shown with `toolbar: false`. See [Input methods](/guide/modes#input-methods).
 
@@ -579,6 +580,37 @@ if (result.ok) console.log(result.updated[0]?.geometry.coordinates.length); // 2
 
 ---
 
+### `reshape(id, line)`
+
+Replace part of a Polygon's outer ring with a line.
+
+Same computation as the [`reshape` mode](/guide/modes#reshape-mode): the line must cross the outer ring exactly twice, and the stretch of the ring between the two crossings is replaced by the line. A line running outside the polygon adds area; one running inside removes it, keeping the larger piece. The ends of the line beyond the crossings are dropped, and may also end exactly on the ring. The polygon keeps its id, properties, and holes (which must still fit inside). Recorded as **one undoable step** and reported with a [`reshape`](/api/events#reshape) event (`origin: 'api'`); undo and redo report [`update`](/api/events#update). A geometric failure also emits [`reshapefailed`](/api/events#reshapefailed), as the mode does.
+
+**Parameters:**
+
+| Name   | Type                                  | Description                                            |
+| ------ | ------------------------------------- | ------------------------------------------------------ |
+| `id`   | `string`                              | The Polygon to reshape                                 |
+| `line` | [`Position`](/api/types#position)`[]` | The new stretch of boundary, as at least two positions |
+
+**Returns:** [`OperationResult`](/api/types#operationresult) — `{ ok: true, updated: [reshaped] }`, or `{ ok: false, reason }` with `'not-found'`, `'not-polygon'`, `'invalid-line'`, or a [`ReshapeFailReason`](/api/events#payload-reshapefailedevent) (see [`ReshapeOperationFailReason`](/api/types#reshapeoperationfailreason)). Nothing changes on failure.
+
+**Throws:** [`LibreDrawError`](/api/types#libredrawerror) if this instance has been destroyed.
+
+**Example:**
+
+```ts
+// Push the east side of a square out to a point.
+const result = draw.reshape('abc-123', [
+  [139.701, 35.6605],
+  [139.704, 35.661],
+  [139.701, 35.6615],
+]);
+if (!result.ok) console.warn(result.reason);
+```
+
+---
+
 ### `selectFeature(id)`
 
 Programmatically select a feature by its ID.
@@ -636,7 +668,7 @@ if (draw.selectFeatures(['a', 'b'])) {
 
 Get the IDs of currently selected features.
 
-Every mode shares one selection: select mode may hold several features, union the polygons picked for the merge, rotate / split / setback / cut at most their one target, and drawing modes none (switching modes clears the selection). IDs are returned in the order they were selected.
+Every mode shares one selection: select mode may hold several features, union the polygons picked for the merge, rotate / split / setback / cut / reshape at most their one target, and drawing modes none (switching modes clears the selection). IDs are returned in the order they were selected.
 
 **Returns:** `string[]`
 
@@ -773,7 +805,7 @@ draw.redo(); // re-applies the undone action
 
 ## Draft Control
 
-Programmatically control the in-progress draft of the `'draw-polygon'` (polygon), `'draw-line'` (linestring), `'draw-rectangle'`, and `'draw-angled-rectangle'` modes, and of the cutter in `'cut'` mode once a target is selected. Useful for implementing custom finish/cancel buttons or showing the current vertex count in a UI.
+Programmatically control the in-progress draft of the `'draw-polygon'` (polygon), `'draw-line'` (linestring), `'draw-rectangle'`, and `'draw-angled-rectangle'` modes, and of the cutter in `'cut'` mode and the line in `'reshape'` mode once a target is selected. Useful for implementing custom finish/cancel buttons or showing the current vertex count in a UI.
 
 ### `finishDrawing()`
 
@@ -781,9 +813,9 @@ Finalize the in-progress draft of the active drawing mode.
 
 On success, a feature is added to the store, a [`create`](/api/events#create) event fires, and a [`draftchange`](/api/events#draftchange) event with `vertexCount: 0` is emitted. The mode remains active so the user can start a new draft.
 
-In `'cut'` mode, finishing closes the cutter and runs the cut instead of adding a feature: a [`cut`](/api/events#cut) event fires on success, a [`cutfailed`](/api/events#cutfailed) event on failure (the target stays selected and the cutter is discarded either way).
+In `'cut'` mode, finishing closes the cutter and runs the cut instead of adding a feature: a [`cut`](/api/events#cut) event fires on success, a [`cutfailed`](/api/events#cutfailed) event on failure (the target stays selected and the cutter is discarded either way). In `'reshape'` mode, finishing runs the reshape with the line in the same way ([`reshape`](/api/events#reshape) / [`reshapefailed`](/api/events#reshapefailed)).
 
-**Returns:** `boolean` — `true` if the draft was finalized (in `'cut'` mode: if the cut succeeded), `false` if it could not be (non-drawing mode, insufficient vertices, or a polygon whose closing would produce a self-intersection). In `'draw-rectangle'` and `'draw-angled-rectangle'` modes this always returns `false`: the rectangle is only defined once its last point (the second corner, or the third point that sets the width) is clicked.
+**Returns:** `boolean` — `true` if the draft was finalized (in `'cut'` / `'reshape'` mode: if the operation succeeded), `false` if it could not be (non-drawing mode, insufficient vertices, or a polygon whose closing would produce a self-intersection). In `'draw-rectangle'` and `'draw-angled-rectangle'` modes this always returns `false`: the rectangle is only defined once its last point (the second corner, or the third point that sets the width) is clicked.
 
 **Throws:** [`LibreDrawError`](/api/types#libredrawerror) if this instance has been destroyed.
 
@@ -840,7 +872,7 @@ draw.on('draftchange', () => {
 
 Take back the last placed point of the in-progress draft, as a touch long press does. The center reticle's **Undo point** button does the same.
 
-- `'draw-polygon'` / `'draw-line'` / `'cut'`: removes the last vertex.
+- `'draw-polygon'` / `'draw-line'` / `'cut'` / `'reshape'`: removes the last vertex.
 - `'draw-rectangle'`: discards the first corner.
 - `'draw-angled-rectangle'`: removes the last base-edge point (`2` → `1` → `0`).
 
@@ -895,6 +927,8 @@ draw.on('union', (e) =>
 draw.on('unionfailed', (e) => console.log('Union failed:', e.reason, e.featureIds));
 draw.on('cut', (e) => console.log('Cut:', e.originalFeature.id, e.features));
 draw.on('cutfailed', (e) => console.log('Cut failed:', e.reason, e.featureId));
+draw.on('reshape', (e) => console.log('Reshaped:', e.feature.id));
+draw.on('reshapefailed', (e) => console.log('Reshape failed:', e.reason, e.featureId));
 draw.on('rotate', (e) => console.log('Rotated:', e.feature.id, e.angle));
 draw.on('selectionchange', (e) => console.log('Selected:', e.selectedIds));
 draw.on('modechange', (e) => console.log(`${e.previousMode} → ${e.mode}`));

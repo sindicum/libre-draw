@@ -33,6 +33,9 @@ export type {
   CutEvent,
   CutFailedEvent,
   CutFailReason,
+  ReshapeEvent,
+  ReshapeFailedEvent,
+  ReshapeFailReason,
   RotateEvent,
   SelectionChangeEvent,
   ModeChangeEvent,
@@ -55,6 +58,7 @@ export type {
   SetbackOperationFailReason,
   UnionOperationFailReason,
   CutOperationFailReason,
+  ReshapeOperationFailReason,
 } from './types';
 
 export type {

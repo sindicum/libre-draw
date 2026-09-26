@@ -34,6 +34,11 @@ function posEqual(a: Position, b: Position): boolean {
 /**
  * Compute the intersection point of two line segments.
  * Returns null if they are parallel/collinear or do not intersect within segment bounds.
+ *
+ * Parallelism is judged by the sine of the angle between the segments, not
+ * by the raw cross product: in degrees the cross product of two short
+ * segments (a metre or so) is below any fixed threshold even when they
+ * cross at a right angle.
  */
 export function computeIntersectionPoint(
   p1: Position,
@@ -47,7 +52,8 @@ export function computeIntersectionPoint(
   const sY = p4[1] - p3[1];
 
   const denom = rX * sY - rY * sX;
-  if (Math.abs(denom) < EPSILON) {
+  const lengths = Math.hypot(rX, rY) * Math.hypot(sX, sY);
+  if (lengths === 0 || Math.abs(denom) < EPSILON * lengths) {
     return null;
   }
 

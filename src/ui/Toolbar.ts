@@ -13,6 +13,7 @@ import { inputMethodIcon } from './icons/input-method';
 import { selectIcon } from './icons/select';
 import { splitIcon } from './icons/split';
 import { cutIcon } from './icons/cut';
+import { reshapeIcon } from './icons/reshape';
 import { unionIcon } from './icons/union';
 import { setbackIcon } from './icons/setback';
 import { rotateIcon } from './icons/rotate';
@@ -38,6 +39,7 @@ const DEFAULT_CONTROLS: Required<ToolbarControls> = {
   select: true,
   split: true,
   cut: true,
+  reshape: true,
   union: true,
   setback: true,
   rotate: true,
@@ -60,6 +62,7 @@ export interface ToolbarCallbacks {
   onSelectClick(): void;
   onSplitClick(): void;
   onCutClick(): void;
+  onReshapeClick(): void;
   onUnionClick(): void;
   onUnionExecute(): void;
   onSetbackClick(): void;
@@ -121,8 +124,8 @@ export class Toolbar {
   /**
    * Update the active mode displayed in the toolbar.
    * @param mode - The active mode name ('idle', 'draw-point', 'draw-line', 'draw-polygon',
-   *   'draw-rectangle', 'draw-angled-rectangle', 'select', 'split', 'cut', 'union', 'setback',
-   *   'rotate').
+   *   'draw-rectangle', 'draw-angled-rectangle', 'select', 'split', 'cut', 'reshape', 'union',
+   *   'setback', 'rotate').
    */
   setActiveMode(mode: string): void {
     this.activeMode = mode;
@@ -134,6 +137,7 @@ export class Toolbar {
     const selectBtn = this.buttons.get('select');
     const splitBtn = this.buttons.get('split');
     const cutBtn = this.buttons.get('cut');
+    const reshapeBtn = this.buttons.get('reshape');
     const unionBtn = this.buttons.get('union');
     const setbackBtn = this.buttons.get('setback');
     const rotateBtn = this.buttons.get('rotate');
@@ -161,6 +165,9 @@ export class Toolbar {
     }
     if (cutBtn) {
       cutBtn.setActive(mode === 'cut');
+    }
+    if (reshapeBtn) {
+      reshapeBtn.setActive(mode === 'reshape');
     }
     if (unionBtn) {
       unionBtn.setActive(mode === 'union');
@@ -378,6 +385,18 @@ export class Toolbar {
         this.messages.toolbarCut,
         () => {
           this.callbacks.onCutClick();
+        },
+        true
+      );
+    }
+
+    if (controls.reshape) {
+      this.addButton(
+        'reshape',
+        reshapeIcon,
+        this.messages.toolbarReshape,
+        () => {
+          this.callbacks.onReshapeClick();
         },
         true
       );

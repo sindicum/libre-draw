@@ -49,6 +49,7 @@ import type {
   SetbackOperationFailReason,
   UnionOperationFailReason,
   CutOperationFailReason,
+  ReshapeOperationFailReason,
 } from '@sindicum/libre-draw';
 ```
 
@@ -316,6 +317,7 @@ interface ToolbarControls {
   union?: boolean;
   rotate?: boolean;
   cut?: boolean;
+  reshape?: boolean;
   settings?: boolean;
   delete?: boolean;
   undo?: boolean;
@@ -337,6 +339,7 @@ interface ToolbarControls {
 | `union`               | `boolean` | `true`  | Show union mode toggle button                      |
 | `rotate`              | `boolean` | `true`  | Show rotate mode toggle button and angle input     |
 | `cut`                 | `boolean` | `true`  | Show cut mode toggle button                        |
+| `reshape`             | `boolean` | `true`  | Show reshape mode toggle button                    |
 | `settings`            | `boolean` | `true`  | Show style settings button and panel               |
 | `delete`              | `boolean` | `true`  | Show delete button                                 |
 | `undo`                | `boolean` | `true`  | Show undo button                                   |
@@ -375,6 +378,7 @@ interface Messages {
   toolbarSetback: string;
   toolbarRotate: string;
   toolbarCut: string;
+  toolbarReshape: string;
   toolbarSettings: string;
   toolbarDelete: string;
   toolbarUndo: string;
@@ -447,23 +451,25 @@ type ModeName =
   | 'setback'
   | 'union'
   | 'rotate'
-  | 'cut';
+  | 'cut'
+  | 'reshape';
 ```
 
-| Value                     | Description                                                                                             |
-| ------------------------- | ------------------------------------------------------------------------------------------------------- |
-| `'idle'`                  | No drawing interaction. Map behaves normally.                                                           |
-| `'draw-point'`            | Place point features by clicking/tapping.                                                               |
-| `'draw-line'`             | Create lines by clicking/tapping vertices, click the last one to finalize.                              |
-| `'draw-polygon'`          | Create polygons by clicking/tapping vertices, click the first or last one.                              |
-| `'draw-rectangle'`        | Create an axis-aligned rectangle by clicking/tapping two opposite corners.                              |
-| `'draw-angled-rectangle'` | Create a rectangle at any angle: click/tap two points of a base edge, then a point that sets the width. |
-| `'select'`                | Select and edit existing features (points, lines, and polygons).                                        |
-| `'split'`                 | Split a polygon into two polygons with a two-point line.                                                |
-| `'union'`                 | Merge two or more touching or overlapping polygons into one: click them, then press Enter or execute.   |
-| `'setback'`               | Apply inward edge setback with distance input and preview.                                              |
-| `'rotate'`                | Rotate a polygon or line around its center by dragging or angle input.                                  |
-| `'cut'`                   | Cut an area out of a polygon: click the polygon, then draw the outline of the area to remove.           |
+| Value                     | Description                                                                                                 |
+| ------------------------- | ----------------------------------------------------------------------------------------------------------- |
+| `'idle'`                  | No drawing interaction. Map behaves normally.                                                               |
+| `'draw-point'`            | Place point features by clicking/tapping.                                                                   |
+| `'draw-line'`             | Create lines by clicking/tapping vertices, click the last one to finalize.                                  |
+| `'draw-polygon'`          | Create polygons by clicking/tapping vertices, click the first or last one.                                  |
+| `'draw-rectangle'`        | Create an axis-aligned rectangle by clicking/tapping two opposite corners.                                  |
+| `'draw-angled-rectangle'` | Create a rectangle at any angle: click/tap two points of a base edge, then a point that sets the width.     |
+| `'select'`                | Select and edit existing features (points, lines, and polygons).                                            |
+| `'split'`                 | Split a polygon into two polygons with a two-point line.                                                    |
+| `'union'`                 | Merge two or more touching or overlapping polygons into one: click them, then press Enter or execute.       |
+| `'setback'`               | Apply inward edge setback with distance input and preview.                                                  |
+| `'rotate'`                | Rotate a polygon or line around its center by dragging or angle input.                                      |
+| `'cut'`                   | Cut an area out of a polygon: click the polygon, then draw the outline of the area to remove.               |
+| `'reshape'`               | Redraw part of a polygon's boundary: click the polygon, then draw a line that crosses its outer ring twice. |
 
 ---
 
@@ -779,6 +785,22 @@ type CutOperationFailReason = 'not-found' | 'not-polygon' | 'invalid-cutter' | C
 | `'not-found'`      | No feature has that id                                                                            |
 | `'not-polygon'`    | The feature is not a Polygon                                                                      |
 | `'invalid-cutter'` | The cutter ring has fewer than three distinct vertices, a non-numeric position, or crosses itself |
+
+---
+
+### `ReshapeOperationFailReason`
+
+Failure codes of [`reshape()`](/api/libre-draw#reshape-id-line). The geometric codes are the [`ReshapeFailReason`](/api/events#payload-reshapefailedevent) values of the `reshapefailed` event, which is emitted alongside; the argument errors below emit no event.
+
+```ts
+type ReshapeOperationFailReason = 'not-found' | 'not-polygon' | 'invalid-line' | ReshapeFailReason;
+```
+
+| Value            | Meaning                                                     |
+| ---------------- | ----------------------------------------------------------- |
+| `'not-found'`    | No feature has that id                                      |
+| `'not-polygon'`  | The feature is not a Polygon                                |
+| `'invalid-line'` | The line has fewer than two positions, or a non-numeric one |
 
 ---
 

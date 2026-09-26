@@ -13,4 +13,5 @@ export type ModeName =
   | 'setback'
   | 'union'
   | 'rotate'
-  | 'cut';
+  | 'cut'
+  | 'reshape';

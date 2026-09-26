@@ -41,6 +41,9 @@ export type {
   CutEvent,
   CutFailedEvent,
   CutFailReason,
+  ReshapeEvent,
+  ReshapeFailedEvent,
+  ReshapeFailReason,
   RotateEvent,
   SelectionChangeEvent,
   ModeChangeEvent,
@@ -64,6 +67,7 @@ export type {
   SetbackOperationFailReason,
   UnionOperationFailReason,
   CutOperationFailReason,
+  ReshapeOperationFailReason,
 } from './operations';
 
 export type { Locale, Messages } from './messages';

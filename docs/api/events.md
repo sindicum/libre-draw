@@ -17,6 +17,8 @@ interface LibreDrawEventMap {
   unionfailed: UnionFailedEvent;
   cut: CutEvent;
   cutfailed: CutFailedEvent;
+  reshape: ReshapeEvent;
+  reshapefailed: ReshapeFailedEvent;
   rotate: RotateEvent;
   selectionchange: SelectionChangeEvent;
   modechange: ModeChangeEvent;
@@ -431,6 +433,83 @@ draw.on('cutfailed', (e) => {
 
 ---
 
+## `reshape`
+
+Emitted when part of a polygon's outer ring is replaced by a line, in `reshape` mode or through [`reshape()`](/api/libre-draw#reshape-id-line). The reshape is one history step and the polygon keeps its id.
+
+Undo and redo of a reshape emit [`update`](#update) events rather than `reshape`, because the history stores a reshape as a plain feature replacement.
+
+### Payload: `ReshapeEvent`
+
+```ts
+interface ReshapeEvent {
+  origin: EventOrigin;
+  originalFeature: LibreDrawFeature;
+  feature: LibreDrawFeature;
+}
+```
+
+| Property          | Type                                              | Description                                |
+| ----------------- | ------------------------------------------------- | ------------------------------------------ |
+| `origin`          | [`EventOrigin`](#event-origin)                    | Who caused the change: `'api'` or `'user'` |
+| `originalFeature` | [`LibreDrawFeature`](/api/types#libredrawfeature) | The polygon before the reshape             |
+| `feature`         | [`LibreDrawFeature`](/api/types#libredrawfeature) | The polygon after the reshape (same id)    |
+
+### Example
+
+```ts
+draw.on('reshape', (e) => {
+  console.log('Reshaped:', e.feature.id);
+});
+```
+
+---
+
+## `reshapefailed`
+
+Emitted when a reshape fails for a geometric reason, in `reshape` mode or through [`reshape()`](/api/libre-draw#reshape-id-line). Nothing changes; in the mode the target stays selected and only the line is discarded. Argument errors of the API (`'not-found'`, `'not-polygon'`, `'invalid-line'`) are only returned, not emitted.
+
+### Payload: `ReshapeFailedEvent`
+
+```ts
+type ReshapeFailReason =
+  | 'invalid-intersection-count'
+  | 'self-intersecting-result'
+  | 'ring-intersection'
+  | 'hole-outside'
+  | 'invalid-result';
+
+interface ReshapeFailedEvent {
+  origin: EventOrigin;
+  reason: ReshapeFailReason;
+  featureId: string;
+}
+```
+
+| Property    | Type                           | Description                                |
+| ----------- | ------------------------------ | ------------------------------------------ |
+| `origin`    | [`EventOrigin`](#event-origin) | Who caused the change: `'api'` or `'user'` |
+| `reason`    | `ReshapeFailReason`            | Reason of reshape failure                  |
+| `featureId` | `string`                       | ID of the target polygon                   |
+
+| Reason                         | Meaning                                                                |
+| ------------------------------ | ---------------------------------------------------------------------- |
+| `'invalid-intersection-count'` | The line does not cross the outer ring exactly twice                   |
+| `'self-intersecting-result'`   | The new outer ring would cross itself (the line crosses itself)        |
+| `'ring-intersection'`          | The new outer ring would cross a hole                                  |
+| `'hole-outside'`               | A hole would end up outside the new outer ring                         |
+| `'invalid-result'`             | The new outer ring would have no area, or the result failed validation |
+
+### Example
+
+```ts
+draw.on('reshapefailed', (e) => {
+  console.warn('Reshape failed:', e.reason, e.featureId);
+});
+```
+
+---
+
 ## `rotate`
 
 Emitted when a rotation is committed in `rotate` mode, either by releasing a drag or by executing the angle input. Each commit is one history step.
@@ -516,11 +595,11 @@ interface ModeChangeEvent {
 }
 ```
 
-| Property       | Type                              | Description                                                                                                                                                                                           |
-| -------------- | --------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `origin`       | [`EventOrigin`](#event-origin)    | Who caused the change: `'api'` or `'user'`                                                                                                                                                            |
-| `mode`         | [`ModeName`](/api/types#modename) | The new active mode (`'idle'`, `'draw-point'`, `'draw-line'`, `'draw-polygon'`, `'draw-rectangle'`, `'draw-angled-rectangle'`, `'select'`, `'split'`, `'setback'`, `'union'`, `'rotate'`, or `'cut'`) |
-| `previousMode` | [`ModeName`](/api/types#modename) | The previous mode                                                                                                                                                                                     |
+| Property       | Type                              | Description                                                                                                                                                                                                        |
+| -------------- | --------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `origin`       | [`EventOrigin`](#event-origin)    | Who caused the change: `'api'` or `'user'`                                                                                                                                                                         |
+| `mode`         | [`ModeName`](/api/types#modename) | The new active mode (`'idle'`, `'draw-point'`, `'draw-line'`, `'draw-polygon'`, `'draw-rectangle'`, `'draw-angled-rectangle'`, `'select'`, `'split'`, `'setback'`, `'union'`, `'rotate'`, `'cut'`, or `'reshape'`) |
+| `previousMode` | [`ModeName`](/api/types#modename) | The previous mode                                                                                                                                                                                                  |
 
 ### Example
 
