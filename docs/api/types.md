@@ -119,10 +119,10 @@ interface PolygonGeometry {
 }
 ```
 
-| Property      | Type           | Description                                                                                                               |
-| ------------- | -------------- | ------------------------------------------------------------------------------------------------------------------------- |
-| `type`        | `'Polygon'`    | Always `'Polygon'`                                                                                                        |
-| `coordinates` | `Position[][]` | Array of linear rings. The first ring is the outer boundary. Each ring must be closed (first position === last position). |
+| Property      | Type           | Description                                                                                                                                                                                                                                                                                                                                     |
+| ------------- | -------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `type`        | `'Polygon'`    | Always `'Polygon'`                                                                                                                                                                                                                                                                                                                              |
+| `coordinates` | `Position[][]` | Array of linear rings. The first ring is the outer boundary and any further rings are holes. Each ring must be closed (first position === last position) and must not cross itself. Holes must lie inside the outer ring, must not cross or run along it or each other, and must not lie inside another hole; rings may touch at single points. |
 
 ---
 
@@ -695,7 +695,7 @@ interface EdgeRef {
 
 | Property | Type     | Description                                                                                                                                                                                            |
 | -------- | -------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| `ring`   | `number` | Ring index; `0` (the outer ring) when omitted. Inner rings cannot be edited yet, so any other value is rejected with `'has-holes'`                                                                     |
+| `ring`   | `number` | Ring index; `0` (the outer ring) when omitted. Setback does not support polygons with holes, so any other value is rejected with `'has-holes'`                                                         |
 | `index`  | `number` | Edge index within the ring, counted without the closing position: edge `i` runs from vertex `i` to vertex `i + 1`, and the last edge returns to vertex `0`. Same numbering as `SetbackEvent.edgeIndex` |
 
 ---

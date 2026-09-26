@@ -106,8 +106,9 @@ export type RotateFailReason = 'not-found' | 'not-rotatable' | 'no-rotation';
  * `index` counts the edges of the ring without its closing position: edge
  * `i` runs from vertex `i` to vertex `i + 1`, and the last edge returns to
  * vertex `0`. This is the same numbering as `SetbackEvent.edgeIndex`.
- * `ring` selects the ring (`0` is the outer ring, the default); inner
- * rings are not editable yet, so any other value is rejected.
+ * `ring` selects the ring (`0` is the outer ring, the default). Setback
+ * does not support polygons with holes, so any other value is rejected
+ * with `has-holes`.
  */
 export interface EdgeRef {
   /** Ring index. `0` (the outer ring) when omitted. */

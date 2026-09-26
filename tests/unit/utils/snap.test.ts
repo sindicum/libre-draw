@@ -258,3 +258,126 @@ describe('snap utils', () => {
     });
   });
 });
+
+describe('findSnapTarget - holes', () => {
+  const holed: LibreDrawFeature = {
+    id: 'h1',
+    type: 'Feature',
+    geometry: {
+      type: 'Polygon',
+      coordinates: [
+        [
+          [0, 0],
+          [100, 0],
+          [100, 100],
+          [0, 100],
+          [0, 0],
+        ],
+        [
+          [30, 30],
+          [30, 60],
+          [60, 60],
+          [60, 30],
+          [30, 30],
+        ],
+      ],
+    },
+    properties: {},
+  };
+
+  it('snaps to a hole vertex', () => {
+    const result = findSnapTarget({ lng: 31, lat: 31 }, [holed], identityGetScreenPoint, {
+      threshold: 2,
+    });
+    expect(result).toMatchObject({ type: 'vertex', position: [30, 30], featureId: 'h1' });
+  });
+
+  it('snaps to a hole edge', () => {
+    const result = findSnapTarget({ lng: 45, lat: 31 }, [holed], identityGetScreenPoint, {
+      threshold: 2,
+    });
+    expect(result).toMatchObject({ type: 'edge', position: [45, 30], featureId: 'h1' });
+  });
+
+  it('snaps to the hole edge between its last and first vertex', () => {
+    const result = findSnapTarget({ lng: 45, lat: 29 }, [holed], identityGetScreenPoint, {
+      threshold: 2,
+    });
+    expect(result!.position).toEqual([45, 30]);
+  });
+});
+
+describe('snap utils - Point and LineString features', () => {
+  const point: LibreDrawFeature = {
+    id: 'p1',
+    type: 'Feature',
+    geometry: { type: 'Point', coordinates: [50, 50] },
+    properties: {},
+  };
+  const line: LibreDrawFeature = {
+    id: 'l1',
+    type: 'Feature',
+    geometry: {
+      type: 'LineString',
+      coordinates: [
+        [0, 0],
+        [20, 0],
+        [20, 20],
+      ],
+    },
+    properties: {},
+  };
+  const bounds: ViewportBounds = { west: 0, south: 0, east: 30, north: 30 };
+
+  it('isFeatureInBounds tests a Point by its position', () => {
+    expect(isFeatureInBounds(point, { west: 40, south: 40, east: 60, north: 60 })).toBe(true);
+    expect(isFeatureInBounds(point, bounds)).toBe(false);
+  });
+
+  it('isFeatureInBounds tests a LineString by its bounding box', () => {
+    expect(isFeatureInBounds(line, bounds)).toBe(true);
+    expect(isFeatureInBounds(line, { west: 25, south: 25, east: 30, north: 30 })).toBe(false);
+  });
+
+  it('isFeatureInBounds rejects an empty LineString', () => {
+    const empty: LibreDrawFeature = {
+      ...line,
+      geometry: { type: 'LineString', coordinates: [] },
+    };
+    expect(isFeatureInBounds(empty, bounds)).toBe(false);
+  });
+
+  it('snaps to a Point feature', () => {
+    const result = findSnapTarget({ lng: 51, lat: 50 }, [point], identityGetScreenPoint, {
+      threshold: 2,
+    });
+    expect(result).toMatchObject({ type: 'vertex', position: [50, 50], featureId: 'p1' });
+  });
+
+  it('snaps to a LineString vertex before its edge', () => {
+    const result = findSnapTarget({ lng: 19, lat: 1 }, [line], identityGetScreenPoint, {
+      threshold: 2,
+    });
+    expect(result).toMatchObject({ type: 'vertex', position: [20, 0], featureId: 'l1' });
+  });
+
+  it('snaps to a LineString edge but not across its open end', () => {
+    const edge = findSnapTarget({ lng: 10, lat: 1 }, [line], identityGetScreenPoint, {
+      threshold: 2,
+    });
+    expect(edge).toMatchObject({ type: 'edge', position: [10, 0], featureId: 'l1' });
+
+    // A polygon would close (20,20) -> (0,0); a line does not.
+    const closing = findSnapTarget({ lng: 10, lat: 11 }, [line], identityGetScreenPoint, {
+      threshold: 2,
+    });
+    expect(closing).toBeNull();
+  });
+
+  it('never snaps a Point feature as an edge', () => {
+    const result = findSnapTarget({ lng: 53, lat: 50 }, [point], identityGetScreenPoint, {
+      threshold: 2,
+    });
+    expect(result).toBeNull();
+  });
+});

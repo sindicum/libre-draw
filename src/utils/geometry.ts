@@ -26,13 +26,22 @@ function assertPolygon(feature: LibreDrawFeature): PolygonGeometry {
 }
 
 /**
- * Get the unique vertices (excluding the closing point) of a polygon.
+ * Get the unique vertices (excluding the closing point) of a polygon's
+ * outer ring.
  * @param feature - Must have Polygon geometry.
  */
 export function getVertices(feature: LibreDrawFeature): Position[] {
+  return getRingVertices(feature)[0];
+}
+
+/**
+ * Get the unique vertices (excluding the closing point) of every ring of a
+ * polygon: the outer ring first, then the holes in their stored order.
+ * @param feature - Must have Polygon geometry.
+ */
+export function getRingVertices(feature: LibreDrawFeature): Position[][] {
   const geom = assertPolygon(feature);
-  const ring = geom.coordinates[0];
-  return ring.slice(0, ring.length - 1);
+  return geom.coordinates.map((ring) => ring.slice(0, ring.length - 1));
 }
 
 /**
@@ -51,15 +60,37 @@ export function computeMidpoints(vertices: Position[]): Position[] {
 }
 
 /**
+ * Build a polygon feature whose ring `ringIndex` is replaced; the other
+ * rings are kept as they are.
+ */
+function withRing(
+  feature: LibreDrawFeature,
+  geom: PolygonGeometry,
+  ringIndex: number,
+  ring: Position[]
+): LibreDrawFeature {
+  const coordinates = geom.coordinates.map((r, i) => (i === ringIndex ? ring : r));
+  return {
+    ...feature,
+    geometry: {
+      type: 'Polygon',
+      coordinates,
+    },
+  };
+}
+
+/**
  * Create a new feature with a vertex moved to a new position.
+ * @param ringIndex - The ring holding the vertex (`0`, the outer ring, by default).
  */
 export function moveVertex(
   feature: LibreDrawFeature,
   vertexIndex: number,
-  newPos: Position
+  newPos: Position,
+  ringIndex = 0
 ): LibreDrawFeature {
   const geom = assertPolygon(feature);
-  const ring = [...geom.coordinates[0]];
+  const ring = [...geom.coordinates[ringIndex]];
   ring[vertexIndex] = newPos;
 
   // If moving first vertex, also update closing point.
@@ -71,17 +102,11 @@ export function moveVertex(
     ring[0] = newPos;
   }
 
-  return {
-    ...feature,
-    geometry: {
-      type: 'Polygon',
-      coordinates: [ring],
-    },
-  };
+  return withRing(feature, geom, ringIndex, ring);
 }
 
 /**
- * Create a new feature with all vertices translated by the given delta.
+ * Create a new feature with every ring translated by the given delta.
  */
 export function movePolygon(
   feature: LibreDrawFeature,
@@ -89,53 +114,51 @@ export function movePolygon(
   dLat: number
 ): LibreDrawFeature {
   const geom = assertPolygon(feature);
-  const ring = geom.coordinates[0].map((pos): Position => [pos[0] + dLng, pos[1] + dLat]);
+  const coordinates = geom.coordinates.map((ring) =>
+    ring.map((pos): Position => [pos[0] + dLng, pos[1] + dLat])
+  );
 
   return {
     ...feature,
     geometry: {
       type: 'Polygon',
-      coordinates: [ring],
+      coordinates,
     },
   };
 }
 
 /**
  * Create a new feature with a vertex inserted at the given index.
+ * @param ringIndex - The ring to insert into (`0`, the outer ring, by default).
  */
 export function insertVertex(
   feature: LibreDrawFeature,
   insertIndex: number,
-  pos: Position
+  pos: Position,
+  ringIndex = 0
 ): LibreDrawFeature {
   const geom = assertPolygon(feature);
-  const ring = [...geom.coordinates[0]];
+  const ring = [...geom.coordinates[ringIndex]];
   ring.splice(insertIndex, 0, pos);
 
-  return {
-    ...feature,
-    geometry: {
-      type: 'Polygon',
-      coordinates: [ring],
-    },
-  };
+  return withRing(feature, geom, ringIndex, ring);
 }
 
 /**
  * Create a new feature with a vertex removed at the given index.
+ * @param ringIndex - The ring to remove from (`0`, the outer ring, by default).
  */
-export function removeVertex(feature: LibreDrawFeature, vertexIndex: number): LibreDrawFeature {
-  const vertices = getVertices(feature);
+export function removeVertex(
+  feature: LibreDrawFeature,
+  vertexIndex: number,
+  ringIndex = 0
+): LibreDrawFeature {
+  const geom = assertPolygon(feature);
+  const vertices = getRingVertices(feature)[ringIndex];
   const newVertices = vertices.filter((_, i) => i !== vertexIndex);
   const ring: Position[] = [...newVertices, [...newVertices[0]] as Position];
 
-  return {
-    ...feature,
-    geometry: {
-      type: 'Polygon',
-      coordinates: [ring],
-    },
-  };
+  return withRing(feature, geom, ringIndex, ring);
 }
 
 // ── LineString utility functions ──

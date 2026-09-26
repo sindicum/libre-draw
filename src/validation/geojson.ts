@@ -1,7 +1,8 @@
 import type { LibreDrawFeature, Position } from '../types/features';
 import type { FeatureValidationResult } from '../types/operations';
 import { LibreDrawError } from '../core/errors';
-import { hasRingSelfIntersection } from './intersection';
+import { findRingRelationError, hasRingSelfIntersection } from './intersection';
+import type { PolygonRingError } from './intersection';
 import { deepCloneValue } from '../utils/featureSnapshot';
 
 /**
@@ -39,6 +40,19 @@ function validateCoordinate(position: Position): void {
 }
 
 /**
+ * The rejection text for each ring problem. It becomes the `reason` of a
+ * rejected `validateFeature` / `addFeatures` / `updateFeature` call, which
+ * reports validation failures as messages rather than codes.
+ */
+const RING_ERROR_MESSAGES: Record<PolygonRingError, string> = {
+  'self-intersection': 'Ring has self-intersections. Polygon edges must not cross each other.',
+  'ring-intersection':
+    'Polygon rings intersect. A hole must not cross or overlap the outer ring or another hole.',
+  'hole-outside': 'Polygon hole lies outside the outer ring. Every hole must be inside it.',
+  'hole-nested': 'Polygon hole lies inside another hole. Holes must not be nested.',
+};
+
+/**
  * Validate that a ring (array of positions) is a valid linear ring.
  * A valid ring must have at least 4 positions and be closed
  * (first position equals last position).
@@ -68,9 +82,7 @@ function validateRing(ring: Position[]): void {
   }
 
   if (hasRingSelfIntersection(ring as Position[])) {
-    throw new LibreDrawError(
-      'Ring has self-intersections. Polygon edges must not cross each other.'
-    );
+    throw new LibreDrawError(RING_ERROR_MESSAGES['self-intersection']);
   }
 }
 
@@ -206,6 +218,13 @@ function validatePolygonFeature(
 
   for (const ring of coordinates) {
     validateRing(ring);
+  }
+
+  // Each ring is valid on its own; now check the holes against the outer
+  // ring and each other.
+  const ringError = coordinates.length > 1 ? findRingRelationError(coordinates) : null;
+  if (ringError !== null) {
+    throw new LibreDrawError(RING_ERROR_MESSAGES[ringError]);
   }
 
   return {

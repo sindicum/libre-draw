@@ -14,7 +14,7 @@ A point, line, and polygon drawing and editing library for [MapLibre GL JS](http
 - **Draw polygons** — Click/tap to place vertices, click/tap the first or last vertex to close
 - **Draw rectangles** — Click/tap two opposite corners to create an axis-aligned rectangle
 - **Draw angled rectangles** — Click/tap a base edge at any angle, then a point that sets the width
-- **Select & edit** — Click a feature to select it, drag vertices to reshape, drag midpoints to add vertices
+- **Select & edit** — Click a feature to select it, drag vertices to reshape, drag midpoints to add vertices; a polygon's holes are edited the same way
 - **Feature drag** — Drag an entire selected point, line, or polygon to reposition it
 - **Split polygon** — Cut a polygon into two polygons with a two-point split line
 - **Union** — Merge two or more touching or overlapping polygons into one: click them to select, then press Enter or the execute button
@@ -25,7 +25,7 @@ A point, line, and polygon drawing and editing library for [MapLibre GL JS](http
 - **GeoJSON in/out** — Import and export standard GeoJSON FeatureCollections (Point, LineString, Polygon)
 - **Touch-first** — Designed for mobile with proper touch targets (44px+), long-press support, and gesture handling
 - **Center reticle input** — Optionally place points with a crosshair fixed at the map center and "Add point" / "Undo point" / "Finish" buttons, instead of tapping where a finger hides the spot. Switch from the toolbar or the API
-- **Self-intersection prevention** — Invalid polygon geometries are rejected during editing
+- **Self-intersection prevention** — Invalid polygon geometries are rejected during editing, including holes that would cross or leave the outer ring
 - **Framework-agnostic** — Works with vanilla JS, React, Vue, or any framework
 - **TypeScript** — Full type definitions included
 - **Headless mode** — Disable the toolbar and drive everything via API

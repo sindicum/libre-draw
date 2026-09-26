@@ -307,18 +307,20 @@ When a polygon is selected, vertex handles appear:
 | Drag a midpoint     | Insert a new vertex and drag it          |
 | Long-press a vertex | Delete the vertex (minimum 3 maintained) |
 
+A polygon with holes shows handles on every ring, and a hole's vertices are moved, inserted, and deleted the same way as the outer ring's. The minimum of 3 vertices applies to each ring. Clicking inside a hole does not hit the polygon.
+
 ### Polygon Dragging
 
-| Action              | Effect                  |
-| ------------------- | ----------------------- |
-| Drag inside polygon | Move the entire polygon |
+| Action              | Effect                                  |
+| ------------------- | --------------------------------------- |
+| Drag inside polygon | Move the entire polygon, holes included |
 
 ### Behavior
 
 - Double-click zoom is disabled during select mode
 - MapLibre's box zoom (Shift + drag) is disabled during select mode, so a Shift + click never zooms the map. It is restored to the map's own setting when you leave the mode
 - Map panning is temporarily disabled during vertex/polygon/line/point drag
-- Self-intersection is prevented during polygon editing (not enforced for lines)
+- A polygon edit is refused if a ring would cross itself or another ring, or a hole would leave the outer ring (not enforced for lines)
 - Undo/redo works for all edit operations
 
 ```ts

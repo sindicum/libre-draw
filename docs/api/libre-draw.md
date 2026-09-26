@@ -322,7 +322,7 @@ results.forEach((r, i) => {
 
 Check whether an object would be accepted by [`addFeatures`](#addfeatures-features) / [`setFeatures`](#setfeatures-geojson), without adding it and without throwing.
 
-Applies the same rules (Feature envelope, geometry type, coordinate ranges, ring closure, self-intersection). Duplicate ids are not checked here because they depend on the store's contents at add time.
+Applies the same rules (Feature envelope, geometry type, coordinate ranges, ring closure, self-intersection, holes inside the outer ring without crossing or nesting). Duplicate ids are not checked here because they depend on the store's contents at add time.
 
 **Parameters:**
 
