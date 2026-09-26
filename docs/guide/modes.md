@@ -341,12 +341,12 @@ draw.on('selectionchange', (e) => {
 
 In split mode, you split one polygon into two polygons.
 
-| Action             | Effect                           |
-| ------------------ | -------------------------------- |
-| Click on polygon   | Select split target              |
-| Click first point  | Set split-line start             |
-| Click second point | Execute split                    |
-| Escape key         | Cancel current split interaction |
+| Action             | Effect                                                  |
+| ------------------ | ------------------------------------------------------- |
+| Click on polygon   | Select split target                                     |
+| Click first point  | Set split-line start (marked with a dot, also on touch) |
+| Click second point | Execute split                                           |
+| Escape key         | Cancel current split interaction                        |
 
 ```ts
 draw.setMode('split');
