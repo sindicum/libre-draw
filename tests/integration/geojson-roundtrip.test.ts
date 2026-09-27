@@ -144,7 +144,7 @@ describe('GeoJSON Roundtrip Integration', () => {
       expect(geojson.features).toHaveLength(0);
     });
 
-    it('should roundtrip toGeoJSON() output through setFeatures()', () => {
+    it('should roundtrip toGeoJSON() output through setAll()', () => {
       const store = new FeatureStore();
       for (const f of sampleFeatures) {
         store.add(f);

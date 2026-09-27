@@ -651,9 +651,8 @@ export class LibreDraw {
     // exactly one history step (or none when nothing passed).
     const results: AddFeatureResult[] = [];
     const accepted: { index: number; feature: LibreDrawFeature }[] = [];
-    // FeatureStore.add() silently overwrites an existing id. Recording that
-    // as a CreateAction would make undo remove the pre-existing feature, so
-    // duplicates are rejected up front, in every mode.
+    // FeatureStore.add() overwrites an existing id, so ids already in the
+    // store or earlier in the array are rejected up front.
     const seenIds = new Set<string>();
     features.forEach((input, index) => {
       const validation = tryValidateFeature(input);
@@ -908,7 +907,7 @@ export class LibreDraw {
    *
    * @param id - The Polygon to set back.
    * @param edge - The edge to move; see {@link EdgeRef}. Only the outer
-   *   ring is supported for now.
+   *   ring is supported.
    * @param distanceMeters - Offset distance in meters, greater than zero.
    * @returns `{ ok: true, created: [result], deleted: [original] }`, or
    *   `{ ok: false, reason }` with `'not-found'`, `'not-polygon'`,
@@ -1323,8 +1322,7 @@ export class LibreDraw {
    */
   setStyle(style: PartialStyleConfig): void {
     this.assertNotDestroyed();
-    // Merge onto the current style, not the defaults, so a partial update
-    // never silently resets sections the caller did not mention.
+    // Merge onto the current style so that partial updates accumulate.
     const merged = mergeStyleConfig(style, this.renderManager.getStyle());
     this.renderManager.updateStyle(merged);
   }
@@ -1345,9 +1343,9 @@ export class LibreDraw {
   /**
    * Undo the last action.
    *
-   * Reverts the most recent action (create, update, or delete) and
-   * updates the map rendering. If a feature is selected and its
-   * geometry changes, vertex handles are refreshed.
+   * Reverts the most recent action and updates the map rendering. If a
+   * feature is selected and its geometry changes, vertex handles are
+   * refreshed.
    *
    * @returns `true` if an action was undone, `false` if nothing to undo.
    *
@@ -1500,9 +1498,8 @@ export class LibreDraw {
   }
 
   /**
-   * Delete a feature without touching the event origin. The public
-   * {@link deleteFeature} wraps this in `asApi`; the toolbar calls it
-   * directly so its `'delete'` events stay `'user'`.
+   * Delete a feature without touching the event origin;
+   * {@link deleteFeature} wraps this in `asApi`.
    */
   private removeFeature(id: string): LibreDrawFeature | undefined {
     if (!this.featureStore.getById(id)) return undefined;
@@ -1525,7 +1522,7 @@ export class LibreDraw {
   }
 
   /**
-   * Undo without touching the event origin (see {@link removeFeature}).
+   * Undo without touching the event origin.
    * Shared by the public `undo()`, the toolbar button, and the shortcut.
    */
   private performUndo(): boolean {
@@ -1539,7 +1536,7 @@ export class LibreDraw {
   }
 
   /**
-   * Redo without touching the event origin (see {@link removeFeature}).
+   * Redo without touching the event origin.
    */
   private performRedo(): boolean {
     const action = this.historyManager.redo(this.featureStore);

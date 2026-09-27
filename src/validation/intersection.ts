@@ -1,14 +1,39 @@
 import type { Position } from '../types/features';
 
+/**
+ * Tolerance shared by the geometry helpers. It is applied to three kinds of
+ * quantity, and never to a raw cross product or area:
+ * - a difference between two coordinates, in degrees (`posEqual` and the
+ *   `positionsEqual` helpers built on it: about 10 µm);
+ * - a cross product divided by the product of the segment lengths, i.e. the
+ *   sine of the angle between them (`orientation`, `computeIntersectionPoint`)
+ *   or an area divided by the square of a ring's extent (`hasNegligibleArea`
+ *   in `utils/geometry.ts`), both dimensionless;
+ * - a parametric position along a segment (0..1), dimensionless.
+ *
+ * Coordinates are degrees, so the cross product of two metre-long segments
+ * is around 1e-10 even when they are perpendicular; normalising first keeps
+ * every test independent of the size of the shape.
+ */
 export const EPSILON = 1e-10;
 
 /**
  * Compute the orientation of triplet (p, q, r).
+ *
+ * Collinearity is judged by the sine of the angle between `p→q` and `q→r`
+ * (the cross product divided by the product of the lengths), so the answer
+ * does not depend on how large the shape is. A zero-length leg counts as
+ * collinear.
  * @returns 0 if collinear, 1 if clockwise, 2 if counter-clockwise.
  */
 function orientation(p: Position, q: Position, r: Position): number {
-  const val = (q[1] - p[1]) * (r[0] - q[0]) - (q[0] - p[0]) * (r[1] - q[1]);
-  if (Math.abs(val) < EPSILON) return 0; // collinear
+  const aX = q[0] - p[0];
+  const aY = q[1] - p[1];
+  const bX = r[0] - q[0];
+  const bY = r[1] - q[1];
+  const val = aY * bX - aX * bY;
+  const lengths = Math.hypot(aX, aY) * Math.hypot(bX, bY);
+  if (lengths === 0 || Math.abs(val) < EPSILON * lengths) return 0; // collinear
   return val > 0 ? 1 : 2;
 }
 
@@ -35,10 +60,8 @@ function posEqual(a: Position, b: Position): boolean {
  * Compute the intersection point of two line segments.
  * Returns null if they are parallel/collinear or do not intersect within segment bounds.
  *
- * Parallelism is judged by the sine of the angle between the segments, not
- * by the raw cross product: in degrees the cross product of two short
- * segments (a metre or so) is below any fixed threshold even when they
- * cross at a right angle.
+ * Parallelism is judged by the sine of the angle between the segments (see
+ * {@link EPSILON}).
  */
 export function computeIntersectionPoint(
   p1: Position,
@@ -98,6 +121,34 @@ export function segmentsIntersect(p1: Position, p2: Position, p3: Position, p4: 
   if (o4 === 0 && onSegment(p3, p2, p4)) return true;
 
   return false;
+}
+
+/**
+ * Check whether every vertex of a ring lies on one line. Rings with fewer
+ * than three distinct vertices count as collinear.
+ *
+ * The reference line runs from the first vertex to the vertex farthest from
+ * it, so duplicated vertices (`A, A, B, B, C, C`) do not hide a triangle the
+ * way a check on consecutive triples would; each vertex is then tested
+ * against that line with `orientation`, i.e. with the same normalised
+ * cross product as the intersection tests.
+ * @param ring - The ring coordinates, with or without the closing point.
+ * @returns True if the ring is degenerate (collinear or fewer than 3 distinct vertices).
+ */
+export function isCollinearRing(ring: Position[]): boolean {
+  if (ring.length === 0) return true;
+  const p = ring[0];
+  let q = p;
+  let farthest = 0;
+  for (const r of ring) {
+    const d = Math.hypot(r[0] - p[0], r[1] - p[1]);
+    if (d > farthest) {
+      farthest = d;
+      q = r;
+    }
+  }
+  if (farthest === 0) return true;
+  return ring.every((r) => orientation(p, q, r) === 0);
 }
 
 /**

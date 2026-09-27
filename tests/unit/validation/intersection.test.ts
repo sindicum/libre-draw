@@ -10,6 +10,7 @@ import {
   locatePointInRing,
   findRingRelationError,
   findPolygonRingError,
+  isCollinearRing,
 } from '../../../src/validation/intersection';
 import type { Position } from '../../../src/types/features';
 
@@ -123,7 +124,7 @@ describe('hasRingSelfIntersection', () => {
     expect(hasRingSelfIntersection(ring)).toBe(true);
   });
 
-  it('should detect butterfly/bowtie self-intersection', () => {
+  it('should return false for a diamond (a convex quadrilateral is not a bowtie)', () => {
     const ring: Position[] = [
       [0, 0],
       [5, 5],
@@ -131,10 +132,18 @@ describe('hasRingSelfIntersection', () => {
       [5, -5],
       [0, 0],
     ];
-    // Edge (0,0)→(5,5) does not cross (10,0)→(5,-5)
-    // Edge (5,5)→(10,0) does not cross (5,-5)→(0,0)
-    // But this is actually a valid diamond, let's use a real bowtie
     expect(hasRingSelfIntersection(ring)).toBe(false);
+  });
+
+  it('should detect a bowtie whose two edges cross in the middle', () => {
+    const ring: Position[] = [
+      [0, 0],
+      [10, 10],
+      [10, 0],
+      [0, 10],
+      [0, 0],
+    ];
+    expect(hasRingSelfIntersection(ring)).toBe(true);
   });
 
   it('should detect self-intersection in complex polygon', () => {
@@ -241,13 +250,7 @@ describe('wouldClosingCauseIntersection', () => {
   });
 
   it('should detect intersection on closing', () => {
-    // Bowtie: closing edge would cross an existing edge
-    // Vertices form: (0,0) → (10,10) → (10,0) → (0,10)
-    // Closing (0,10)→(0,0) would need to check against (10,10)→(10,0)
-    // Actually the self-intersection is in the drawing itself
-    // Let's use a clearer case:
-    // (0,0) → (10,0) → (5,10) → (15,5)
-    // Closing (15,5)→(0,0) crosses (10,0)→(5,10)
+    // (0,0) → (10,0) → (5,10) → (15,5): closing (15,5)→(0,0) crosses (10,0)→(5,10).
     const vertices: Position[] = [
       [0, 0],
       [10, 0],
@@ -471,5 +474,236 @@ describe('findRingRelationError', () => {
     ];
     expect(findRingRelationError([outer])).toBeNull();
     expect(findRingRelationError([outer, outside])).toBe('hole-outside');
+  });
+});
+
+describe('scale independence', () => {
+  // Every check that rests on `orientation` must give the same answer for a
+  // shape a few hundred kilometres across, a few metres across (1e-5°) and
+  // under a metre across (1e-6°), near the origin and at real coordinates.
+  const places: [string, number, number][] = [
+    ['near the origin', 0, 0],
+    ['in Tokyo', 139.7, 35.66],
+  ];
+  const scales = [1, 1e-5, 1e-6];
+  const place = (shape: Position[], ox: number, oy: number, k: number): Position[] =>
+    shape.map(([x, y]) => [ox + x * k, oy + y * k]);
+
+  const simpleQuad: Position[] = [
+    [0, 0],
+    [4, 4],
+    [5, 2],
+    [3, 1],
+    [0, 0],
+  ];
+  const bowtie: Position[] = [
+    [0, 0],
+    [4, 4],
+    [4, 0],
+    [0, 4],
+    [0, 0],
+  ];
+  const triangle: Position[] = [
+    [0, 0],
+    [4, 0],
+    [2, 3],
+    [0, 0],
+  ];
+
+  for (const [where, ox, oy] of places) {
+    for (const k of scales) {
+      it(`hasRingSelfIntersection: simple quadrilateral ×${k} ${where} is clean`, () => {
+        expect(hasRingSelfIntersection(place(simpleQuad, ox, oy, k))).toBe(false);
+      });
+
+      it(`hasRingSelfIntersection: bowtie ×${k} ${where} crosses`, () => {
+        expect(hasRingSelfIntersection(place(bowtie, ox, oy, k))).toBe(true);
+      });
+
+      it(`wouldNewVertexCauseIntersection ×${k} ${where}`, () => {
+        const open = place(simpleQuad.slice(0, 3), ox, oy, k);
+        const [safe] = place([[3, 1]], ox, oy, k);
+        const [crossing] = place([[1, 3]], ox, oy, k);
+        expect(wouldNewVertexCauseIntersection(open, safe)).toBe(false);
+        expect(wouldNewVertexCauseIntersection(open, crossing)).toBe(true);
+      });
+
+      it(`locatePointInRing ×${k} ${where}`, () => {
+        const ring = place(triangle, ox, oy, k);
+        const [inside] = place([[2, 1]], ox, oy, k);
+        const [outside] = place([[2, 4]], ox, oy, k);
+        expect(locatePointInRing(inside, ring)).toBe('inside');
+        expect(locatePointInRing(outside, ring)).toBe('outside');
+        expect(locatePointInRing(ring[1], ring)).toBe('boundary');
+      });
+
+      it(`segmentsOverlap ×${k} ${where}`, () => {
+        const [a, b, c, d] = place(
+          [
+            [0, 0],
+            [4, 0],
+            [2, 0],
+            [6, 0],
+          ],
+          ox,
+          oy,
+          k
+        );
+        const [e] = place([[2, 3]], ox, oy, k);
+        expect(segmentsOverlap(a, b, c, d)).toBe(true);
+        expect(segmentsOverlap(a, b, c, e)).toBe(false);
+      });
+    }
+
+    it(`findPolygonRingError accepts a 1.1 m square with a hole ${where}`, () => {
+      const s = 1e-5;
+      const outer = place(
+        [
+          [0, 0],
+          [1, 0],
+          [1, 1],
+          [0, 1],
+          [0, 0],
+        ],
+        ox,
+        oy,
+        s
+      );
+      const hole = place(
+        [
+          [0.25, 0.25],
+          [0.25, 0.75],
+          [0.75, 0.75],
+          [0.75, 0.25],
+          [0.25, 0.25],
+        ],
+        ox,
+        oy,
+        s
+      );
+      expect(findPolygonRingError([outer, hole])).toBeNull();
+    });
+  }
+});
+
+describe('isCollinearRing', () => {
+  const triangle: Position[] = [
+    [0, 0],
+    [4, 0],
+    [2, 3],
+    [0, 0],
+  ];
+
+  it('is false for a triangle and a square', () => {
+    expect(isCollinearRing(triangle)).toBe(false);
+    expect(
+      isCollinearRing([
+        [0, 0],
+        [1, 0],
+        [1, 1],
+        [0, 1],
+        [0, 0],
+      ])
+    ).toBe(false);
+  });
+
+  it('is true for fewer than three distinct positions', () => {
+    expect(isCollinearRing([])).toBe(true);
+    expect(isCollinearRing([[2, 2]])).toBe(true);
+    expect(
+      isCollinearRing([
+        [0, 0],
+        [3, 4],
+      ])
+    ).toBe(true);
+    expect(
+      isCollinearRing([
+        [1, 1],
+        [1, 1],
+        [1, 1],
+        [1, 1],
+      ])
+    ).toBe(true);
+  });
+
+  it('is true when every position lies on one line, closed or open', () => {
+    expect(
+      isCollinearRing([
+        [0, 0],
+        [1, 0],
+        [2, 0],
+        [0, 0],
+      ])
+    ).toBe(true);
+    expect(
+      isCollinearRing([
+        [0, 0],
+        [1, 1],
+        [3, 3],
+        [2, 2],
+      ])
+    ).toBe(true);
+    expect(
+      isCollinearRing([
+        [0, 0],
+        [1, 0],
+        [2, 0],
+        [3, 0],
+        [0, 0],
+      ])
+    ).toBe(true);
+  });
+
+  it('is true when the farthest position is not adjacent to the first', () => {
+    expect(
+      isCollinearRing([
+        [0, 0],
+        [1, 0],
+        [5, 0],
+        [3, 0],
+        [0, 0],
+      ])
+    ).toBe(true);
+  });
+
+  it('is false for a triangle whose vertices are each repeated', () => {
+    // Consecutive triples all contain a zero-length leg, so a check on
+    // neighbours alone would call this collinear.
+    expect(
+      isCollinearRing([
+        [0, 0],
+        [0, 0],
+        [4, 0],
+        [4, 0],
+        [2, 3],
+        [2, 3],
+        [0, 0],
+      ])
+    ).toBe(false);
+  });
+
+  describe('scale independence', () => {
+    const places: [string, number, number][] = [
+      ['near the origin', 0, 0],
+      ['in Tokyo', 139.7, 35.66],
+    ];
+    const scales = [1, 1e-5, 1e-6];
+    const place = (shape: Position[], ox: number, oy: number, k: number): Position[] =>
+      shape.map(([x, y]) => [ox + x * k, oy + y * k]);
+    const line: Position[] = [
+      [0, 0],
+      [1, 0],
+      [2, 0],
+      [0, 0],
+    ];
+
+    for (const [where, ox, oy] of places) {
+      for (const k of scales) {
+        it(`triangle ×${k} ${where} is not collinear, a line is`, () => {
+          expect(isCollinearRing(place(triangle, ox, oy, k))).toBe(false);
+          expect(isCollinearRing(place(line, ox, oy, k))).toBe(true);
+        });
+      }
+    }
   });
 });

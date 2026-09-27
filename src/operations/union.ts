@@ -11,11 +11,10 @@ import { tryValidateFeature } from '../validation/geojson';
  *
  * All polygons are merged at once, so the outcome does not depend on their
  * order; the order only decides whose properties survive (the first's).
- * The merged polygon gets a fresh id, exactly as the union mode produces
- * it. Only a single Polygon without holes counts as success: a geometric
- * failure is reported with the `UnionFailReason` code and, as in the mode,
- * a `unionfailed` event, and nothing is merged. An argument error
- * (`unsupported-count`, `not-found`) emits nothing.
+ * The merged polygon gets a fresh id. Only a single Polygon without holes
+ * counts as success: a geometric failure is reported with the
+ * `UnionFailReason` code and a `unionfailed` event, and nothing is merged.
+ * An argument error (`unsupported-count`, `not-found`) emits nothing.
  *
  * @returns `created: [merged], deleted: [...sources]` on success; otherwise
  *   `unsupported-count`, `not-found`, or a `UnionFailReason`.

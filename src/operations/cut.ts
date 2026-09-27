@@ -16,8 +16,8 @@ import { tryValidateFeature } from '../validation/geojson';
  * `addFeatures` input, holes included, before anything is written.
  *
  * A geometric failure is reported with the `CutFailReason` code and a
- * `cutfailed` event, as the cut mode reports it; an argument error
- * (`not-found`, `not-polygon`, `invalid-cutter`) emits nothing.
+ * `cutfailed` event; an argument error (`not-found`, `not-polygon`,
+ * `invalid-cutter`) emits nothing.
  *
  * @param cutter - The ring to cut out; its closing position may be omitted.
  * @returns `updated: [piece]` or `created: [...pieces], deleted: [target]`

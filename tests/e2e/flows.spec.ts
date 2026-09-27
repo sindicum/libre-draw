@@ -27,9 +27,8 @@ test('draw-polygon: tapping the first vertex finishes the polygon', async ({ pag
   await recordEvents(page, ['create', 'draftchange']);
   await setMode(page, 'draw-polygon');
 
-  // Each tap is confirmed through the draft before the next one. A tap that
-  // reached the mode twice (touch + compatibility mouse) would stack vertices
-  // or finish early, so the count must step 1 → 2 → 3.
+  // Each tap is confirmed through the draft before the next one: the count
+  // must step 1 → 2 → 3.
   await pointer.tap(100, 100);
   await expect.poll(() => lastDraftVertexCount(page)).toBe(1);
   await pointer.tap(220, 100);
@@ -70,8 +69,8 @@ test('draw-angled-rectangle: three taps create a tilted rectangle', async ({ pag
   await recordEvents(page, ['create', 'draftchange']);
   await setMode(page, 'draw-angled-rectangle');
 
-  // A diagonal base edge, then a width point off to one side. The count
-  // must step 1 → 2 so a doubled tap cannot finish the rectangle early.
+  // A diagonal base edge, then a width point off to one side; the count must
+  // step 1 → 2.
   await pointer.tap(100, 250);
   await expect.poll(() => lastDraftVertexCount(page)).toBe(1);
   await pointer.tap(250, 150);

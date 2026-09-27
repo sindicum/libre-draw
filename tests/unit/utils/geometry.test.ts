@@ -10,6 +10,8 @@ import {
   removeLineVertex,
   getRingVertices,
   getVertices,
+  hasNegligibleArea,
+  signedRingArea,
   insertVertex,
   movePolygon,
   moveVertex,
@@ -375,5 +377,135 @@ describe('geometry utils for LineString', () => {
     };
     expect(() => getLineVertices(polygon)).toThrow('Expected LineString');
     expect(() => getVertices(makeLine())).toThrow('Expected Polygon');
+  });
+});
+
+describe('signedRingArea', () => {
+  const ccw: Position[] = [
+    [0, 0],
+    [4, 0],
+    [4, 3],
+    [0, 3],
+    [0, 0],
+  ];
+
+  it('is positive for counter-clockwise and negative for clockwise rings', () => {
+    expect(signedRingArea(ccw)).toBe(12);
+    expect(signedRingArea([...ccw].reverse())).toBe(-12);
+  });
+
+  it('accepts a ring with or without its closing position', () => {
+    expect(signedRingArea(ccw.slice(0, 4))).toBe(12);
+  });
+
+  it('keeps the area of a sub-metre ring at real coordinates', () => {
+    const s = 1e-6;
+    const tiny: Position[] = [
+      [139.7, 35.66],
+      [139.7 + s, 35.66],
+      [139.7 + s, 35.66 + s],
+      [139.7, 35.66 + s],
+      [139.7, 35.66],
+    ];
+    expect(signedRingArea(tiny) / (s * s)).toBeCloseTo(1, 6);
+  });
+
+  it('returns 0 for fewer than three positions', () => {
+    expect(signedRingArea([[0, 0]])).toBe(0);
+    expect(
+      signedRingArea([
+        [0, 0],
+        [1, 1],
+      ])
+    ).toBe(0);
+  });
+});
+
+describe('hasNegligibleArea', () => {
+  it('is false for a square, however small or far from the origin', () => {
+    for (const s of [10, 1e-5, 1e-7]) {
+      for (const [ox, oy] of [
+        [0, 0],
+        [139.7, 35.66],
+      ]) {
+        const square: Position[] = [
+          [ox, oy],
+          [ox + s, oy],
+          [ox + s, oy + s],
+          [ox, oy + s],
+          [ox, oy],
+        ];
+        expect(hasNegligibleArea(square)).toBe(false);
+      }
+    }
+  });
+
+  it('is true for collinear and coincident rings', () => {
+    expect(
+      hasNegligibleArea([
+        [0, 0],
+        [5, 5],
+        [10, 10],
+        [0, 0],
+      ])
+    ).toBe(true);
+    expect(
+      hasNegligibleArea([
+        [1, 1],
+        [1, 1],
+        [1, 1],
+        [1, 1],
+      ])
+    ).toBe(true);
+  });
+
+  it('judges the area against the extent, not in absolute terms', () => {
+    // A sliver 10 units long and 1e-9 wide: area 5e-9 is large in absolute
+    // terms but only 5e-11 of the extent squared.
+    expect(
+      hasNegligibleArea([
+        [0, 0],
+        [10, 0],
+        [10, 1e-9],
+        [0, 0],
+      ])
+    ).toBe(true);
+    // The same proportions scaled down keep the same verdict.
+    expect(
+      hasNegligibleArea([
+        [0, 0],
+        [1e-5, 0],
+        [1e-5, 1e-15],
+        [0, 0],
+      ])
+    ).toBe(true);
+  });
+});
+
+describe('hasNegligibleArea threshold', () => {
+  // A right triangle 10 wide and w high: area 5w, extent 10, so the
+  // threshold EPSILON × 100 = 1e-8 is met exactly at w = 2e-9.
+  const sliver = (w: number): Position[] => [
+    [0, 0],
+    [10, 0],
+    [10, w],
+    [0, 0],
+  ];
+
+  it('is true just below and exactly at the threshold, false just above it', () => {
+    expect(hasNegligibleArea(sliver(1.9e-9))).toBe(true);
+    expect(hasNegligibleArea(sliver(2e-9))).toBe(true);
+    expect(hasNegligibleArea(sliver(2.1e-9))).toBe(false);
+  });
+
+  it('gives the same verdict whichever vertex the ring starts from', () => {
+    for (const w of [1.9e-9, 2.1e-9]) {
+      const ring = sliver(w).slice(0, 3);
+      const verdicts = ring.map((_, k) => {
+        const shifted = [...ring.slice(k), ...ring.slice(0, k)];
+        return hasNegligibleArea([...shifted, shifted[0]]);
+      });
+      expect(new Set(verdicts).size).toBe(1);
+    }
   });
 });

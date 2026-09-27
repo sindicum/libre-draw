@@ -9,10 +9,9 @@ export interface UnionExecuteCallbacks {
 /**
  * Inline execute button used by union mode.
  *
- * Laid out like RotateInput (a popup beside the mode button) but without a
- * field: the polygons to merge are the selection, so the button only
- * triggers the merge. It is the way to run a union where there is no
- * Enter key, such as on touch devices.
+ * A popup beside the mode button with no field: the polygons to merge are
+ * the selection, so the button only triggers the merge. It is the way to
+ * run a union where there is no Enter key, such as on touch devices.
  */
 export class UnionExecute {
   private container: HTMLDivElement;

@@ -110,7 +110,7 @@ export class ReshapeMode implements DraftCapableMode {
 
   onKeyDown(key: string, _event: KeyboardEvent): void {
     if (!this.isActive || key !== 'Escape') return;
-    // Escape gives up on the target as well as the draft, as in split mode.
+    // Escape gives up on the target as well as the draft.
     this.stopDrafting();
     this.context.selection.clear();
   }

@@ -12,16 +12,15 @@ import { tryValidateFeature } from '../validation/geojson';
  *
  * A Polygon is cut where the (infinitely extended) line crosses its outer
  * ring exactly twice; a LineString is cut at its first crossing. The two
- * parts get fresh ids and a copy of the original's properties, exactly as
- * the split mode produces them. A geometric failure is reported with the
- * `SplitFailReason` code and, as in the mode, a `splitfailed` event; an
- * argument error (`not-found`, `not-splittable`) emits nothing.
+ * parts get fresh ids and a copy of the original's properties. A geometric
+ * failure is reported with the `SplitFailReason` code and a `splitfailed`
+ * event; an argument error (`not-found`, `not-splittable`) emits nothing.
  *
  * The two parts are validated like `addFeatures` input before anything is
  * written. Their vertices are the original vertices plus points on the
  * original edges, so this only fails on rounding at the coordinate limits;
  * that failure is `invalid-result`, reported like the other geometric
- * failures (with a `splitfailed` event), as union and setback do.
+ * failures (with a `splitfailed` event).
  *
  * @returns `created: [a, b], deleted: [original]` on success; otherwise
  *   `not-found`, `not-splittable`, or a `SplitFailReason`.

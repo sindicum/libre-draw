@@ -6,6 +6,7 @@ import {
   EPSILON,
 } from '../validation/intersection';
 import { createFeatureId } from './id';
+import { hasNegligibleArea, signedRingArea } from './geometry';
 import type { SplitFailReason } from '../types/events';
 
 /**
@@ -44,18 +45,6 @@ function clonePosition(pos: Position): Position {
 }
 
 /**
- * Compute the signed area of a closed ring using the shoelace formula.
- * Positive area indicates counter-clockwise winding; negative indicates clockwise.
- */
-function signedArea(ring: Position[]): number {
-  let area = 0;
-  for (let i = 0; i < ring.length - 1; i++) {
-    area += ring[i][0] * ring[i + 1][1] - ring[i + 1][0] * ring[i][1];
-  }
-  return area / 2;
-}
-
-/**
  * Compute the parametric position of a point along an edge (start → end).
  * Returns 0.0 at start, 1.0 at end. Uses the axis with greater extent for numerical stability.
  */
@@ -75,7 +64,8 @@ export function edgeParameter(start: Position, end: Position, point: Position): 
 /**
  * Normalize an open list of points into a valid closed polygon ring.
  * Deduplicates consecutive equal points, ensures at least 3 distinct vertices,
- * rejects zero-area rings, and enforces counter-clockwise winding order.
+ * rejects rings whose area is negligible for their extent (collinear chains;
+ * see `hasNegligibleArea`), and enforces counter-clockwise winding order.
  * Returns null if the points cannot form a valid ring.
  */
 function normalizeRing(openPoints: Position[]): Position[] | null {
@@ -92,12 +82,11 @@ function normalizeRing(openPoints: Position[]): Position[] | null {
 
   if (deduped.length < 3) return null;
 
-  const clockwiseClosed: Position[] = [...deduped, clonePosition(deduped[0])];
-  const area = signedArea(clockwiseClosed);
-  if (Math.abs(area) < EPSILON) return null;
+  const closed: Position[] = [...deduped, clonePosition(deduped[0])];
+  if (hasNegligibleArea(closed)) return null;
 
-  if (area > 0) {
-    return clockwiseClosed;
+  if (signedRingArea(closed) > 0) {
+    return closed;
   }
 
   const reversed = [...deduped].reverse();
@@ -135,8 +124,7 @@ export function findPathIndex(path: Position[], target: Position): number {
   return -1;
 }
 
-// The failure reason is a public event type; it lives in types/ so that
-// types/ never depends on utils/. Re-exported here for existing importers.
+// The failure reason lives in types/ so that types/ never depends on utils/.
 export type { SplitFailReason };
 
 /**
@@ -194,18 +182,23 @@ export function splitLine(
 
   const { point, segmentIndex, t } = bestIntersection;
 
-  // Build two LineStrings from the split point
+  // Build two LineStrings from the split point. An intersection at either
+  // end of the segment is that vertex itself: it is not added a second time,
+  // and the vertex becomes the shared end of both parts.
+  const atSegmentEnd = t >= 1 - EPSILON;
+  const splitPoint = atSegmentEnd ? clonePosition(coords[segmentIndex + 1]) : point;
+  const firstIndexOfB = atSegmentEnd ? segmentIndex + 2 : segmentIndex + 1;
+
   const coordsA: Position[] = [];
   for (let i = 0; i <= segmentIndex; i++) {
     coordsA.push(clonePosition(coords[i]));
   }
-  // Add the intersection point if it's not at the segment start/end
   if (t > EPSILON) {
-    coordsA.push(point);
+    coordsA.push(splitPoint);
   }
 
-  const coordsB: Position[] = [clonePosition(point)];
-  for (let i = segmentIndex + 1; i < coords.length; i++) {
+  const coordsB: Position[] = [clonePosition(splitPoint)];
+  for (let i = firstIndexOfB; i < coords.length; i++) {
     coordsB.push(clonePosition(coords[i]));
   }
 

@@ -81,9 +81,9 @@ export interface ToolbarCallbacks {
  * Creates and manages the drawing toolbar UI.
  *
  * The toolbar is positioned on the map using MapLibre's control
- * container system. It creates buttons for draw, select, delete,
- * undo, and redo actions. Button states are updated externally
- * to reflect the current mode and history state.
+ * container system. It creates one button per control enabled in
+ * `ToolbarControls`. Button states are updated externally to reflect the
+ * current mode and history state.
  */
 export class Toolbar {
   private map: MaplibreMap;

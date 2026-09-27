@@ -16,11 +16,10 @@ export type GetActiveModeCallback = () => Mode | undefined;
  *
  * Mobile browsers follow a tap with *compatibility mouse events*
  * (mousedown / mouseup / click / dblclick) synthesized at roughly the same
- * position. Both handlers listen on the same canvas, so without this guard a
- * single tap reaches the active mode twice — once as touch, once as mouse —
- * and the two positions differ by a fraction of a pixel because touch
- * coordinates are fractional while the synthesized mouse ones are rounded.
- * The window only needs to outlast the browser's own tap delay.
+ * position, and both handlers listen on the same canvas. The echo cannot be
+ * matched by position (touch coordinates are fractional, the synthesized
+ * mouse ones are rounded), so it is dropped by time. The window only needs
+ * to outlast the browser's own tap delay.
  */
 const MOUSE_AFTER_TOUCH_SUPPRESSION_MS = 700;
 

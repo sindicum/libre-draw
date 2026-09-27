@@ -145,7 +145,6 @@ describe('Edit Flow Integration', () => {
     drawSquare(modeManager);
     const featureId = store.getAll()[0].id;
 
-    // Original ring has 5 unique vertices (4 square + 1 extra from draw) + closing
     const originalRingLength = store.getById(featureId)!.geometry.coordinates[0].length;
 
     // Switch to select and select

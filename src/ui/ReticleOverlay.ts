@@ -175,7 +175,7 @@ export class ReticleOverlay {
 
   private applyButtonStyles(button: HTMLButtonElement): void {
     const s = button.style;
-    // The touch target size (F-014): these are the only way to place,
+    // Touch target size: these are the only way to place,
     // take back and finish points while the reticle is in use.
     s.minWidth = '44px';
     s.height = '44px';

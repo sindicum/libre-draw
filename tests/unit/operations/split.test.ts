@@ -108,8 +108,7 @@ describe('split', () => {
 
       const result = split(context, 'sq', VERTICAL_LINE);
 
-      // The validation message is not surfaced: the code is the contract, as
-      // for union's invalid-result.
+      // The validation message is not surfaced: the reason code is the contract.
       expect(result).toEqual({ ok: false, reason: 'invalid-result' });
       expect(features.get('sq')).toBe(before);
       expect(features.size).toBe(1);

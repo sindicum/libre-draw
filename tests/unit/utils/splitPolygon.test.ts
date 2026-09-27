@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import type { LibreDrawFeature, Position } from '../../../src/types/features';
 import { splitPolygon, splitLine } from '../../../src/utils/splitPolygon';
+import { signedRingArea } from '../../../src/utils/geometry';
 
 function makeFeature(
   id: string,
@@ -400,7 +401,65 @@ describe('splitLine', () => {
 
     const [a, b] = result.features;
     if (a.geometry.type !== 'LineString' || b.geometry.type !== 'LineString') return;
-    expect(a.geometry.coordinates.length).toBeGreaterThanOrEqual(2);
-    expect(b.geometry.coordinates.length).toBeGreaterThanOrEqual(2);
+    // The shared vertex ends A and starts B; neither part repeats it.
+    expect(a.geometry.coordinates).toEqual([
+      [0, 0],
+      [5, 0],
+    ]);
+    expect(b.geometry.coordinates).toEqual([
+      [5, 0],
+      [10, 0],
+    ]);
+  });
+});
+
+describe('splitPolygon at metre scales', () => {
+  // A square about a metre across must split like any other: neither half
+  // may be taken for a degenerate (zero-area) ring.
+  const places: [string, number, number][] = [
+    ['near the origin', 0, 0],
+    ['in Tokyo', 139.7, 35.66],
+  ];
+
+  for (const [where, ox, oy] of places) {
+    it(`splits a 1.1 m square ${where} into two equal halves`, () => {
+      const s = 1e-5;
+      const feature = makeFeature('tiny', [
+        [ox, oy],
+        [ox + s, oy],
+        [ox + s, oy + s],
+        [ox, oy + s],
+        [ox, oy],
+      ]);
+
+      const result = splitPolygon(feature, [ox + s / 2, oy - s], [ox + s / 2, oy + 2 * s]);
+      expect(result.type).toBe('success');
+      if (result.type !== 'success') return;
+
+      const [a, b] = result.features;
+      const areaA = Math.abs(signedRingArea(a.geometry.coordinates[0] as Position[]));
+      const areaB = Math.abs(signedRingArea(b.geometry.coordinates[0] as Position[]));
+      expect(areaA / areaB).toBeCloseTo(1, 2);
+      expect((areaA + areaB) / (s * s)).toBeCloseTo(1, 2);
+    });
+  }
+});
+
+describe('splitLine at the vertices of the line', () => {
+  const line = () =>
+    makeLineFeature('line', [
+      [0, 0],
+      [5, 0],
+      [10, 0],
+    ]);
+
+  it('refuses to split at the last vertex (one part would have no length)', () => {
+    const result = splitLine(line(), [10, -5], [10, 5]);
+    expect(result).toEqual({ type: 'error', reason: 'insufficient-vertices' });
+  });
+
+  it('refuses to split at the first vertex', () => {
+    const result = splitLine(line(), [0, -5], [0, 5]);
+    expect(result).toEqual({ type: 'error', reason: 'insufficient-vertices' });
   });
 });

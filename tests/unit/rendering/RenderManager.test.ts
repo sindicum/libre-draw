@@ -7,6 +7,7 @@ import {
 } from '../../../src/rendering/RenderManager';
 import { SourceManager, SOURCE_IDS } from '../../../src/rendering/SourceManager';
 import type { LibreDrawFeature } from '../../../src/types/features';
+import type { StyleConfig } from '../../../src/types/style';
 
 type LayerHandler = (event: { features?: Array<{ id?: string | number }> }) => void;
 
@@ -22,9 +23,7 @@ class FakeSource {
 /**
  * Minimal map stand-in.
  *
- * `setFeatureState` mirrors MapLibre and throws on a missing id, so a
- * regression that drops the feature id surfaces as a failing test rather
- * than a silently swallowed call.
+ * `setFeatureState` mirrors MapLibre and throws on a missing id.
  */
 class FakeMap {
   readonly featureState = new Map<string | number, Record<string, unknown>>();
@@ -67,7 +66,7 @@ class FakeMap {
     this.layers.delete(id);
   }
 
-  setPaintProperty(): void {}
+  readonly setPaintProperty = vi.fn<(layer: string, prop: string, value: unknown) => void>();
 
   hasImage(id: string): boolean {
     return this.images.has(id);
@@ -102,6 +101,15 @@ class FakeMap {
 
   sourceData(id: string): GeoJSON.FeatureCollection | undefined {
     return this.sources.get(id)?.data;
+  }
+
+  /** The `paint` each layer was added with, keyed by layer id. */
+  layerPaints(): Map<string, Record<string, unknown> | undefined> {
+    const paints = new Map<string, Record<string, unknown> | undefined>();
+    for (const [id, layer] of this.layers) {
+      paints.set(id, (layer as { paint?: Record<string, unknown> }).paint);
+    }
+    return paints;
   }
 }
 
@@ -250,6 +258,104 @@ describe('RenderManager', () => {
 
       manager.clearRotationCenter();
       expect(source.data.features).toHaveLength(0);
+    });
+  });
+
+  describe('updateStyle', () => {
+    // Every field differs from the default so that a paint property left out
+    // of updateStyle shows up as a mismatch against initialize.
+    const next: StyleConfig = {
+      fill: { color: '#111111', opacity: 0.3, selectedColor: '#222222', selectedOpacity: 0.5 },
+      outline: { color: '#333333', width: 3, selectedColor: '#444444' },
+      vertex: { color: '#555555', strokeColor: '#666666', strokeWidth: 3, radius: 5 },
+      preview: { color: '#777777', width: 3, dasharray: [4, 4] },
+      editVertex: {
+        color: '#888888',
+        strokeColor: '#999999',
+        strokeWidth: 3,
+        radius: 6,
+        highlightedColor: '#aaaaaa',
+        highlightedStrokeColor: '#bbbbbb',
+        highlightedRadius: 8,
+      },
+      midpoint: { color: '#cccccc', opacity: 0.7, radius: 5 },
+      point: {
+        color: '#dddddd',
+        radius: 7,
+        selectedColor: '#eeeeee',
+        selectedRadius: 9,
+        hoverColor: '#ff00ff',
+        strokeColor: '#00ffff',
+        strokeWidth: 3,
+      },
+    };
+
+    function paintAfterInitialize(style?: StyleConfig) {
+      const m = new FakeMap();
+      const rm = new RenderManager(
+        m as unknown as MaplibreMap,
+        new SourceManager(m as unknown as MaplibreMap),
+        style
+      );
+      rm.initialize();
+      return m.layerPaints();
+    }
+
+    function recordedUpdates(): Map<string, Record<string, unknown>> {
+      const updated = new Map<string, Record<string, unknown>>();
+      for (const [layer, prop, value] of map.setPaintProperty.mock.calls) {
+        updated.set(layer, { ...updated.get(layer), [prop]: value });
+      }
+      return updated;
+    }
+
+    it('sets every style-derived paint property to what initialize would use', () => {
+      const before = paintAfterInitialize();
+      const expected = paintAfterInitialize(next);
+
+      manager.updateStyle(next);
+      const updated = recordedUpdates();
+
+      expect(expected.size).toBeGreaterThan(0);
+      for (const [layer, paint] of expected) {
+        if (JSON.stringify(paint) === JSON.stringify(before.get(layer))) {
+          // Constant paint, or none: there is nothing for updateStyle to do.
+          expect(updated.has(layer), layer).toBe(false);
+        } else {
+          expect(updated.get(layer), layer).toEqual(paint);
+        }
+      }
+    });
+
+    it('refreshes the highlighted midpoint stroke from editVertex', () => {
+      manager.updateStyle(next);
+      const midpoints = recordedUpdates().get(LAYER_IDS.EDIT_MIDPOINTS);
+
+      expect(midpoints?.['circle-stroke-width']).toEqual([
+        'case',
+        ['boolean', ['get', '_highlighted'], false],
+        3,
+        0,
+      ]);
+      expect(midpoints?.['circle-stroke-color']).toEqual([
+        'case',
+        ['boolean', ['get', '_highlighted'], false],
+        '#bbbbbb',
+        'transparent',
+      ]);
+    });
+
+    it('only stores the style before initialize', () => {
+      const m = new FakeMap();
+      const rm = new RenderManager(
+        m as unknown as MaplibreMap,
+        new SourceManager(m as unknown as MaplibreMap)
+      );
+
+      rm.updateStyle(next);
+
+      expect(m.setPaintProperty).not.toHaveBeenCalled();
+      expect(rm.getStyle()).toEqual(next);
     });
   });
 });

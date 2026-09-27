@@ -17,8 +17,8 @@ import { tryValidateFeature } from '../validation/geojson';
  * anything is written.
  *
  * A geometric failure is reported with the `ReshapeFailReason` code and a
- * `reshapefailed` event, as the reshape mode reports it; an argument error
- * (`not-found`, `not-polygon`, `invalid-line`) emits nothing.
+ * `reshapefailed` event; an argument error (`not-found`, `not-polygon`,
+ * `invalid-line`) emits nothing.
  *
  * @param line - At least two positions; it must cross the outer ring
  *   exactly twice.

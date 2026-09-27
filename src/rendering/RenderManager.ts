@@ -255,11 +255,9 @@ export class RenderManager {
       });
     }
 
-    // Rotation center layer: a crosshair at the pivot of rotate mode. Not a
-    // circle, because circles already mean "vertex" or "point" here. The
-    // image is registered on the map so the marker does not depend on the
-    // style providing glyphs; a style swap drops images, so this runs on
-    // every initialize.
+    // Rotation center layer: the crosshair at the pivot of rotate mode. A
+    // style swap drops map images, so the image is registered on every
+    // initialize.
     if (!this.map.hasImage(ROTATION_CENTER_IMAGE_ID)) {
       this.map.addImage(ROTATION_CENTER_IMAGE_ID, createCrosshairImage(), {
         pixelRatio: CROSSHAIR_PIXEL_RATIO,
@@ -644,6 +642,18 @@ export class RenderManager {
       1,
       style.midpoint.opacity,
     ]);
+    set(LAYER_IDS.EDIT_MIDPOINTS, 'circle-stroke-width', [
+      'case',
+      ['boolean', ['get', '_highlighted'], false],
+      style.editVertex.strokeWidth,
+      0,
+    ]);
+    set(LAYER_IDS.EDIT_MIDPOINTS, 'circle-stroke-color', [
+      'case',
+      ['boolean', ['get', '_highlighted'], false],
+      style.editVertex.highlightedStrokeColor,
+      'transparent',
+    ]);
   }
 
   /**
@@ -718,9 +728,7 @@ export class RenderManager {
     this.map.on('mousemove', LAYER_IDS.POINT, (e) => {
       if (!e.features || e.features.length === 0) return;
       const id = e.features[0].id;
-      // A source created without `promoteId` (e.g. rebuilt by a style swap)
-      // yields undefined ids. Skipping keeps hover colour off rather than
-      // throwing from setFeatureState.
+      // `setFeatureState` needs an id; a feature without one gets no hover colour.
       if (id === undefined || id === null) return;
 
       if (hoveredId !== null && hoveredId !== id) {

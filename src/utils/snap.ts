@@ -95,7 +95,7 @@ function filterFeatures(features: LibreDrawFeature[], options: SnapOptions): Lib
  * Check whether a feature's bounding box intersects the given viewport bounds.
  *
  * Uses a fast min/max scan over the outer ring coordinates (holes lie
- * inside it, so they never widen the box). No map.project() calls are needed.
+ * inside it, so they never widen the box).
  */
 export function isFeatureInBounds(feature: LibreDrawFeature, bounds: ViewportBounds): boolean {
   if (feature.geometry.type === 'Point') {

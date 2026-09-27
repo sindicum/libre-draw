@@ -53,7 +53,7 @@ const NOTCH: Position[] = [
   [50, 0],
 ];
 
-describe('reshape (F-026)', () => {
+describe('reshape', () => {
   let map: FakeMap;
   let draw: LibreDraw;
   let events: Array<{ type: string; payload: unknown }>;

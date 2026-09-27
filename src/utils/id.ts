@@ -46,8 +46,7 @@ function formatUuidV4(bytes: Uint8Array): string {
  * such restriction, so the fallback keeps feature creation working there.
  *
  * There is deliberately no `Math.random()` tier below this: an environment
- * without `crypto` is out of support, and a silent drop to weaker randomness
- * would risk ID collisions, which break store identity and undo/redo.
+ * without `crypto` is out of support.
  *
  * @returns A new UUID string, e.g. `3c8da699-670c-4c77-a52b-3baf0c365c5a`.
  */

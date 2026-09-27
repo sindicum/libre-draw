@@ -26,7 +26,7 @@ import { createFeatureId } from '../utils/id';
  * base edge are the only feedback between taps.
  *
  * A drag never places a point: it is left to the map so the user can pan
- * while drawing (hence `dragPan: true`), as in the rectangle mode.
+ * while drawing (hence `dragPan: true`).
  *
  * A second point on top of the first, or a third point on the base line
  * (zero width), is silently ignored and the draft is kept.
@@ -177,8 +177,7 @@ export class DrawAngledRectangleMode implements DraftCapableMode {
     this.points = [];
     this.resetPointer();
     this.clearDraftRendering();
-    // Always notify (even without a draft) so external UIs can reset,
-    // matching the other drawing modes and the facade's TSDoc.
+    // Always notify (even without a draft): the public API promises a draftchange on cancel.
     this.emitDraftChange();
   }
 
@@ -190,8 +189,7 @@ export class DrawAngledRectangleMode implements DraftCapableMode {
   }
 
   /**
-   * Remove the last placed base-edge point (2 → 1 → 0), as in the polygon
-   * and line modes.
+   * Remove the last placed base-edge point (2 → 1 → 0).
    * @returns `true` when a point was removed.
    */
   undoLastVertex(): boolean {

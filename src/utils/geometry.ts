@@ -4,6 +4,7 @@ import type {
   PolygonGeometry,
   Position,
 } from '../types/features';
+import { EPSILON } from '../validation/intersection';
 
 /**
  * Assert that the feature has LineString geometry and return it narrowed.
@@ -262,4 +263,52 @@ export function removeLineVertex(feature: LibreDrawFeature, vertexIndex: number)
       coordinates: coords,
     },
   };
+}
+
+/**
+ * Signed area of a ring (shoelace formula), positive for counter-clockwise
+ * winding. The ring may be given with or without its closing position.
+ *
+ * Computed relative to the first vertex, which keeps the precision of a
+ * small ring far from the origin.
+ */
+export function signedRingArea(ring: Position[]): number {
+  const n = ring.length;
+  if (n < 3) return 0;
+  const [originX, originY] = ring[0];
+  let sum = 0;
+  for (let i = 0; i < n; i++) {
+    const a = ring[i];
+    const b = ring[(i + 1) % n];
+    const aX = a[0] - originX;
+    const aY = a[1] - originY;
+    const bX = b[0] - originX;
+    const bY = b[1] - originY;
+    sum += aX * bY - bX * aY;
+  }
+  return sum / 2;
+}
+
+/**
+ * Whether a ring encloses no area worth speaking of: its absolute area is at
+ * most `EPSILON` times the square of its extent (the larger side of its
+ * bounding box). The ratio is dimensionless, so a metre-wide ring and a
+ * kilometre-wide one are judged alike; for a sliver of width `w` and length
+ * `L` it is about `w / 2L`. A ring whose vertices all coincide counts as
+ * negligible.
+ */
+export function hasNegligibleArea(ring: Position[]): boolean {
+  let minX = Infinity;
+  let minY = Infinity;
+  let maxX = -Infinity;
+  let maxY = -Infinity;
+  for (const [x, y] of ring) {
+    if (x < minX) minX = x;
+    if (x > maxX) maxX = x;
+    if (y < minY) minY = y;
+    if (y > maxY) maxY = y;
+  }
+  const extent = Math.max(maxX - minX, maxY - minY);
+  if (!(extent > 0)) return true;
+  return Math.abs(signedRingArea(ring)) <= EPSILON * extent * extent;
 }

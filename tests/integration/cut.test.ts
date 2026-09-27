@@ -36,7 +36,7 @@ function clickAt(map: FakeMap, x: number, y: number): void {
   window.dispatchEvent(new MouseEvent('mouseup', { bubbles: true, clientX: x, clientY: y }));
 }
 
-describe('cut (F-025)', () => {
+describe('cut', () => {
   let map: FakeMap;
   let draw: LibreDraw;
   let events: Array<{ type: string; payload: unknown }>;

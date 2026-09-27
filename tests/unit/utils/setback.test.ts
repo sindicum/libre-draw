@@ -118,3 +118,41 @@ describe('computeEdgeOffsetLine', () => {
     expect(() => computeEdgeOffsetLine(degenerate, 0, 10)).toThrow();
   });
 });
+
+describe('computeInwardNormal at metre scales', () => {
+  // The winding, and so the side the normal points to, must be read
+  // correctly for rings under a square metre, near the origin and at real
+  // coordinates alike.
+  const places: [string, number, number][] = [
+    ['near the origin', 0, 0],
+    ['in Tokyo', 139.7, 35.66],
+  ];
+
+  for (const [where, ox, oy] of places) {
+    for (const s of [1e-5, 1e-6]) {
+      it(`flips the normal of a clockwise ${s}° square ${where}`, () => {
+        const clockwise: Position[] = [
+          [ox, oy],
+          [ox, oy + s],
+          [ox + s, oy + s],
+          [ox + s, oy],
+        ];
+        const normal = computeInwardNormal(clockwise[0], clockwise[1], clockwise);
+        expect(normal[0]).toBeCloseTo(1, 8);
+        expect(normal[1]).toBeCloseTo(0, 8);
+      });
+
+      it(`keeps the normal of a counter-clockwise ${s}° square ${where}`, () => {
+        const ccw: Position[] = [
+          [ox, oy],
+          [ox + s, oy],
+          [ox + s, oy + s],
+          [ox, oy + s],
+        ];
+        const normal = computeInwardNormal(ccw[0], ccw[1], ccw);
+        expect(normal[0]).toBeCloseTo(0, 8);
+        expect(normal[1]).toBeCloseTo(1, 8);
+      });
+    }
+  }
+});

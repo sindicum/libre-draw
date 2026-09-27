@@ -469,9 +469,214 @@ describe('validateFeature with holes', () => {
     );
   });
 
+  it.each([
+    ['near the origin', 0, 0],
+    ['in Tokyo', 139.7, 35.66],
+  ])('accepts a 1.1 m square with a hole %s', (_where, ox, oy) => {
+    // Edges this short must still be told apart from collinear ones.
+    const s = 1e-5;
+    const tinyOuter = square(ox, oy, s).reverse();
+    const tinyHole = square(ox + s * 0.25, oy + s * 0.25, s * 0.5);
+    const feature = validateFeature(
+      makeFeature({ geometry: { type: 'Polygon', coordinates: [tinyOuter, tinyHole] } })
+    );
+    expect(feature.geometry.type === 'Polygon' && feature.geometry.coordinates).toHaveLength(2);
+  });
+
   it('reports the message through tryValidateFeature', () => {
     const result = tryValidateFeature(holed(square(20, 20, 2)));
     expect(result.valid).toBe(false);
     if (!result.valid) expect(result.reason).toMatch('outside the outer ring');
+  });
+});
+
+describe('coordinate validity', () => {
+  const point = (coordinates: unknown) => makeFeature({ geometry: { type: 'Point', coordinates } });
+
+  it.each([
+    [NaN, 0],
+    [0, NaN],
+    [Infinity, 0],
+    [0, -Infinity],
+  ])('rejects the non-finite Point coordinate [%s, %s]', (lng, lat) => {
+    expect(() => validateFeature(point([lng, lat]))).toThrow('Invalid coordinate');
+  });
+
+  it('rejects a non-finite coordinate inside a LineString and a Polygon ring', () => {
+    expect(() =>
+      validateFeature(
+        makeFeature({
+          geometry: {
+            type: 'LineString',
+            coordinates: [
+              [0, 0],
+              [NaN, 1],
+            ],
+          },
+        })
+      )
+    ).toThrow('Invalid coordinate');
+    expect(() =>
+      validateFeature(
+        makeFeature({
+          geometry: {
+            type: 'Polygon',
+            coordinates: [
+              [
+                [0, 0],
+                [10, Infinity],
+                [10, 10],
+                [0, 0],
+              ],
+            ],
+          },
+        })
+      )
+    ).toThrow('Invalid coordinate');
+  });
+
+  it('reports a finite value outside the range as a range error, not a finite one', () => {
+    expect(() => validateFeature(point([1e308, 0]))).toThrow('Invalid longitude');
+    expect(() => validateFeature(point([0, -1e308]))).toThrow('Invalid latitude');
+  });
+
+  it.each([
+    [180, 90],
+    [-180, -90],
+  ])('accepts the boundary coordinate [%s, %s]', (lng, lat) => {
+    expect(validateFeature(point([lng, lat])).geometry.coordinates).toEqual([lng, lat]);
+  });
+});
+
+describe('ring validity', () => {
+  const polygon = (ring: unknown[]) =>
+    makeFeature({ geometry: { type: 'Polygon', coordinates: [ring] } });
+
+  it('reports a null position as a rejection instead of throwing', () => {
+    expect(tryValidateFeature(polygon([null, [0, 0], [10, 0], [10, 10]]))).toEqual({
+      valid: false,
+      reason: 'Each position in a ring must be an array of at least 2 numbers.',
+    });
+  });
+
+  it('reports a non-array and a non-numeric position as rejections', () => {
+    expect(tryValidateFeature(polygon([[0, 0], 'x', [10, 10], [0, 0]]))).toEqual({
+      valid: false,
+      reason: 'Each position in a ring must be an array of at least 2 numbers.',
+    });
+    expect(
+      tryValidateFeature(
+        polygon([
+          [0, 0],
+          ['x', 0],
+          [10, 10],
+          [0, 0],
+        ])
+      )
+    ).toEqual({
+      valid: false,
+      reason: 'Invalid coordinate: expected [number, number], got [string, number]',
+    });
+  });
+
+  it('rejects a ring whose positions are all identical', () => {
+    expect(() =>
+      validateFeature(
+        polygon([
+          [1, 1],
+          [1, 1],
+          [1, 1],
+          [1, 1],
+        ])
+      )
+    ).toThrow('requires 3 unique vertices');
+  });
+
+  it('rejects a collinear ring', () => {
+    expect(() =>
+      validateFeature(
+        polygon([
+          [0, 0],
+          [1, 0],
+          [2, 0],
+          [0, 0],
+        ])
+      )
+    ).toThrow('requires 3 unique vertices');
+  });
+
+  it('names the degenerate shape before the overlapping edges it also has', () => {
+    expect(() =>
+      validateFeature(
+        polygon([
+          [0, 0],
+          [1, 0],
+          [2, 0],
+          [3, 0],
+          [0, 0],
+        ])
+      )
+    ).toThrow('requires 3 unique vertices');
+  });
+
+  it('accepts a triangle about a metre across', () => {
+    const feature = validateFeature(
+      polygon([
+        [139.7, 35.66],
+        [139.70001, 35.66],
+        [139.700005, 35.660008],
+        [139.7, 35.66],
+      ])
+    );
+    expect(feature.geometry.type).toBe('Polygon');
+  });
+});
+
+describe('geometry envelope rejections', () => {
+  it('rejects a LineString position with non-numeric coordinates', () => {
+    expect(() =>
+      validateFeature(
+        makeFeature({
+          geometry: {
+            type: 'LineString',
+            coordinates: [
+              [0, 0],
+              ['x', 1],
+            ],
+          },
+        })
+      )
+    ).toThrow('must contain numeric coordinates');
+  });
+
+  it('rejects Polygon coordinates that are not an array', () => {
+    expect(() =>
+      validateFeature(makeFeature({ geometry: { type: 'Polygon', coordinates: 'x' } }))
+    ).toThrow('Feature.geometry.coordinates must be an array.');
+  });
+
+  it.each([
+    ['Point', 'x', 'Feature.geometry.coordinates must be an array.'],
+    ['Point', [1], 'Point coordinates must be [longitude, latitude].'],
+    ['LineString', 'x', 'Feature.geometry.coordinates must be an array.'],
+    ['LineString', [[0, 0], 1], 'Each position in a LineString must be an array'],
+    ['Polygon', ['x'], 'Ring must be an array of positions.'],
+  ])('rejects malformed %s coordinates %j', (type, coordinates, message) => {
+    expect(() => validateFeature(makeFeature({ geometry: { type, coordinates } }))).toThrow(
+      message
+    );
+  });
+
+  it('lets a non-LibreDrawError thrown by a feature propagate out of validateGeoJSON', () => {
+    const hostile = {
+      type: 'Feature',
+      get geometry(): never {
+        throw new TypeError('boom');
+      },
+      properties: {},
+    };
+    expect(() => validateGeoJSON({ type: 'FeatureCollection', features: [hostile] })).toThrow(
+      TypeError
+    );
   });
 });
