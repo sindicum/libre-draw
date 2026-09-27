@@ -15,6 +15,19 @@ import { findDraftVertexTarget, finishRadius, type DraftVertexTarget } from './d
 const MIN_VERTICES = 2;
 
 /**
+ * Options for a {@link DrawLineMode} used as the drafting part of another
+ * mode.
+ */
+export interface DrawLineModeOptions {
+  /**
+   * Called with the drafted line instead of creating a feature when the
+   * draft is finished. Its result becomes the result of the finish
+   * (`finishDrawing()`); the draft is cleared either way.
+   */
+  onComplete?: (line: Position[]) => boolean;
+}
+
+/**
  * Drawing mode for creating new LineString features.
  *
  * Each **click or tap** — a pointer down followed by a pointer up that has
@@ -52,8 +65,11 @@ export class DrawLineMode implements DraftCapableMode {
   /** Set once the pointer has travelled beyond the click/tap tolerance. */
   private isDragging = false;
 
-  constructor(context: ModeContext) {
+  private onComplete: ((line: Position[]) => boolean) | undefined;
+
+  constructor(context: ModeContext, options: DrawLineModeOptions = {}) {
     this.context = context;
+    this.onComplete = options.onComplete;
   }
 
   mapInteractions(): { dragPan: boolean; doubleClickZoom: boolean } {
@@ -281,17 +297,40 @@ export class DrawLineMode implements DraftCapableMode {
 
   /**
    * Attempt to finalize the current draft.
-   * @returns `true` when a feature was created, `false` on validation failure.
+   * @returns `true` when a feature was created (or the `onComplete` hook
+   *   succeeded), `false` on validation failure.
    */
   private tryFinalize(): boolean {
     if (this.vertices.length < MIN_VERTICES) return false;
 
+    const line: Position[] = [...this.vertices];
+    let completed = true;
+    if (this.onComplete) {
+      completed = this.onComplete(line);
+    } else {
+      this.createFeature(line);
+    }
+
+    // Reset state for next drawing and notify listeners.
+    this.vertices = [];
+    this.resetPointer();
+    this.context.render.clearPreview();
+    this.context.render.clearVertices();
+    this.context.render.clearSnapIndicator();
+    this.emitDraftChange();
+    return completed;
+  }
+
+  /**
+   * Add a LineString feature with the given positions as one history step.
+   */
+  private createFeature(line: Position[]): void {
     const feature: LibreDrawFeature = {
       id: createFeatureId(),
       type: 'Feature',
       geometry: {
         type: 'LineString',
-        coordinates: [...this.vertices],
+        coordinates: line,
       },
       properties: {},
     };
@@ -301,15 +340,6 @@ export class DrawLineMode implements DraftCapableMode {
     this.context.history.push(action);
     this.context.events.emit('create', { feature: cloneFeature(stored) });
     this.context.render.renderFeatures();
-
-    // Reset state for next drawing and notify listeners.
-    this.vertices = [];
-    this.resetPointer();
-    this.context.render.clearPreview();
-    this.context.render.clearVertices();
-    this.context.render.clearSnapIndicator();
-    this.emitDraftChange();
-    return true;
   }
 
   /**

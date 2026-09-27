@@ -17,12 +17,16 @@ interface LibreDrawEventMap {
   unionfailed: UnionFailedEvent;
   cut: CutEvent;
   cutfailed: CutFailedEvent;
+  reshape: ReshapeEvent;
+  reshapefailed: ReshapeFailedEvent;
   rotate: RotateEvent;
   selectionchange: SelectionChangeEvent;
   modechange: ModeChangeEvent;
   draftchange: DraftChangeEvent;
 }
 ```
+
+Features in every payload are deep copies taken when the event fires: a listener may keep or change them without affecting the store.
 
 ## Event origin
 
@@ -55,7 +59,7 @@ The value is decided by the call path, not by the kind of change: the same `dele
 Emitted when a new feature is created.
 In `draw-point` mode this happens on each click/tap. In `draw-line` mode it happens when the line is finalized. In `draw-polygon` mode it happens when the polygon is completed. In `draw-rectangle` mode it happens on the second corner click, and in `draw-angled-rectangle` mode on the third click (the width point).
 
-It also fires once per feature from [`addFeatures()`](/api/libre-draw#addfeatures-features), and from history: redoing a `create` emits it again, and undoing a `delete`, `split`, `setback`, or `union` emits `create` for every feature that comes back.
+It also fires once per feature from [`addFeatures()`](/api/libre-draw#addfeatures-features), and from history: redoing a `create` emits it again, and undoing a `delete`, `split`, `setback`, `union`, or a `cut` that split the polygon apart emits `create` for every feature that comes back.
 
 ### Payload: `CreateEvent`
 
@@ -88,7 +92,7 @@ draw.on('create', (e) => {
 ## `update`
 
 Emitted when an existing feature is modified.
-This includes vertex edits and dragging of polygons and lines, and point dragging in select mode. Dragging several selected features together emits one `update` per feature (and records a single undo step). Undo and redo of any `update` (including rotations, see [`rotate`](#rotate)) emit it as well, with `feature` / `oldFeature` describing the direction of the change.
+This includes vertex edits and dragging of polygons and lines, point dragging in select mode, and [`updateFeature()`](/api/libre-draw#updatefeature-id-patch). Dragging several selected features together emits one `update` per feature (and records a single undo step). Undo and redo of any `update` (including rotations and reshapes, see [`rotate`](#rotate) and [`reshape`](#reshape)) emit it as well, with `feature` / `oldFeature` describing the direction of the change. Undoing a [`cut`](#cut) that kept the polygon's id (a hole or a notch) also emits `update`.
 
 ### Payload: `UpdateEvent`
 
@@ -120,7 +124,7 @@ draw.on('update', (e) => {
 
 ## `delete`
 
-Emitted when a feature is deleted (via toolbar button, Delete key, or `deleteFeature()` API). Deleting a multi-selection emits one `delete` per feature (and records a single undo step). History emits it too: undoing a `create` (or a batch from `addFeatures()`, children in reverse order), undoing a `split` (two deletes), `setback`, or `union`, and redoing a `delete` or a `split` (the original polygon is deleted before `split` fires again).
+Emitted when a feature is deleted (via toolbar button, Delete key, or `deleteFeature()` API). Deleting a multi-selection emits one `delete` per feature (and records a single undo step). History emits it too: undoing a `create` (or a batch from `addFeatures()`, children in reverse order), undoing a `split` (two deletes), `setback`, `union`, or a `cut` that split the polygon apart (one delete per piece), and redoing a `delete` or a `split` (the original polygon is deleted before `split` fires again).
 
 ### Payload: `DeleteEvent`
 
@@ -431,6 +435,83 @@ draw.on('cutfailed', (e) => {
 
 ---
 
+## `reshape`
+
+Emitted when part of a polygon's outer ring is replaced by a line, in `reshape` mode or through [`reshape()`](/api/libre-draw#reshape-id-line). The reshape is one history step and the polygon keeps its id.
+
+Undo and redo of a reshape emit [`update`](#update) events rather than `reshape`, because the history stores a reshape as a plain feature replacement.
+
+### Payload: `ReshapeEvent`
+
+```ts
+interface ReshapeEvent {
+  origin: EventOrigin;
+  originalFeature: LibreDrawFeature;
+  feature: LibreDrawFeature;
+}
+```
+
+| Property          | Type                                              | Description                                |
+| ----------------- | ------------------------------------------------- | ------------------------------------------ |
+| `origin`          | [`EventOrigin`](#event-origin)                    | Who caused the change: `'api'` or `'user'` |
+| `originalFeature` | [`LibreDrawFeature`](/api/types#libredrawfeature) | The polygon before the reshape             |
+| `feature`         | [`LibreDrawFeature`](/api/types#libredrawfeature) | The polygon after the reshape (same id)    |
+
+### Example
+
+```ts
+draw.on('reshape', (e) => {
+  console.log('Reshaped:', e.feature.id);
+});
+```
+
+---
+
+## `reshapefailed`
+
+Emitted when a reshape fails for a geometric reason, in `reshape` mode or through [`reshape()`](/api/libre-draw#reshape-id-line). Nothing changes; in the mode the target stays selected and only the line is discarded. Argument errors of the API (`'not-found'`, `'not-polygon'`, `'invalid-line'`) are only returned, not emitted.
+
+### Payload: `ReshapeFailedEvent`
+
+```ts
+type ReshapeFailReason =
+  | 'invalid-intersection-count'
+  | 'self-intersecting-result'
+  | 'ring-intersection'
+  | 'hole-outside'
+  | 'invalid-result';
+
+interface ReshapeFailedEvent {
+  origin: EventOrigin;
+  reason: ReshapeFailReason;
+  featureId: string;
+}
+```
+
+| Property    | Type                           | Description                                |
+| ----------- | ------------------------------ | ------------------------------------------ |
+| `origin`    | [`EventOrigin`](#event-origin) | Who caused the change: `'api'` or `'user'` |
+| `reason`    | `ReshapeFailReason`            | Reason of reshape failure                  |
+| `featureId` | `string`                       | ID of the target polygon                   |
+
+| Reason                         | Meaning                                                                |
+| ------------------------------ | ---------------------------------------------------------------------- |
+| `'invalid-intersection-count'` | The line does not cross the outer ring exactly twice                   |
+| `'self-intersecting-result'`   | The new outer ring would cross itself (the line crosses itself)        |
+| `'ring-intersection'`          | The new outer ring would cross a hole                                  |
+| `'hole-outside'`               | A hole would end up outside the new outer ring                         |
+| `'invalid-result'`             | The new outer ring would have no area, or the result failed validation |
+
+### Example
+
+```ts
+draw.on('reshapefailed', (e) => {
+  console.warn('Reshape failed:', e.reason, e.featureId);
+});
+```
+
+---
+
 ## `rotate`
 
 Emitted when a rotation is committed in `rotate` mode, either by releasing a drag or by executing the angle input. Each commit is one history step.
@@ -516,11 +597,11 @@ interface ModeChangeEvent {
 }
 ```
 
-| Property       | Type                              | Description                                                                                                                                                                                           |
-| -------------- | --------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `origin`       | [`EventOrigin`](#event-origin)    | Who caused the change: `'api'` or `'user'`                                                                                                                                                            |
-| `mode`         | [`ModeName`](/api/types#modename) | The new active mode (`'idle'`, `'draw-point'`, `'draw-line'`, `'draw-polygon'`, `'draw-rectangle'`, `'draw-angled-rectangle'`, `'select'`, `'split'`, `'setback'`, `'union'`, `'rotate'`, or `'cut'`) |
-| `previousMode` | [`ModeName`](/api/types#modename) | The previous mode                                                                                                                                                                                     |
+| Property       | Type                              | Description                                                                                                                                                                                                        |
+| -------------- | --------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `origin`       | [`EventOrigin`](#event-origin)    | Who caused the change: `'api'` or `'user'`                                                                                                                                                                         |
+| `mode`         | [`ModeName`](/api/types#modename) | The new active mode (`'idle'`, `'draw-point'`, `'draw-line'`, `'draw-polygon'`, `'draw-rectangle'`, `'draw-angled-rectangle'`, `'select'`, `'split'`, `'setback'`, `'union'`, `'rotate'`, `'cut'`, or `'reshape'`) |
+| `previousMode` | [`ModeName`](/api/types#modename) | The previous mode                                                                                                                                                                                                  |
 
 ### Example
 
@@ -540,7 +621,7 @@ draw.on('modechange', (e) => {
 
 ## `draftchange`
 
-Emitted whenever the in-progress draft of a drawing mode (`'draw-polygon'`, `'draw-line'`, `'draw-rectangle'`, or `'draw-angled-rectangle'`) changes.
+Emitted whenever the in-progress draft of a drawing mode (`'draw-polygon'`, `'draw-line'`, `'draw-rectangle'`, or `'draw-angled-rectangle'`) changes, and the cutter in `'cut'` mode or the line in `'reshape'` mode once a target is selected (they are drafted like a polygon and a line).
 
 Fires when:
 

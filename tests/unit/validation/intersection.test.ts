@@ -62,6 +62,24 @@ describe('computeIntersectionPoint', () => {
     expect(computeIntersectionPoint([0, 0], [10, 0], [0, 1], [10, 1])).toBeNull();
   });
 
+  it('finds the crossing of short segments on real coordinates', () => {
+    // Segments of about 1 m (1e-5 degrees) crossing at a right angle: their
+    // cross product is below 1e-10, but they are far from parallel.
+    const point = computeIntersectionPoint(
+      [139.7, 35.66],
+      [139.70001, 35.66],
+      [139.700005, 35.659995],
+      [139.700005, 35.660005]
+    );
+    expect(point).not.toBeNull();
+    expect(point![0]).toBeCloseTo(139.700005, 12);
+    expect(point![1]).toBeCloseTo(35.66, 12);
+  });
+
+  it('should return null for zero-length segments', () => {
+    expect(computeIntersectionPoint([0, 0], [0, 0], [0, -1], [0, 1])).toBeNull();
+  });
+
   it('should return null for collinear segments', () => {
     expect(computeIntersectionPoint([0, 0], [10, 0], [5, 0], [15, 0])).toBeNull();
   });

@@ -24,6 +24,7 @@ export interface Messages {
   toolbarSetback: string;
   toolbarRotate: string;
   toolbarCut: string;
+  toolbarReshape: string;
   toolbarSettings: string;
   toolbarDelete: string;
   toolbarUndo: string;

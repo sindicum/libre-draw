@@ -49,6 +49,7 @@ import type {
   SetbackOperationFailReason,
   UnionOperationFailReason,
   CutOperationFailReason,
+  ReshapeOperationFailReason,
 } from '@sindicum/libre-draw';
 ```
 
@@ -223,7 +224,7 @@ interface LibreDrawOptions {
 
 ### `InputMethod`
 
-How the drawing modes (`draw-point`, `draw-line`, `draw-polygon`, `draw-rectangle`, `draw-angled-rectangle`) take a point. Set with the `inputMethod` option or [`setInputMethod()`](/api/libre-draw#setinputmethod-method).
+How the drawing modes (`draw-point`, `draw-line`, `draw-polygon`, `draw-rectangle`, `draw-angled-rectangle`) take a point, and the `cut` and `reshape` modes once their target is picked by tap. Set with the `inputMethod` option or [`setInputMethod()`](/api/libre-draw#setinputmethod-method).
 
 ```ts
 type InputMethod = 'tap' | 'reticle';
@@ -316,6 +317,7 @@ interface ToolbarControls {
   union?: boolean;
   rotate?: boolean;
   cut?: boolean;
+  reshape?: boolean;
   settings?: boolean;
   delete?: boolean;
   undo?: boolean;
@@ -337,6 +339,7 @@ interface ToolbarControls {
 | `union`               | `boolean` | `true`  | Show union mode toggle button                      |
 | `rotate`              | `boolean` | `true`  | Show rotate mode toggle button and angle input     |
 | `cut`                 | `boolean` | `true`  | Show cut mode toggle button                        |
+| `reshape`             | `boolean` | `true`  | Show reshape mode toggle button                    |
 | `settings`            | `boolean` | `true`  | Show style settings button and panel               |
 | `delete`              | `boolean` | `true`  | Show delete button                                 |
 | `undo`                | `boolean` | `true`  | Show undo button                                   |
@@ -375,6 +378,7 @@ interface Messages {
   toolbarSetback: string;
   toolbarRotate: string;
   toolbarCut: string;
+  toolbarReshape: string;
   toolbarSettings: string;
   toolbarDelete: string;
   toolbarUndo: string;
@@ -447,23 +451,25 @@ type ModeName =
   | 'setback'
   | 'union'
   | 'rotate'
-  | 'cut';
+  | 'cut'
+  | 'reshape';
 ```
 
-| Value                     | Description                                                                                             |
-| ------------------------- | ------------------------------------------------------------------------------------------------------- |
-| `'idle'`                  | No drawing interaction. Map behaves normally.                                                           |
-| `'draw-point'`            | Place point features by clicking/tapping.                                                               |
-| `'draw-line'`             | Create lines by clicking/tapping vertices, click the last one to finalize.                              |
-| `'draw-polygon'`          | Create polygons by clicking/tapping vertices, click the first or last one.                              |
-| `'draw-rectangle'`        | Create an axis-aligned rectangle by clicking/tapping two opposite corners.                              |
-| `'draw-angled-rectangle'` | Create a rectangle at any angle: click/tap two points of a base edge, then a point that sets the width. |
-| `'select'`                | Select and edit existing features (points, lines, and polygons).                                        |
-| `'split'`                 | Split a polygon into two polygons with a two-point line.                                                |
-| `'union'`                 | Merge two or more touching or overlapping polygons into one: click them, then press Enter or execute.   |
-| `'setback'`               | Apply inward edge setback with distance input and preview.                                              |
-| `'rotate'`                | Rotate a polygon or line around its center by dragging or angle input.                                  |
-| `'cut'`                   | Cut an area out of a polygon: click the polygon, then draw the outline of the area to remove.           |
+| Value                     | Description                                                                                                 |
+| ------------------------- | ----------------------------------------------------------------------------------------------------------- |
+| `'idle'`                  | No drawing interaction. Map behaves normally.                                                               |
+| `'draw-point'`            | Place point features by clicking/tapping.                                                                   |
+| `'draw-line'`             | Create lines by clicking/tapping vertices, click the last one to finalize.                                  |
+| `'draw-polygon'`          | Create polygons by clicking/tapping vertices, click the first or last one.                                  |
+| `'draw-rectangle'`        | Create an axis-aligned rectangle by clicking/tapping two opposite corners.                                  |
+| `'draw-angled-rectangle'` | Create a rectangle at any angle: click/tap two points of a base edge, then a point that sets the width.     |
+| `'select'`                | Select and edit existing features (points, lines, and polygons).                                            |
+| `'split'`                 | Split a polygon into two polygons with a two-point line.                                                    |
+| `'union'`                 | Merge two or more touching or overlapping polygons into one: click them, then press Enter or execute.       |
+| `'setback'`               | Apply inward edge setback with distance input and preview.                                                  |
+| `'rotate'`                | Rotate a polygon or line around its center by dragging or angle input.                                      |
+| `'cut'`                   | Cut an area out of a polygon: click the polygon, then draw the outline of the area to remove.               |
+| `'reshape'`               | Redraw part of a polygon's boundary: click the polygon, then draw a line that crosses its outer ring twice. |
 
 ---
 
@@ -569,11 +575,11 @@ interface FeatureStoreInterface {
 
 ## Operation Result Types
 
-Structured outcomes returned by the public API. None of them is thrown; narrow on the discriminant (`ok` / `valid`) to read the rest. `LibreDraw` throws only for misuse of the instance (a call after `destroy()`, an unknown mode name, an unsupported locale); see [Programmatic API](/guide/programmatic-api#return-values-and-exceptions) for the full table.
+Structured outcomes returned by the public API. None of them is thrown; narrow on the discriminant (`ok` / `valid`) to read the rest. `LibreDraw` throws only for misuse of the instance (a call after `destroy()`, an unknown mode name, an unsupported locale or input method); see [Programmatic API](/guide/programmatic-api#return-values-and-exceptions) for the full table.
 
 ### `OperationResult`
 
-The result of an operation that changes the store ([`setFeatures`](/api/libre-draw#setfeatures-geojson), [`updateFeature`](/api/libre-draw#updatefeature-id-patch), [`rotate`](/api/libre-draw#rotate-id-angledeg), [`split`](/api/libre-draw#split-id-line), [`setback`](/api/libre-draw#setback-id-edge-distancemeters), and [`union`](/api/libre-draw#union-ids)).
+The result of an operation that changes the store ([`setFeatures`](/api/libre-draw#setfeatures-geojson), [`updateFeature`](/api/libre-draw#updatefeature-id-patch), [`rotate`](/api/libre-draw#rotate-id-angledeg), [`split`](/api/libre-draw#split-id-line), [`setback`](/api/libre-draw#setback-id-edge-distancemeters), [`union`](/api/libre-draw#union-ids), [`cut`](/api/libre-draw#cut-id-cutter), and [`reshape`](/api/libre-draw#reshape-id-line)).
 
 ```ts
 interface OperationSuccess {
@@ -599,15 +605,15 @@ type OperationResult = OperationSuccess | OperationFailure;
 | `deleted` | [`LibreDrawFeature[]`](#libredrawfeature) | Features removed by the operation (empty when none)                                                      |
 | `reason`  | `string`                                  | Why the operation was rejected: an operation's failure code (e.g. `'has-holes'`) or a validation message |
 
-All three arrays are always present on success, so a caller can read "what appeared, what changed, what disappeared" without knowing which operation ran.
+All three arrays are always present on success, so a caller can read "what appeared, what changed, what disappeared" without knowing which operation ran. The features in them are deep copies.
 
 ```ts
 const result = draw.rotate(id, 90);
-if (!result.ok) {
+if (result.ok) {
+  result.updated.forEach(save);
+} else {
   console.warn(result.reason);
-  return;
 }
-result.updated.forEach(save);
 ```
 
 ---
@@ -779,6 +785,22 @@ type CutOperationFailReason = 'not-found' | 'not-polygon' | 'invalid-cutter' | C
 | `'not-found'`      | No feature has that id                                                                            |
 | `'not-polygon'`    | The feature is not a Polygon                                                                      |
 | `'invalid-cutter'` | The cutter ring has fewer than three distinct vertices, a non-numeric position, or crosses itself |
+
+---
+
+### `ReshapeOperationFailReason`
+
+Failure codes of [`reshape()`](/api/libre-draw#reshape-id-line). The geometric codes are the [`ReshapeFailReason`](/api/events#payload-reshapefailedevent) values of the `reshapefailed` event, which is emitted alongside; the argument errors below emit no event.
+
+```ts
+type ReshapeOperationFailReason = 'not-found' | 'not-polygon' | 'invalid-line' | ReshapeFailReason;
+```
+
+| Value            | Meaning                                                     |
+| ---------------- | ----------------------------------------------------------- |
+| `'not-found'`    | No feature has that id                                      |
+| `'not-polygon'`  | The feature is not a Polygon                                |
+| `'invalid-line'` | The line has fewer than two positions, or a non-numeric one |
 
 ---
 
@@ -1054,23 +1076,23 @@ class LibreDrawError extends Error {
 }
 ```
 
-Thrown when:
+Thrown only for misuse of the instance:
 
-- A method is called on a destroyed instance
-- Invalid GeoJSON is passed to `setFeatures` or `addFeatures`
-- `addFeatures` receives a feature whose `id` already exists in the store
-- `selectFeature` is called with a non-existent feature ID
-- Invalid polygon geometry (self-intersecting, out-of-bounds coordinates, etc.)
+- A method other than `destroy()` is called on a destroyed instance
+- [`setMode`](/api/libre-draw#setmode-mode) receives a mode name that does not exist
 - The constructor receives a `locale` that is not `'en'` or `'ja'`
+- The constructor or [`setInputMethod`](/api/libre-draw#setinputmethod-method) receives an input method that is not `'tap'` or `'reticle'`
+
+Problems with the data you pass (invalid GeoJSON or geometry, a duplicate or unknown id, a line that misses the polygon) are not thrown: they come back in the return value, such as [`OperationResult`](#operationresult) or [`AddFeatureResult`](#addfeatureresult). See [Programmatic API](/guide/programmatic-api#return-values-and-exceptions) for every method.
 
 ```ts
-import { LibreDrawError } from '@sindicum/libre-draw';
+import { LibreDrawError, type ModeName } from '@sindicum/libre-draw';
 
 try {
-  draw.setFeatures({ invalid: 'data' });
+  draw.setMode(userInput as ModeName);
 } catch (e) {
   if (e instanceof LibreDrawError) {
-    console.error('LibreDraw error:', e.message);
+    console.error('LibreDraw error:', e.message); // Unknown mode: ...
   }
 }
 ```

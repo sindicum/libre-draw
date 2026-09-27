@@ -34,7 +34,7 @@ function almostEqual(a: number, b: number): boolean {
 }
 
 /** Check if two positions are approximately equal (component-wise). */
-function positionsEqual(a: Position, b: Position): boolean {
+export function positionsEqual(a: Position, b: Position): boolean {
   return almostEqual(a[0], b[0]) && almostEqual(a[1], b[1]);
 }
 
@@ -59,7 +59,7 @@ function signedArea(ring: Position[]): number {
  * Compute the parametric position of a point along an edge (start → end).
  * Returns 0.0 at start, 1.0 at end. Uses the axis with greater extent for numerical stability.
  */
-function edgeParameter(start: Position, end: Position, point: Position): number {
+export function edgeParameter(start: Position, end: Position, point: Position): number {
   const dX = end[0] - start[0];
   const dY = end[1] - start[1];
 
@@ -109,7 +109,7 @@ function normalizeRing(openPoints: Position[]): Position[] | null {
  * Traverses forward from `start` to `end`, wrapping around if necessary.
  * Returns an empty array as a safety fallback if the loop exceeds path length.
  */
-function buildPathSegment(path: Position[], start: number, end: number): Position[] {
+export function buildPathSegment(path: Position[], start: number, end: number): Position[] {
   const result: Position[] = [];
   let i = start;
 
@@ -126,7 +126,7 @@ function buildPathSegment(path: Position[], start: number, end: number): Positio
 }
 
 /** Find the index of a target position in a path using approximate equality. */
-function findPathIndex(path: Position[], target: Position): number {
+export function findPathIndex(path: Position[], target: Position): number {
   for (let i = 0; i < path.length; i++) {
     if (positionsEqual(path[i], target)) {
       return i;

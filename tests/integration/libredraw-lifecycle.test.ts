@@ -985,6 +985,7 @@ describe('LibreDraw lifecycle integration', () => {
         'select',
         'split',
         'cut',
+        'reshape',
         'union',
         'setback',
         'rotate',
@@ -1286,6 +1287,24 @@ describe('LibreDraw lifecycle integration', () => {
 
       expect(draw.getStyle().preview.dasharray).toEqual([7, 2]);
       expect(draw.getStyle().preview.dasharray).not.toBe(dasharray);
+
+      draw.destroy();
+    });
+
+    it('should return a deep copy from getStyle', () => {
+      const map = new FakeMap();
+      const draw = new LibreDraw(map.asMap(), { toolbar: false });
+      const fillColor = draw.getStyle().fill.color;
+      const dasharray = [...draw.getStyle().preview.dasharray];
+
+      const style = draw.getStyle();
+      style.fill.color = '#123456';
+      style.preview.dasharray.push(9);
+      draw.setStyle({ outline: { width: 5 } });
+
+      // Writing to the returned object changed nothing, not even on the next setStyle.
+      expect(draw.getStyle().fill.color).toBe(fillColor);
+      expect(draw.getStyle().preview.dasharray).toEqual(dasharray);
 
       draw.destroy();
     });

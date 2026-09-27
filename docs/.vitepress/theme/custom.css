@@ -5,14 +5,47 @@
   margin: 16px 0;
 }
 
+/*
+ * The demos sit inside the markdown content. `vp-raw` on .demo-container
+ * keeps the content styles off the map (link colour on the attribution),
+ * but `.vp-doc summary` still gives MapLibre's attribution button, a
+ * <summary>, a 16px margin that pushes it out of the map.
+ */
+.demo-container .maplibregl-ctrl-attrib-button {
+  margin: 0;
+}
+
 .demo-map {
   width: 100%;
   height: 500px;
 }
 
+/* Live Demo page: the map fills the window below the navigation bar. */
+.demo-fullscreen {
+  position: relative;
+  margin: 0;
+  border: 0;
+  border-radius: 0;
+}
+
 .demo-map-fullsize {
   width: 100%;
-  height: 70vh;
+  height: calc(100dvh - var(--vp-nav-height));
+  /* Tall enough for the full default toolbar, a single column of buttons. */
+  min-height: 860px;
+}
+
+/* The event log floats over the bottom-left corner of the map. */
+.demo-fullscreen .demo-log {
+  position: absolute;
+  left: 10px;
+  bottom: 10px;
+  z-index: 1;
+  width: min(420px, calc(100% - 100px));
+  max-height: 30%;
+  border: 1px solid var(--vp-c-divider);
+  border-radius: 8px;
+  opacity: 0.92;
 }
 
 .demo-log {

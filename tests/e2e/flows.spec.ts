@@ -496,3 +496,49 @@ test('cut: tapping a polygon and drawing a cutter inside it makes a hole', async
   });
   expect(ringCount).toBe(2);
 });
+
+test('reshape: tapping a polygon and drawing a line into it cuts a notch in its boundary', async ({
+  page,
+  hasTouch,
+}) => {
+  const pointer = new Pointer(page, hasTouch);
+  await addPolygonFromScreen(page, [
+    [80, 80],
+    [330, 80],
+    [330, 330],
+    [80, 330],
+  ]);
+  await recordEvents(page, ['reshape', 'reshapefailed', 'draftchange', 'selectionchange']);
+  await setMode(page, 'reshape');
+
+  // The first tap picks the target; it places no line vertex.
+  await pointer.tap(100, 200);
+  await expect
+    .poll(async () => (await getEvents<{ selectedIds: string[] }>(page, 'selectionchange')).at(-1))
+    .toMatchObject({ selectedIds: [expect.any(String)] });
+
+  // Down through the top edge, across, and back out through it.
+  await pointer.tap(150, 40);
+  await expect.poll(() => lastDraftVertexCount(page)).toBe(1);
+  await pointer.tap(150, 150);
+  await expect.poll(() => lastDraftVertexCount(page)).toBe(2);
+  await pointer.tap(250, 150);
+  await expect.poll(() => lastDraftVertexCount(page)).toBe(3);
+  await pointer.tap(250, 40);
+  await expect.poll(() => lastDraftVertexCount(page)).toBe(4);
+
+  // Landing on the last vertex finishes the line and reshapes.
+  await pointer.tap(250, 40);
+
+  await expect.poll(async () => (await getEvents(page, 'reshape')).length).toBe(1);
+  expect(await getEvents(page, 'reshapefailed')).toHaveLength(0);
+  expect(await featureCount(page)).toBe(1);
+  // The 4 corners, the 2 crossings, and the 2 line vertices inside, closed.
+  const outerLength = await page.evaluate(() => {
+    const feature = (
+      window as unknown as { draw: { getFeatures(): { geometry: { coordinates: unknown[][] } }[] } }
+    ).draw.getFeatures()[0];
+    return feature.geometry.coordinates[0].length;
+  });
+  expect(outerLength).toBe(9);
+});

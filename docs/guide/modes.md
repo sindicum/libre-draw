@@ -15,6 +15,7 @@ LibreDraw uses a mode-based architecture. Only one mode is active at a time, and
 | `select`                | Click to select, drag to edit vertices or move point/line/polygon.         | Toolbar select button / `setMode('select')`                          |
 | `split`                 | Split a polygon with a two-point line.                                     | Toolbar split button / `setMode('split')`                            |
 | `cut`                   | Cut an area out of a polygon by drawing its outline.                       | Toolbar cut button / `setMode('cut')`                                |
+| `reshape`               | Redraw part of a polygon's boundary with a line.                           | Toolbar reshape button / `setMode('reshape')`                        |
 | `union`                 | Merge two or more touching or overlapping polygons into one.               | Toolbar union button / `setMode('union')`                            |
 | `setback`               | Apply inward edge setback with distance input.                             | Toolbar setback button / `setMode('setback')`                        |
 | `rotate`                | Rotate a polygon or line by dragging or by entering an angle.              | Toolbar rotate button / `setMode('rotate')`                          |
@@ -393,6 +394,42 @@ draw.on('cutfailed', (e) => console.warn(e.reason));
 - Existing holes are kept. A cutter that overlaps a hole makes it larger, and one that bridges two holes merges them
 - Each cut is one undo step, and redo reports a `cut` event again
 
+## Reshape Mode
+
+In reshape mode, you redraw part of a polygon's boundary: tap the polygon, then draw a line that crosses its outer ring twice, the same way as in draw-line mode. The stretch of the outer ring between the two crossings is replaced by the line.
+
+| Action                | Effect                                                   |
+| --------------------- | -------------------------------------------------------- |
+| Click on polygon      | Select the reshape target (inside a hole does not count) |
+| Click                 | Add a vertex of the line                                 |
+| Click the last vertex | Finish the line and reshape                              |
+| Long-press (touch)    | Take back the last line vertex                           |
+| Escape key            | Discard the line and the target                          |
+
+The result depends on where the line runs between the two crossings:
+
+| Line                                       | Result                                                                         |
+| ------------------------------------------ | ------------------------------------------------------------------------------ |
+| Outside the polygon                        | The area between the line and the boundary is added                            |
+| Inside the polygon                         | The polygon is cut along the line and the larger piece is kept                 |
+| Crossing the outer ring 0, 1, or 3+ times  | Nothing changes; `reshapefailed` with `'invalid-intersection-count'`           |
+| Crossing itself                            | Nothing changes; `reshapefailed` with `'self-intersecting-result'`             |
+| Crossing a hole, or leaving a hole outside | Nothing changes; `reshapefailed` with `'ring-intersection'` / `'hole-outside'` |
+
+```ts
+draw.setMode('reshape');
+draw.on('reshape', (e) => console.log(e.originalFeature.id, e.feature));
+draw.on('reshapefailed', (e) => console.warn(e.reason));
+```
+
+### Behavior
+
+- Snapping and the finish radius are those of draw-line mode. The line may start and end outside the polygon (the ends beyond the crossings are dropped) or exactly on its boundary
+- The polygon keeps its id, properties, and holes. Only the outer ring is reshaped
+- After a successful reshape the target is deselected and the mode waits for the next target. After a failed one the target stays selected and only the line is discarded, so you can draw another one
+- `finishDrawing()`, `cancelDrawing()`, `getDraftVertexCount()`, `undoLastVertex()` and `draftchange` work on the line once a target is selected. `cancelDrawing()` keeps the target
+- Each reshape is one undo step. Undo and redo report `update` events, as for a rotation
+
 ## Union Mode
 
 In union mode, you select two or more touching or overlapping polygons and merge them into one polygon.
@@ -482,7 +519,7 @@ draw.on('rotate', (e) => console.log(`${e.originalFeature.id} rotated by ${e.ang
 
 ## Input Methods
 
-The drawing modes (`draw-point`, `draw-line`, `draw-polygon`, `draw-rectangle`, `draw-angled-rectangle`) take points in one of two ways. The choice is an input method, not a mode: it is kept when you switch modes.
+The drawing modes (`draw-point`, `draw-line`, `draw-polygon`, `draw-rectangle`, `draw-angled-rectangle`) take points in one of two ways, and so do the `cut` and `reshape` modes once their target is picked by tap. The choice is an input method, not a mode: it is kept when you switch modes.
 
 | Input method      | How a point is placed                                                                                  |
 | ----------------- | ------------------------------------------------------------------------------------------------------ |
@@ -502,7 +539,7 @@ draw.setInputMethod('reticle');
 draw.getInputMethod(); // 'reticle'
 ```
 
-While the reticle is in use in a drawing mode (or in cut mode once the target is selected):
+While the reticle is in use in a drawing mode (or in cut and reshape modes once the target is selected):
 
 - A crosshair is shown at the center of the map and an action bar at the bottom center with three buttons (44 px touch targets). Both are shown with `toolbar: false` too.
 - The map always pans with drag and zooms with pinch — also in `draw-polygon` and `draw-line`, where dragging does not pan with tap input. Clicks and taps on the map place nothing.
@@ -516,7 +553,7 @@ While the reticle is in use in a drawing mode (or in cut mode once the target is
 | **Add point**  | Places a point at the crosshair                                                                                                                         | Always                                                                                                                                                                                             |
 | **Finish**     | Finishes the drawing, like `finishDrawing()`                                                                                                            | A polygon has 3+ vertices and would not cross itself when closed, or a line has 2+ vertices. Never in `draw-point`, `draw-rectangle` and `draw-angled-rectangle`, which finish on their last point |
 
-In cut mode the target is picked with a click or tap as usual; the crosshair appears once a target is selected and drafts the cutter, and disappears after the cut. Other modes (`select`, `split`, `union`, `setback`, `rotate`) show no crosshair and keep working with clicks and taps.
+In cut and reshape modes the target is picked with a click or tap as usual; the crosshair appears once a target is selected and drafts the cutter or the line, and disappears after the operation. Other modes (`select`, `split`, `union`, `setback`, `rotate`) show no crosshair and keep working with clicks and taps.
 
 ## Keyboard Shortcuts
 
@@ -532,7 +569,11 @@ Disable them with the `keyboard` option:
 
 ```ts
 const draw = new LibreDraw(map, { keyboard: false });
-// or, equivalently for the undo / redo pair:
+```
+
+or, equivalently for the undo / redo pair:
+
+```ts
 const draw = new LibreDraw(map, { keyboard: { undoRedo: false } });
 ```
 
@@ -546,6 +587,7 @@ The keys below are handled by the active mode, likewise only while the map has f
 | Escape             | draw-angled-rectangle    | Discard the whole draft                                                                                         |
 | Escape             | split                    | Cancel current split interaction                                                                                |
 | Escape             | cut                      | Discard the cutter and the target                                                                               |
+| Escape             | reshape                  | Discard the line and the target                                                                                 |
 | Escape             | union                    | Clear the selection and stay in union mode                                                                      |
 | Enter              | union                    | Merge the selected polygons (two or more)                                                                       |
 | Enter              | setback                  | Apply the setback being previewed                                                                               |

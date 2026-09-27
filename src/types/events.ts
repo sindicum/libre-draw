@@ -180,6 +180,49 @@ export interface CutFailedEvent {
 }
 
 /**
+ * Event payload for a successful reshape.
+ *
+ * `feature` keeps `originalFeature`'s id: the outer ring between the two
+ * crossings of the line is replaced by the line. Undo and redo of a
+ * reshape report plain `update` events, because the history stores it as
+ * a 1 -> 1 feature replacement.
+ */
+export interface ReshapeEvent {
+  /** Where the change came from. See {@link EventOrigin}. */
+  origin: EventOrigin;
+  originalFeature: LibreDrawFeature;
+  feature: LibreDrawFeature;
+}
+
+/**
+ * Reasons a reshape can fail.
+ *
+ * - `invalid-intersection-count`: the line does not cross the outer ring exactly twice
+ * - `self-intersecting-result`: the new outer ring would cross itself
+ *   (the line crosses itself)
+ * - `ring-intersection`: the new outer ring would cross a hole
+ * - `hole-outside`: a hole would end up outside the new outer ring
+ * - `invalid-result`: the new outer ring is degenerate (no area), or the
+ *   result failed validation
+ */
+export type ReshapeFailReason =
+  | 'invalid-intersection-count'
+  | 'self-intersecting-result'
+  | 'ring-intersection'
+  | 'hole-outside'
+  | 'invalid-result';
+
+/**
+ * Event payload for a failed reshape.
+ */
+export interface ReshapeFailedEvent {
+  /** Where the change came from. See {@link EventOrigin}. */
+  origin: EventOrigin;
+  reason: ReshapeFailReason;
+  featureId: string;
+}
+
+/**
  * Event payload for a committed rotation.
  *
  * `angle` is the rotation applied by this step in degrees, positive clockwise
@@ -241,6 +284,8 @@ export interface LibreDrawEventMap {
   unionfailed: UnionFailedEvent;
   cut: CutEvent;
   cutfailed: CutFailedEvent;
+  reshape: ReshapeEvent;
+  reshapefailed: ReshapeFailedEvent;
   rotate: RotateEvent;
   selectionchange: SelectionChangeEvent;
   modechange: ModeChangeEvent;

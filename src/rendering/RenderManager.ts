@@ -514,10 +514,12 @@ export class RenderManager {
   }
 
   /**
-   * Get the current style configuration.
+   * Get a deep copy of the current style configuration. Merging nothing
+   * onto the current style copies every section and the dash array, so a
+   * caller writing to the result cannot reach the style in use.
    */
   getStyle(): StyleConfig {
-    return { ...this.style };
+    return mergeStyleConfig(undefined, this.style);
   }
 
   /**

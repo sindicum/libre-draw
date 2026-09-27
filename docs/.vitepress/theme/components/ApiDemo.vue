@@ -1,6 +1,6 @@
 <template>
   <ClientOnly>
-    <div class="demo-container">
+    <div class="demo-container vp-raw">
       <div v-if="error" class="demo-error">{{ error }}</div>
       <div ref="mapContainer" class="demo-map-compact"></div>
       <div class="demo-controls">
@@ -54,8 +54,13 @@ const modes = [
   'draw-point',
   'draw-line',
   'draw-polygon',
+  'draw-rectangle',
+  'draw-angled-rectangle',
   'select',
   'split',
+  'cut',
+  'reshape',
+  'union',
   'setback',
   'rotate',
 ] as const;

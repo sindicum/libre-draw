@@ -1,6 +1,6 @@
 <template>
   <ClientOnly>
-    <div class="demo-container">
+    <div :class="['demo-container', 'vp-raw', { 'demo-fullscreen': fullsize }]">
       <div v-if="error" class="demo-error">{{ error }}</div>
       <div ref="mapContainer" :class="fullsize ? 'demo-map-fullsize' : 'demo-map'"></div>
       <div class="demo-log" ref="logContainer">
@@ -137,6 +137,36 @@ onMounted(async () => {
 
     draw.on('splitfailed', (e) => {
       addLog('splitfailed', `${e.reason} (${e.featureId.slice(0, 8)}...)`);
+    });
+
+    draw.on('cut', (e) => {
+      addLog(
+        'cut',
+        `${e.originalFeature.id.slice(0, 8)}... -> ${e.features.map((f) => f.id.slice(0, 8) + '...').join(', ')}`
+      );
+    });
+
+    draw.on('cutfailed', (e) => {
+      addLog('cutfailed', `${e.reason} (${e.featureId.slice(0, 8)}...)`);
+    });
+
+    draw.on('reshape', (e) => {
+      addLog('reshape', `${describeFeature(e.feature)} reshaped`);
+    });
+
+    draw.on('reshapefailed', (e) => {
+      addLog('reshapefailed', `${e.reason} (${e.featureId.slice(0, 8)}...)`);
+    });
+
+    draw.on('union', (e) => {
+      addLog(
+        'union',
+        `${e.originalFeatures.map((f) => f.id.slice(0, 8) + '...').join(', ')} -> ${e.feature.id.slice(0, 8)}...`
+      );
+    });
+
+    draw.on('unionfailed', (e) => {
+      addLog('unionfailed', `${e.reason} (${e.featureIds.length} polygons)`);
     });
 
     draw.on('setback', (e) => {

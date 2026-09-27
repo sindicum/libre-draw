@@ -1,6 +1,6 @@
 <template>
   <ClientOnly>
-    <div class="demo-container">
+    <div class="demo-container vp-raw">
       <div v-if="error" class="demo-error">{{ error }}</div>
       <div ref="mapContainer" class="demo-map-compact"></div>
       <div class="demo-controls">
@@ -52,6 +52,9 @@ const modes = [
   'draw-angled-rectangle',
   'select',
   'split',
+  'cut',
+  'reshape',
+  'union',
   'setback',
   'rotate',
 ] as const;
@@ -143,11 +146,49 @@ onMounted(async () => {
       );
     });
 
+    draw.on('splitfailed', (e: any) => {
+      addLog('splitfailed', `${e.reason} (${e.featureId.slice(0, 8)}...)`);
+    });
+
+    draw.on('cut', (e: any) => {
+      addLog(
+        'cut',
+        `${e.originalFeature.id.slice(0, 8)}... cut, ${e.features.length} piece(s) remain`
+      );
+    });
+
+    draw.on('cutfailed', (e: any) => {
+      addLog('cutfailed', `${e.reason} (${e.featureId.slice(0, 8)}...)`);
+    });
+
+    draw.on('reshape', (e: any) => {
+      addLog('reshape', `${describeFeature(e.feature)} reshaped`);
+    });
+
+    draw.on('reshapefailed', (e: any) => {
+      addLog('reshapefailed', `${e.reason} (${e.featureId.slice(0, 8)}...)`);
+    });
+
+    draw.on('union', (e: any) => {
+      addLog(
+        'union',
+        `${e.originalFeatures.length} polygons merged into ${e.feature.id.slice(0, 8)}...`
+      );
+    });
+
+    draw.on('unionfailed', (e: any) => {
+      addLog('unionfailed', `${e.reason} (${e.featureIds.length} polygons)`);
+    });
+
     draw.on('setback', (e: any) => {
       addLog(
         'setback',
         `${e.originalFeature.id.slice(0, 8)}... edge ${e.edgeIndex} setback ${e.distance}`
       );
+    });
+
+    draw.on('setbackfailed', (e: any) => {
+      addLog('setbackfailed', `${e.reason} (${e.featureId.slice(0, 8)}...)`);
     });
 
     draw.on('rotate', (e: any) => {
