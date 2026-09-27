@@ -162,7 +162,7 @@ describe('SelectMode', () => {
     selectMode = new SelectMode(context, onSelectionChange);
   });
 
-  // --- Original selection tests ---
+  // --- Selection ---
 
   it('should not respond to events when inactive', () => {
     selectMode.onPointerDown(createPointerEvent(5, 5));
@@ -372,11 +372,9 @@ describe('SelectMode', () => {
       selectMode.activate();
       selectMode.onPointerDown(createPointerEvent(5, 5)); // select
 
-      // Click in the middle of the polygon, far from any vertex
-      // This now starts a polygon drag (not vertex drag), so dragging flag should differ
+      // Inside the body, far from any vertex: a polygon drag starts, not a vertex drag.
       selectMode.onPointerDown(createPointerEvent(5, 5));
 
-      // Move the pointer — if it were a vertex drag, updateFeatureInStore would move a single vertex
       vi.mocked(callbacks.updateFeatureInStore).mockClear();
       selectMode.onPointerMove(createPointerEvent(6, 6));
 
@@ -461,16 +459,12 @@ describe('SelectMode', () => {
       selectMode.activate();
       selectMode.onPointerDown(createPointerEvent(5, 5)); // select
 
-      // Point at (1.1,0) → screen (11,0) → distance 11px from vertex (0,0), outside mouse threshold
-      // But point is still inside the polygon, so polygon drag starts
-      // To test vertex miss specifically, click OUTSIDE the polygon
       selectMode.onPointerUp(createPointerEvent(5, 5)); // clear any drag state
 
       vi.mocked(callbacks.setDragPan).mockClear();
 
-      // Click outside the polygon, close to vertex (0,0) but beyond threshold
+      // (-1.1, 0) is 11px from vertex (0,0) and outside the polygon: nothing to drag.
       selectMode.onPointerDown(createPointerEvent(-1.1, 0));
-      // Should NOT start any drag
       expect(callbacks.setDragPan).not.toHaveBeenCalledWith(false);
     });
 
@@ -908,7 +902,7 @@ describe('SelectMode', () => {
     });
   });
 
-  // --- Multi-selection (F-023) ---
+  // --- Multi-selection ---
 
   describe('multi-selection', () => {
     function makeSquareAt(id: string, x: number): LibreDrawFeature {

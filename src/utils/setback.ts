@@ -79,10 +79,9 @@ export function findNearestEdge(
  * Compute the inward unit normal of a polygon edge, in degree space.
  *
  * Without `polygonVertices` the ring is assumed counter-clockwise. With them
- * the winding is read from the ring's signed area (relative to its first
- * vertex, so small rings far from the origin are not lost to rounding) and
- * the normal is flipped for a clockwise ring. A ring of negligible area has
- * no inside, so the CCW normal is returned as is.
+ * the winding is read from the ring's signed area and the normal is flipped
+ * for a clockwise ring. A ring of negligible area has no inside, so the CCW
+ * normal is returned as is.
  */
 export function computeInwardNormal(
   edgeStart: Position,

@@ -124,8 +124,7 @@ export function findPathIndex(path: Position[], target: Position): number {
   return -1;
 }
 
-// The failure reason is a public event type; it lives in types/ so that
-// types/ never depends on utils/. Re-exported here for existing importers.
+// The failure reason lives in types/ so that types/ never depends on utils/.
 export type { SplitFailReason };
 
 /**

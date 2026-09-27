@@ -13,7 +13,7 @@ import { createFeatureId } from '../utils/id';
  *
  * The rectangle is aligned to the geographic (lng / lat) axes so that the
  * same two corners always yield the same polygon regardless of the map's
- * bearing. Rotated rectangles are produced by the rotate mode instead.
+ * bearing.
  *
  * @returns The 5-position ring, or `null` when the corners share a
  *   longitude or latitude (zero width or height).
@@ -203,8 +203,7 @@ export class DrawRectangleMode implements DraftCapableMode {
     this.context.render.clearPreview();
     this.context.render.clearVertices();
     this.context.render.clearSnapIndicator();
-    // Always notify (even without a draft) so external UIs can reset,
-    // matching DrawPolygonMode / DrawLineMode and the facade's TSDoc.
+    // Always notify (even without a draft): the public API promises a draftchange on cancel.
     this.emitDraftChange();
   }
 

@@ -18,8 +18,7 @@ const ZERO_WIDTH_RATIO = 1e-9;
  * general.
  *
  * The right angles are computed in Web Mercator space, which is conformal,
- * so the rectangle looks rectangular on screen at any latitude and bearing
- * (the same frame the rotate mode uses).
+ * so the rectangle looks rectangular on screen at any latitude and bearing.
  *
  * @returns The 5-position ring starting at `a`, or `null` when `a` and `b`
  *   coincide or `c` lies on the base line (zero width).
@@ -48,8 +47,7 @@ export function buildAngledRectangleRing(a: Position, b: Position, c: Position):
   const back = fromMercator({ x: pa.x + ox, y: pa.y + oy });
 
   // Mercator y grows south, so the winding in lng/lat depends on c's side.
-  // Keep the exterior ring counter-clockwise like `buildRectangleRing`,
-  // still starting at `a`.
+  // Keep the exterior ring counter-clockwise, still starting at `a`.
   const ring: Position[] =
     signedArea([start, next, far, back]) >= 0 ? [start, next, far, back] : [start, back, far, next];
   ring.push([start[0], start[1]]);
@@ -59,9 +57,8 @@ export function buildAngledRectangleRing(a: Position, b: Position, c: Position):
 /**
  * Twice the signed area of an open ring in lng/lat (positive = counter-clockwise).
  *
- * Coordinates are taken relative to the first vertex: products of absolute
- * lng/lat values cancel out for small rings far from (0, 0) and can flip or
- * zero the sign.
+ * Coordinates are taken relative to the first vertex so that the sign is
+ * reliable for small rings far from (0, 0).
  */
 function signedArea(ring: Position[]): number {
   const [ox, oy] = ring[0];

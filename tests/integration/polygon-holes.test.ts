@@ -61,7 +61,7 @@ function ringsOf(draw: LibreDraw, id: string): Position[][] {
   return feature.geometry.coordinates;
 }
 
-describe('polygons with holes (F-024)', () => {
+describe('polygons with holes', () => {
   let map: FakeMap;
   let draw: LibreDraw;
 
@@ -166,7 +166,7 @@ describe('polygons with holes (F-024)', () => {
     }
   );
 
-  it('keeps rejecting split, setback, and union on a polygon with a hole', () => {
+  it('rejects split, setback, and union on a polygon with a hole', () => {
     draw.addFeatures([
       {
         id: 'q',

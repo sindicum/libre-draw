@@ -187,7 +187,6 @@ export class SelectMode implements Mode {
 
   /**
    * Programmatically clear the current selection.
-   * Public API keeps the active-mode guard.
    */
   clearSelection(): void {
     if (!this.isActive) return;
@@ -551,7 +550,7 @@ export class SelectMode implements Mode {
 
   /**
    * Find the topmost feature hit by a click/tap.
-   * Supports both Point (distance-based) and Polygon (point-in-polygon) features.
+   * Points by distance, lines by distance to a segment, polygons by point-in-polygon.
    */
   private findHitFeature(
     features: LibreDrawFeature[],

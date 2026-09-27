@@ -18,10 +18,10 @@ const MAX_ANGLE_DEG = 360;
 /**
  * Inline relative-angle input used by rotate mode.
  *
- * Mirrors SetbackInput: the value is validated on every input event, a valid
- * change previews via `onAngleChange`, and Enter / the execute button commit
- * via `onSubmit`. The value is kept after a commit so the same angle can be
- * applied repeatedly.
+ * The value is validated on every input event, a valid change previews via
+ * `onAngleChange`, and Enter / the execute button commit via `onSubmit`.
+ * The value is kept after a commit so the same angle can be applied
+ * repeatedly.
  */
 export class RotateInput {
   private container: HTMLDivElement;

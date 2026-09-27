@@ -57,8 +57,7 @@ describe('SourceManager', () => {
   });
 
   it('should promote _id on the features source', () => {
-    // Without this, a GeoJSON source drops the string UUID feature ids and
-    // setFeatureState throws "The feature id parameter must be provided."
+    // promoteId keeps the string feature ids that setFeatureState needs.
     manager.initialize();
 
     expect(map.optionsFor(SOURCE_IDS.FEATURES)?.promoteId).toBe('_id');

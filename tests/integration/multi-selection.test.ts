@@ -70,7 +70,7 @@ function firstVertex(feature: LibreDrawFeature | undefined): number[] | undefine
   return feature.geometry.coordinates[0][0];
 }
 
-describe('multi-selection (F-023)', () => {
+describe('multi-selection', () => {
   let map: FakeMap;
   let draw: LibreDraw;
 

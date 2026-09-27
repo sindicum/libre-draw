@@ -271,10 +271,8 @@ export function validateFeature(feature: unknown): LibreDrawFeature {
  * Validate a single GeoJSON-like object without throwing.
  *
  * Wraps {@link validateFeature}: a `LibreDrawError` becomes
- * `{ valid: false, reason }` carrying the same message, so callers that
- * report per-feature outcomes (`addFeatures`, the public `validateFeature`)
- * share one wording with the throwing path. Any other exception is a bug
- * and propagates.
+ * `{ valid: false, reason }` carrying the same message as the throwing
+ * path. Any other exception is a bug and propagates.
  * @param feature - The object to validate.
  * @returns The normalized feature, or the rejection reason.
  */
@@ -346,10 +344,9 @@ export type GeoJSONValidationResult =
 /**
  * Validate a FeatureCollection without throwing.
  *
- * Wraps {@link validateGeoJSON} the way {@link tryValidateFeature} wraps
- * `validateFeature`: a `LibreDrawError` becomes `{ valid: false, reason }`
- * with the same message (including the `Invalid feature at index i:`
- * prefix), and any other exception propagates.
+ * Wraps {@link validateGeoJSON}: a `LibreDrawError` becomes
+ * `{ valid: false, reason }` with the same message (including the
+ * `Invalid feature at index i:` prefix), and any other exception propagates.
  * @param geojson - The value to validate.
  * @returns The normalized features, or the rejection reason.
  */

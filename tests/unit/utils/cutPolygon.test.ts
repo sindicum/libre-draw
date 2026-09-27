@@ -158,9 +158,9 @@ describe('cutPolygon', () => {
   });
 
   it('cuts a tiny hole the same way near the origin and at real longitudes', () => {
-    // A 0.001° square and a 0.0000005° cutter inside it: the cutter removes
-    // about 2.5e-7 of the area. Absolute-coordinate cross products at
-    // (139.7, 35.66) round that away and reported no-overlap.
+    // A 0.001° square and a 0.0000005° cutter inside it: the overlap is about
+    // 2.5e-7 of the area, below the rounding error of cross products taken at
+    // absolute coordinates near (139.7, 35.66).
     for (const [x, y] of [
       [0, 0],
       [139.7, 35.66],

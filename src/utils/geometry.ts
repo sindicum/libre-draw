@@ -269,10 +269,8 @@ export function removeLineVertex(feature: LibreDrawFeature, vertexIndex: number)
  * Signed area of a ring (shoelace formula), positive for counter-clockwise
  * winding. The ring may be given with or without its closing position.
  *
- * Computed relative to the first vertex: the products of absolute
- * longitudes and latitudes lose the area of a small ring far from the
- * origin to rounding, while the differences between neighbouring vertices
- * do not.
+ * Computed relative to the first vertex, which keeps the precision of a
+ * small ring far from the origin.
  */
 export function signedRingArea(ring: Position[]): number {
   const n = ring.length;

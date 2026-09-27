@@ -313,8 +313,7 @@ describe('unionPolygons', () => {
 
     it('succeeds when a later polygon fills the hole the earlier ones enclose', () => {
       // Bottom, top, left and right bars would leave a hole at (10..20,
-      // 10..20); the last square fills it. Merging in order would fail with
-      // has-holes after the fourth bar.
+      // 10..20); the last square fills it.
       const result = unionPolygons([
         polygon('bottom', [
           [

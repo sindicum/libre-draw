@@ -247,12 +247,10 @@ describe('rotateFeature', () => {
   });
 
   it('keeps the centroid at the middle of a square', () => {
-    // Compared with the known middle, not with the centroid of the input:
-    // a centroid that is wrong in the same way before and after would pass
-    // a before/after comparison. The middle is taken in Mercator space,
-    // where the square is a rectangle; in degrees it sits slightly north
-    // of latitude 20 because Mercator stretches latitude more towards the
-    // pole, so the northern half of the square is the taller one.
+    // The middle is taken in Mercator space, where the square is a
+    // rectangle; in degrees it sits slightly north of latitude 20 because
+    // Mercator stretches latitude more towards the pole, so the northern
+    // half of the square is the taller one.
     const sw = toMercator([9, 19]);
     const ne = toMercator([11, 21]);
     const [lng, lat] = fromMercator({ x: (sw.x + ne.x) / 2, y: (sw.y + ne.y) / 2 });
@@ -507,9 +505,7 @@ describe('getRotationCenter degenerate rings', () => {
 
   it('does not depend on which vertex the ring starts from', () => {
     // An ordinary L-shape and a sliver right at the degenerate threshold:
-    // every cyclic shift of the vertices must give the same centre, so the
-    // extent used by the degeneracy test has to be the bounding box, not
-    // the distance from the first vertex.
+    // every cyclic shift of the vertices must give the same centre.
     const h = 1.080010747500637e-9;
     const shapes: Position[][] = [
       ring(makeLShape()).slice(0, -1),

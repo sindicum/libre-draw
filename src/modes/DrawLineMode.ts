@@ -276,7 +276,7 @@ export class DrawLineMode implements DraftCapableMode {
 
   /**
    * Build the preview coordinates for rendering.
-   * Unlike polygon preview, this does NOT close the ring.
+   * The preview is an open line: no closing position is appended.
    */
   private buildPreviewCoordinates(cursorPos?: Position): Position[] {
     const coords = [...this.vertices];

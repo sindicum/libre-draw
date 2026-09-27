@@ -398,7 +398,7 @@ export class DrawPolygonMode implements DraftCapableMode {
   }
 
   /**
-   * Find a snap target for the given position (excluding drawing-in-progress vertices).
+   * Find a snap target for the given position.
    */
   private findSnap(lngLat: { lng: number; lat: number }): ReturnType<typeof findSnapTarget> {
     const snapConfig = this.context.getSnapConfig();

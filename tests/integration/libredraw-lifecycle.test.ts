@@ -245,7 +245,6 @@ describe('LibreDraw lifecycle integration', () => {
     const map = new FakeMap();
     const draw = new LibreDraw(map.asMap(), { toolbar: false });
 
-    // The former vertices layer rendered nothing and is gone.
     expect(map.hasLayer('libre-draw-vertices')).toBe(false);
     expect(map.hasLayer(LAYER_IDS.POINT)).toBe(true);
 
@@ -265,7 +264,7 @@ describe('LibreDraw lifecycle integration', () => {
     draw.destroy();
   });
 
-  it('should emit delete event on undo of create action', () => {
+  it('should emit create event on undo of a delete', () => {
     const map = new FakeMap();
     const draw = new LibreDraw(map.asMap(), { toolbar: false });
 
@@ -327,8 +326,6 @@ describe('LibreDraw lifecycle integration', () => {
     draw.setMode('draw-polygon');
     expect(draw.getDraftVertexCount()).toBe(0);
 
-    // Simulate three pointer-downs via the mode directly is internal;
-    // instead verify finishDrawing fails before enough vertices exist.
     expect(draw.finishDrawing()).toBe(false);
 
     const draftListener = vi.fn();
@@ -393,7 +390,7 @@ describe('LibreDraw lifecycle integration', () => {
     draw.destroy();
   });
 
-  it('should undo the addFeatures step instead of an earlier action (Issue #3)', () => {
+  it('should undo the addFeatures step instead of an earlier action', () => {
     const map = new FakeMap();
     const draw = new LibreDraw(map.asMap(), { toolbar: false });
 

@@ -20,12 +20,11 @@ const EXTENDED_OFFSET_LINE_RATIO = 1.0;
  * step: the ring is split along the offset line and the band on the edge's
  * side is discarded.
  *
- * The result gets a fresh id and a copy of the original's properties,
- * exactly as the setback mode produces it. A geometric failure is reported
- * with the `SetbackFailReason` code and, as in the mode, a `setbackfailed`
- * event; an argument error (`not-found`, `not-polygon`, `invalid-edge`,
- * `invalid-distance`) emits nothing. Only the outer ring can be set back
- * for now: a polygon with holes, or an `edge.ring` other than `0`, is
+ * The result gets a fresh id and a copy of the original's properties. A
+ * geometric failure is reported with the `SetbackFailReason` code and a
+ * `setbackfailed` event; an argument error (`not-found`, `not-polygon`,
+ * `invalid-edge`, `invalid-distance`) emits nothing. Only the outer ring can
+ * be set back: a polygon with holes, or an `edge.ring` other than `0`, is
  * `has-holes`.
  *
  * The result is validated like `addFeatures` input before anything is

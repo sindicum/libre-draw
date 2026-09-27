@@ -594,9 +594,6 @@ describe('Draw Flow Integration', () => {
     });
 
     it('should not chain rectangles from the release point of a touch drag', () => {
-      // Regression: corners used to be placed on pointer down, so a finger
-      // drag left a stranded preview and the next touch finalized a rectangle
-      // anchored at the previous gesture -- chained, overlapping shapes.
       const { store, modeManager, drawRectangleMode } = createDrawingSystem();
 
       modeManager.setMode('draw-rectangle');
@@ -701,8 +698,6 @@ describe('Draw Flow Integration', () => {
     });
 
     it('should not create a point when the map is dragged', () => {
-      // Regression (TD6): points used to be placed on pointer down, so
-      // dragging to pan the map dropped a point at the drag start.
       const { eventBus, store, modeManager, drawPointMode } = createDrawingSystem();
       const createListener = vi.fn();
       eventBus.on('create', createListener);

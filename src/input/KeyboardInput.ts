@@ -56,7 +56,7 @@ export function isEditableTarget(target: EventTarget | null): boolean {
   const tag = target.tagName;
   if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT') return true;
   if (target.isContentEditable) return true;
-  // happy-dom and older engines may not implement isContentEditable.
+  // Engines without `isContentEditable` fall back to the attribute.
   const attr = target.getAttribute('contenteditable');
   return attr !== null && attr.toLowerCase() !== 'false';
 }
@@ -77,10 +77,10 @@ function isButtonTarget(target: EventTarget | null): boolean {
  *
  * Relevant keys (Escape, Delete, Backspace, Enter) are dispatched to the
  * active mode. Enter is withheld while a text-editing element or a button
- * has focus: there it already means "submit" or "click", and passing it on
- * as well would run the same command twice. When shortcut callbacks are provided, undo / redo key combinations
- * are routed to them unless a text-editing element has focus, and the
- * browser default is suppressed only when the callback reports success.
+ * has focus, where it already means "submit" or "click". When shortcut
+ * callbacks are provided, undo / redo key combinations are routed to them
+ * unless a text-editing element has focus, and the browser default is
+ * suppressed only when the callback reports success.
  */
 export class KeyboardInput {
   private target: HTMLElement;

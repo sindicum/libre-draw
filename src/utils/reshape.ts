@@ -47,9 +47,8 @@ export function normalizeReshapeLine(line: readonly Position[]): Position[] | nu
 
 /**
  * Signed planar shoelace area of a closed ring, in squared degrees (only
- * compared). Computed relative to the ring's first vertex: cross products
- * of absolute longitudes and latitudes lose the area of a small ring far
- * from the origin to rounding.
+ * compared). Computed relative to the ring's first vertex, which keeps the
+ * precision of a small ring far from the origin.
  */
 function signedRingArea(ring: readonly Position[]): number {
   if (ring.length < 4) return 0;

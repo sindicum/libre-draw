@@ -22,9 +22,7 @@ class FakeSource {
 /**
  * Minimal map stand-in.
  *
- * `setFeatureState` mirrors MapLibre and throws on a missing id, so a
- * regression that drops the feature id surfaces as a failing test rather
- * than a silently swallowed call.
+ * `setFeatureState` mirrors MapLibre and throws on a missing id.
  */
 class FakeMap {
   readonly featureState = new Map<string | number, Record<string, unknown>>();

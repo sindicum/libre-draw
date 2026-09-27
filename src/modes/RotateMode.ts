@@ -16,8 +16,8 @@ import {
 } from '../utils/rotate';
 
 /**
- * Hit threshold in pixels for selecting LineString features.
- * Same value as SelectMode / SplitMode so a line is equally easy to grab in every mode.
+ * Hit threshold in pixels for selecting LineString features; the same in
+ * every mode so a line is equally easy to grab.
  */
 const LINE_HIT_THRESHOLD_PX = 20;
 

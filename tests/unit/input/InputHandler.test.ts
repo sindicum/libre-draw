@@ -173,8 +173,8 @@ describe('InputHandler', () => {
   });
 
   it('should dispatch a tap to the mode exactly once', () => {
-    // Regression: the compatibility mouse events a mobile browser fires after
-    // a tap used to reach the mode as a second, independent interaction.
+    // The compatibility mouse events a mobile browser fires after a tap belong
+    // to the same interaction.
     dispatchTap(canvas, 100.4, 50.6);
 
     expect(mode.onPointerDown).toHaveBeenCalledOnce();

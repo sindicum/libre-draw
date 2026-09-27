@@ -249,13 +249,7 @@ describe('wouldClosingCauseIntersection', () => {
   });
 
   it('should detect intersection on closing', () => {
-    // Bowtie: closing edge would cross an existing edge
-    // Vertices form: (0,0) → (10,10) → (10,0) → (0,10)
-    // Closing (0,10)→(0,0) would need to check against (10,10)→(10,0)
-    // Actually the self-intersection is in the drawing itself
-    // Let's use a clearer case:
-    // (0,0) → (10,0) → (5,10) → (15,5)
-    // Closing (15,5)→(0,0) crosses (10,0)→(5,10)
+    // (0,0) → (10,0) → (5,10) → (15,5): closing (15,5)→(0,0) crosses (10,0)→(5,10).
     const vertices: Position[] = [
       [0, 0],
       [10, 0],

@@ -40,7 +40,7 @@ function setup(options: ConstructorParameters<typeof LibreDraw>[1] = {}) {
   return { map, draw, creates, drafts, reticle, bar, button, addPoint, addPointAt, click };
 }
 
-describe('Center reticle input (F-028)', () => {
+describe('Center reticle input', () => {
   let current: ReturnType<typeof setup> | null = null;
   const start = (options?: ConstructorParameters<typeof LibreDraw>[1]) => {
     current = setup(options);
@@ -319,7 +319,7 @@ describe('Center reticle input (F-028)', () => {
     expect(draw.getInputMethod()).toBe('reticle');
   });
 
-  describe('undo point and finish (item X)', () => {
+  describe('undo point and finish', () => {
     it('finishes a polygon with the finish button, as finishDrawing() does', () => {
       const { draw, creates, button, addPointAt } = start();
       draw.setMode('draw-polygon');
@@ -478,7 +478,7 @@ describe('Center reticle input (F-028)', () => {
     });
   });
 
-  describe('undoLastVertex() (item X)', () => {
+  describe('undoLastVertex()', () => {
     it('takes back the last polygon point, stamped origin api', () => {
       const { draw, drafts, addPointAt } = start({ inputMethod: 'tap' });
       draw.setMode('draw-polygon');
@@ -507,7 +507,7 @@ describe('Center reticle input (F-028)', () => {
     });
   });
 
-  describe('toolbar toggle (item X)', () => {
+  describe('toolbar toggle', () => {
     const toggle = (map: FakeMap) =>
       map
         .getContainer()

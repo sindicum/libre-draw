@@ -12,9 +12,8 @@ import type { Position } from '../types/features';
  * - a parametric position along a segment (0..1), dimensionless.
  *
  * Coordinates are degrees, so the cross product of two metre-long segments
- * is around 1e-10 even when they are perpendicular; comparing it with a
- * fixed threshold would call them collinear. Normalising first keeps every
- * test independent of the size of the shape.
+ * is around 1e-10 even when they are perpendicular; normalising first keeps
+ * every test independent of the size of the shape.
  */
 export const EPSILON = 1e-10;
 
@@ -61,9 +60,8 @@ function posEqual(a: Position, b: Position): boolean {
  * Compute the intersection point of two line segments.
  * Returns null if they are parallel/collinear or do not intersect within segment bounds.
  *
- * Parallelism is judged by the sine of the angle between the segments, not
- * by the raw cross product, for the reason given at {@link EPSILON}; the
- * same normalisation is used by {@link orientation}.
+ * Parallelism is judged by the sine of the angle between the segments (see
+ * {@link EPSILON}).
  */
 export function computeIntersectionPoint(
   p1: Position,

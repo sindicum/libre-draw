@@ -4,7 +4,7 @@ import type { Map as MaplibreMap } from 'maplibre-gl';
 /**
  * Shared map double for facade-level integration tests: enough surface for
  * LibreDraw to construct, render into GeoJSON sources, swap styles, and
- * receive canvas mouse events. Extracted from libredraw-lifecycle.test.ts.
+ * receive canvas mouse events.
  */
 export class FakeGeoJSONSource {
   public data: GeoJSON.FeatureCollection;

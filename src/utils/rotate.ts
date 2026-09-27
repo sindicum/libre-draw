@@ -14,8 +14,7 @@ export interface PlanarPoint {
  *
  * x grows east and y grows south, so the frame has the same orientation as
  * the screen. Mercator is conformal, so rotating here keeps the on-screen
- * shape of a feature intact at any zoom, unlike rotating in lng/lat space,
- * which squashes shapes away from the equator.
+ * shape of a feature intact at any zoom.
  */
 export function toMercator(position: Position): PlanarPoint {
   const lng = position[0];
@@ -50,11 +49,10 @@ function meanPoint(points: PlanarPoint[]): PlanarPoint {
  * Area centroid of a closed ring (shoelace formula).
  *
  * Computed relative to the first vertex: normalized Mercator coordinates
- * are around 0.5, so the cross products of absolute positions cancel to
- * rounding noise for a ring a few metres across, and the centroid lands
- * kilometres away. Falls back to the vertex mean when the area is
- * negligible for the ring's extent (a collinear or coincident ring), judged
- * as in `hasNegligibleArea`.
+ * are around 0.5, so the offsets keep the cross products of a ring a few
+ * metres across above rounding noise. Falls back to the vertex mean when
+ * the area is negligible for the ring's extent (a collinear or coincident
+ * ring), judged as in `hasNegligibleArea`.
  */
 function ringCentroid(ring: PlanarPoint[]): PlanarPoint {
   const origin = ring[0];
@@ -116,9 +114,8 @@ function polylineCentroid(points: PlanarPoint[]): PlanarPoint {
  *
  * A centroid is used rather than the bounding box center because it is
  * invariant under rotation about itself, so the pivot stays put no matter
- * how many times an irregular shape is turned. A bounding box is always
- * axis-aligned and its center wanders as the shape rotates. Measured in
- * Mercator (visual) space so the axis sits where the user sees the shape.
+ * how many times an irregular shape is turned. Measured in Mercator
+ * (visual) space so the axis sits where the user sees the shape.
  * Mercator is only conformal, not equal-area, so the centroid is the visual
  * one; for shapes up to a few kilometres the difference from the geodesic
  * centroid is far below a vertex's own precision.
@@ -222,7 +219,6 @@ export function snapAngle(angleDeg: number, stepDeg: number): number {
 
 /**
  * Whether rotating by this angle leaves the shape unchanged (a multiple of 360°).
- * Such angles are ignored by the mode so that they never reach the history.
  */
 export function isNoRotation(angleDeg: number): boolean {
   return angleDeg % 360 === 0;
