@@ -1,7 +1,9 @@
 import destination from '@turf/destination';
 import { point as turfPoint } from '@turf/helpers';
 import type { Position } from '../types/features';
+import { hasNegligibleArea, signedRingArea } from './geometry';
 
+/** Tolerance for screen-space distances (pixels squared) and degree-space edge lengths. */
 const EPSILON = 1e-10;
 
 export interface EdgeHit {
@@ -39,15 +41,6 @@ function pointToSegmentDistance(
   return Math.sqrt(dx * dx + dy * dy);
 }
 
-function signedArea(vertices: Position[]): number {
-  let area = 0;
-  for (let i = 0; i < vertices.length; i++) {
-    const next = (i + 1) % vertices.length;
-    area += vertices[i][0] * vertices[next][1] - vertices[next][0] * vertices[i][1];
-  }
-  return area / 2;
-}
-
 /**
  * Find nearest polygon edge in screen space.
  */
@@ -83,7 +76,13 @@ export function findNearestEdge(
 }
 
 /**
- * Compute inward unit normal for a CCW polygon edge.
+ * Compute the inward unit normal of a polygon edge, in degree space.
+ *
+ * Without `polygonVertices` the ring is assumed counter-clockwise. With them
+ * the winding is read from the ring's signed area (relative to its first
+ * vertex, so small rings far from the origin are not lost to rounding) and
+ * the normal is flipped for a clockwise ring. A ring of negligible area has
+ * no inside, so the CCW normal is returned as is.
  */
 export function computeInwardNormal(
   edgeStart: Position,
@@ -105,12 +104,11 @@ export function computeInwardNormal(
     return base;
   }
 
-  const area = signedArea(polygonVertices);
-  if (Math.abs(area) < EPSILON) {
+  if (hasNegligibleArea(polygonVertices)) {
     return base;
   }
 
-  return area > 0 ? base : ([-base[0], -base[1]] as Position);
+  return signedRingArea(polygonVertices) > 0 ? base : ([-base[0], -base[1]] as Position);
 }
 
 /**

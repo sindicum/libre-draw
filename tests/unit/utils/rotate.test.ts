@@ -246,21 +246,31 @@ describe('rotateFeature', () => {
     expectPositionClose(rotated.geometry.coordinates[1], [0, 0], 6);
   });
 
-  it('keeps the centroid fixed for a square', () => {
-    const before = getRotationCenter(makeSquare());
+  it('keeps the centroid at the middle of a square', () => {
+    // Compared with the known middle, not with the centroid of the input:
+    // a centroid that is wrong in the same way before and after would pass
+    // a before/after comparison. The middle is taken in Mercator space,
+    // where the square is a rectangle; in degrees it sits slightly north
+    // of latitude 20 because Mercator stretches latitude more towards the
+    // pole, so the northern half of the square is the taller one.
+    const sw = toMercator([9, 19]);
+    const ne = toMercator([11, 21]);
+    const [lng, lat] = fromMercator({ x: (sw.x + ne.x) / 2, y: (sw.y + ne.y) / 2 });
     const after = getRotationCenter(rotateFeature(makeSquare(), 37));
-    expect(after.lng).toBeCloseTo(before.lng, 6);
-    expect(after.lat).toBeCloseTo(before.lat, 6);
+    expect(after.lng).toBeCloseTo(lng, 6);
+    expect(after.lat).toBeCloseTo(lat, 6);
   });
 
-  it('keeps the centroid fixed for an irregular shape across repeated turns', () => {
-    const before = getRotationCenter(makeLShape());
+  it('keeps the centroid of an irregular shape at its known value across repeated turns', () => {
+    // Three unit squares centred at (0.5, 0.5), (1.5, 0.5) and (0.5, 1.5):
+    // area centroid (5/6, 5/6). Mercator distortion within 2° of the
+    // equator shifts the latitude by well under 1e-3.
     let feature = makeLShape();
     for (let i = 0; i < 5; i++) {
       feature = rotateFeature(feature, 37);
       const after = getRotationCenter(feature);
-      expect(after.lng).toBeCloseTo(before.lng, 6);
-      expect(after.lat).toBeCloseTo(before.lat, 6);
+      expect(after.lng).toBeCloseTo(5 / 6, 3);
+      expect(after.lat).toBeCloseTo(5 / 6, 3);
     }
   });
 
@@ -384,5 +394,141 @@ describe('isNoRotation', () => {
     expect(isNoRotation(720)).toBe(true);
     expect(isNoRotation(90)).toBe(false);
     expect(isNoRotation(359.9)).toBe(false);
+  });
+});
+
+// Metres per degree at a latitude, close enough to turn a coordinate
+// difference into a distance for a tolerance check.
+function metresBetween(a: { lng: number; lat: number }, b: Position): number {
+  const dx = (a.lng - b[0]) * 111320 * Math.cos((b[1] * Math.PI) / 180);
+  const dy = (a.lat - b[1]) * 110574;
+  return Math.hypot(dx, dy);
+}
+
+function squareAt(lng: number, lat: number, sideDeg: number): LibreDrawFeature {
+  return {
+    id: 'sq',
+    type: 'Feature',
+    geometry: {
+      type: 'Polygon',
+      coordinates: [
+        [
+          [lng, lat],
+          [lng + sideDeg, lat],
+          [lng + sideDeg, lat + sideDeg],
+          [lng, lat + sideDeg],
+          [lng, lat],
+        ],
+      ],
+    },
+    properties: {},
+  };
+}
+
+describe('getRotationCenter / rotateFeature at metre scales', () => {
+  // 1e-3° is about 111 m, 1e-5° about 1.1 m.
+  const places: [string, number, number][] = [
+    ['near the origin', 0.001, 0.001],
+    ['in Tokyo', 139.7, 35.66],
+  ];
+  const sides = [1e-3, 1e-4, 1e-5];
+
+  for (const [where, lng, lat] of places) {
+    for (const side of sides) {
+      it(`puts the centre of a ${side}° square ${where} within 1 cm of its middle`, () => {
+        const center = getRotationCenter(squareAt(lng, lat, side));
+        expect(metresBetween(center, [lng + side / 2, lat + side / 2])).toBeLessThan(0.01);
+      });
+
+      it(`returns a ${side}° square ${where} to its start after four 90° turns`, () => {
+        let feature = squareAt(lng, lat, side);
+        for (let i = 0; i < 4; i++) feature = rotateFeature(feature, 90);
+        const original = ring(squareAt(lng, lat, side));
+        ring(feature).forEach((position, i) => {
+          expect(metresBetween({ lng: position[0], lat: position[1] }, original[i])).toBeLessThan(
+            0.01
+          );
+        });
+      });
+    }
+  }
+
+  it('moves a corner by about the side length for a quarter turn', () => {
+    const side = 1e-4; // about 11 m
+    const before = ring(squareAt(139.7, 35.66, side))[0];
+    const after = ring(rotateFeature(squareAt(139.7, 35.66, side), 90))[0];
+    const moved = metresBetween({ lng: after[0], lat: after[1] }, before);
+    expect(moved).toBeGreaterThan(5);
+    expect(moved).toBeLessThan(15);
+  });
+});
+
+describe('getRotationCenter degenerate rings', () => {
+  const polygon = (ring: Position[]): LibreDrawFeature => ({
+    id: 'p',
+    type: 'Feature',
+    geometry: { type: 'Polygon', coordinates: [ring] },
+    properties: {},
+  });
+
+  it('falls back to the vertex mean for a ring whose area is tiny but not zero', () => {
+    // Four nearly collinear points whose vertex mean (lng 0.45) differs from
+    // their area centroid (lng 0.6): the area is 3.6e-10 deg², far below
+    // EPSILON × extent², so the mean must be returned. A triangle would not
+    // do here, because its two centroids coincide.
+    const center = getRotationCenter(
+      polygon([
+        [1.8, 0],
+        [-3.6, 1e-10],
+        [0, 1e-10],
+        [3.6, 1e-10],
+        [1.8, 0],
+      ])
+    );
+    expect(center.lng).toBeCloseTo(0.45, 9);
+    expect(center.lat).toBeCloseTo(0, 9);
+  });
+
+  it('uses the area centroid once the area is no longer negligible', () => {
+    // The same four points opened up to a real quadrilateral: the vertex
+    // mean would still be lng 0.45, the area centroid is not.
+    const center = getRotationCenter(
+      polygon([
+        [1.8, 0],
+        [-3.6, 1],
+        [0, 1],
+        [3.6, 1],
+        [1.8, 0],
+      ])
+    );
+    expect(center.lng).not.toBeCloseTo(0.45, 3);
+    expect(center.lng).toBeCloseTo(0.6, 3);
+  });
+
+  it('does not depend on which vertex the ring starts from', () => {
+    // An ordinary L-shape and a sliver right at the degenerate threshold:
+    // every cyclic shift of the vertices must give the same centre, so the
+    // extent used by the degeneracy test has to be the bounding box, not
+    // the distance from the first vertex.
+    const h = 1.080010747500637e-9;
+    const shapes: Position[][] = [
+      ring(makeLShape()).slice(0, -1),
+      [
+        [1.8, 0],
+        [-3.6, h],
+        [0, h],
+        [3.6, h],
+      ],
+    ];
+    for (const open of shapes) {
+      const centers = open.map((_, k) => {
+        const shifted = [...open.slice(k), ...open.slice(0, k)];
+        return getRotationCenter(polygon([...shifted, shifted[0]]));
+      });
+      for (const c of centers) {
+        expect(c.lng).toBeCloseTo(centers[0].lng, 9);
+        expect(c.lat).toBeCloseTo(centers[0].lat, 9);
+      }
+    }
   });
 });

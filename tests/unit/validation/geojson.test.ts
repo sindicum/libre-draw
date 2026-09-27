@@ -469,6 +469,21 @@ describe('validateFeature with holes', () => {
     );
   });
 
+  it.each([
+    ['near the origin', 0, 0],
+    ['in Tokyo', 139.7, 35.66],
+  ])('accepts a 1.1 m square with a hole %s', (_where, ox, oy) => {
+    // The ring relation checks must not mistake the short edges for
+    // collinear ones and report the rings as intersecting.
+    const s = 1e-5;
+    const tinyOuter = square(ox, oy, s).reverse();
+    const tinyHole = square(ox + s * 0.25, oy + s * 0.25, s * 0.5);
+    const feature = validateFeature(
+      makeFeature({ geometry: { type: 'Polygon', coordinates: [tinyOuter, tinyHole] } })
+    );
+    expect(feature.geometry.type === 'Polygon' && feature.geometry.coordinates).toHaveLength(2);
+  });
+
   it('reports the message through tryValidateFeature', () => {
     const result = tryValidateFeature(holed(square(20, 20, 2)));
     expect(result.valid).toBe(false);

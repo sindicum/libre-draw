@@ -67,7 +67,7 @@ function normalizeRing(ring: number[][]): Position[] {
  * Planar shoelace area of a closed ring, in squared degrees (only compared).
  * Computed relative to the ring's first vertex: cross products of absolute
  * longitudes and latitudes lose the area of a small ring far from the
- * origin to rounding (as the setback orientation test once did).
+ * origin to rounding.
  */
 function ringArea(ring: readonly number[][]): number {
   if (ring.length < 4) return 0;

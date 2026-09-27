@@ -1,14 +1,40 @@
 import type { Position } from '../types/features';
 
+/**
+ * Tolerance shared by the geometry helpers. It is applied to three kinds of
+ * quantity, and never to a raw cross product or area:
+ * - a difference between two coordinates, in degrees (`posEqual` and the
+ *   `positionsEqual` helpers built on it: about 10 µm);
+ * - a cross product divided by the product of the segment lengths, i.e. the
+ *   sine of the angle between them (`orientation`, `computeIntersectionPoint`)
+ *   or an area divided by the square of a ring's extent (`hasNegligibleArea`
+ *   in `utils/geometry.ts`), both dimensionless;
+ * - a parametric position along a segment (0..1), dimensionless.
+ *
+ * Coordinates are degrees, so the cross product of two metre-long segments
+ * is around 1e-10 even when they are perpendicular; comparing it with a
+ * fixed threshold would call them collinear. Normalising first keeps every
+ * test independent of the size of the shape.
+ */
 export const EPSILON = 1e-10;
 
 /**
  * Compute the orientation of triplet (p, q, r).
+ *
+ * Collinearity is judged by the sine of the angle between `p→q` and `q→r`
+ * (the cross product divided by the product of the lengths), so the answer
+ * does not depend on how large the shape is. A zero-length leg counts as
+ * collinear.
  * @returns 0 if collinear, 1 if clockwise, 2 if counter-clockwise.
  */
 function orientation(p: Position, q: Position, r: Position): number {
-  const val = (q[1] - p[1]) * (r[0] - q[0]) - (q[0] - p[0]) * (r[1] - q[1]);
-  if (Math.abs(val) < EPSILON) return 0; // collinear
+  const aX = q[0] - p[0];
+  const aY = q[1] - p[1];
+  const bX = r[0] - q[0];
+  const bY = r[1] - q[1];
+  const val = aY * bX - aX * bY;
+  const lengths = Math.hypot(aX, aY) * Math.hypot(bX, bY);
+  if (lengths === 0 || Math.abs(val) < EPSILON * lengths) return 0; // collinear
   return val > 0 ? 1 : 2;
 }
 
@@ -36,9 +62,8 @@ function posEqual(a: Position, b: Position): boolean {
  * Returns null if they are parallel/collinear or do not intersect within segment bounds.
  *
  * Parallelism is judged by the sine of the angle between the segments, not
- * by the raw cross product: in degrees the cross product of two short
- * segments (a metre or so) is below any fixed threshold even when they
- * cross at a right angle.
+ * by the raw cross product, for the reason given at {@link EPSILON}; the
+ * same normalisation is used by {@link orientation}.
  */
 export function computeIntersectionPoint(
   p1: Position,

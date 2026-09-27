@@ -123,7 +123,7 @@ describe('hasRingSelfIntersection', () => {
     expect(hasRingSelfIntersection(ring)).toBe(true);
   });
 
-  it('should detect butterfly/bowtie self-intersection', () => {
+  it('should return false for a diamond (a convex quadrilateral is not a bowtie)', () => {
     const ring: Position[] = [
       [0, 0],
       [5, 5],
@@ -131,10 +131,18 @@ describe('hasRingSelfIntersection', () => {
       [5, -5],
       [0, 0],
     ];
-    // Edge (0,0)→(5,5) does not cross (10,0)→(5,-5)
-    // Edge (5,5)→(10,0) does not cross (5,-5)→(0,0)
-    // But this is actually a valid diamond, let's use a real bowtie
     expect(hasRingSelfIntersection(ring)).toBe(false);
+  });
+
+  it('should detect a bowtie whose two edges cross in the middle', () => {
+    const ring: Position[] = [
+      [0, 0],
+      [10, 10],
+      [10, 0],
+      [0, 10],
+      [0, 0],
+    ];
+    expect(hasRingSelfIntersection(ring)).toBe(true);
   });
 
   it('should detect self-intersection in complex polygon', () => {
@@ -472,4 +480,113 @@ describe('findRingRelationError', () => {
     expect(findRingRelationError([outer])).toBeNull();
     expect(findRingRelationError([outer, outside])).toBe('hole-outside');
   });
+});
+
+describe('scale independence', () => {
+  // Every check that rests on `orientation` must give the same answer for a
+  // shape a few hundred kilometres across, a few metres across (1e-5°) and
+  // under a metre across (1e-6°), near the origin and at real coordinates.
+  const places: [string, number, number][] = [
+    ['near the origin', 0, 0],
+    ['in Tokyo', 139.7, 35.66],
+  ];
+  const scales = [1, 1e-5, 1e-6];
+  const place = (shape: Position[], ox: number, oy: number, k: number): Position[] =>
+    shape.map(([x, y]) => [ox + x * k, oy + y * k]);
+
+  const simpleQuad: Position[] = [
+    [0, 0],
+    [4, 4],
+    [5, 2],
+    [3, 1],
+    [0, 0],
+  ];
+  const bowtie: Position[] = [
+    [0, 0],
+    [4, 4],
+    [4, 0],
+    [0, 4],
+    [0, 0],
+  ];
+  const triangle: Position[] = [
+    [0, 0],
+    [4, 0],
+    [2, 3],
+    [0, 0],
+  ];
+
+  for (const [where, ox, oy] of places) {
+    for (const k of scales) {
+      it(`hasRingSelfIntersection: simple quadrilateral ×${k} ${where} is clean`, () => {
+        expect(hasRingSelfIntersection(place(simpleQuad, ox, oy, k))).toBe(false);
+      });
+
+      it(`hasRingSelfIntersection: bowtie ×${k} ${where} crosses`, () => {
+        expect(hasRingSelfIntersection(place(bowtie, ox, oy, k))).toBe(true);
+      });
+
+      it(`wouldNewVertexCauseIntersection ×${k} ${where}`, () => {
+        const open = place(simpleQuad.slice(0, 3), ox, oy, k);
+        const [safe] = place([[3, 1]], ox, oy, k);
+        const [crossing] = place([[1, 3]], ox, oy, k);
+        expect(wouldNewVertexCauseIntersection(open, safe)).toBe(false);
+        expect(wouldNewVertexCauseIntersection(open, crossing)).toBe(true);
+      });
+
+      it(`locatePointInRing ×${k} ${where}`, () => {
+        const ring = place(triangle, ox, oy, k);
+        const [inside] = place([[2, 1]], ox, oy, k);
+        const [outside] = place([[2, 4]], ox, oy, k);
+        expect(locatePointInRing(inside, ring)).toBe('inside');
+        expect(locatePointInRing(outside, ring)).toBe('outside');
+        expect(locatePointInRing(ring[1], ring)).toBe('boundary');
+      });
+
+      it(`segmentsOverlap ×${k} ${where}`, () => {
+        const [a, b, c, d] = place(
+          [
+            [0, 0],
+            [4, 0],
+            [2, 0],
+            [6, 0],
+          ],
+          ox,
+          oy,
+          k
+        );
+        const [e] = place([[2, 3]], ox, oy, k);
+        expect(segmentsOverlap(a, b, c, d)).toBe(true);
+        expect(segmentsOverlap(a, b, c, e)).toBe(false);
+      });
+    }
+
+    it(`findPolygonRingError accepts a 1.1 m square with a hole ${where}`, () => {
+      const s = 1e-5;
+      const outer = place(
+        [
+          [0, 0],
+          [1, 0],
+          [1, 1],
+          [0, 1],
+          [0, 0],
+        ],
+        ox,
+        oy,
+        s
+      );
+      const hole = place(
+        [
+          [0.25, 0.25],
+          [0.25, 0.75],
+          [0.75, 0.75],
+          [0.75, 0.25],
+          [0.25, 0.25],
+        ],
+        ox,
+        oy,
+        s
+      );
+      expect(findPolygonRingError([outer, hole])).toBeNull();
+    });
+  }
 });
