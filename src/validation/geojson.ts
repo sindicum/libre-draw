@@ -1,7 +1,7 @@
 import type { LibreDrawFeature, Position } from '../types/features';
 import type { FeatureValidationResult } from '../types/operations';
 import { LibreDrawError } from '../core/errors';
-import { findRingRelationError, hasRingSelfIntersection } from './intersection';
+import { findRingRelationError, hasRingSelfIntersection, isCollinearRing } from './intersection';
 import type { PolygonRingError } from './intersection';
 import { deepCloneValue } from '../utils/featureSnapshot';
 
@@ -21,7 +21,8 @@ function positionsEqual(a: Position, b: Position): boolean {
 }
 
 /**
- * Validate that a coordinate is within valid geographic bounds.
+ * Validate that a coordinate is a pair of finite numbers within geographic
+ * bounds (longitude -180..180, latitude -90..90, both ends inclusive).
  * @param position - The coordinate to validate.
  */
 function validateCoordinate(position: Position): void {
@@ -30,6 +31,9 @@ function validateCoordinate(position: Position): void {
     throw new LibreDrawError(
       `Invalid coordinate: expected [number, number], got [${typeof lng}, ${typeof lat}]`
     );
+  }
+  if (!Number.isFinite(lng) || !Number.isFinite(lat)) {
+    throw new LibreDrawError(`Invalid coordinate: [${lng}, ${lat}] must contain finite numbers.`);
   }
   if (lng < -180 || lng > 180) {
     throw new LibreDrawError(`Invalid longitude: ${lng}. Must be between -180 and 180.`);
@@ -53,9 +57,14 @@ const RING_ERROR_MESSAGES: Record<PolygonRingError, string> = {
 };
 
 /**
- * Validate that a ring (array of positions) is a valid linear ring.
- * A valid ring must have at least 4 positions and be closed
- * (first position equals last position).
+ * Validate that a ring (array of positions) is a valid linear ring:
+ * at least 4 positions, each a valid coordinate (see `validateCoordinate`),
+ * closed (first position equals last), with at least 3 distinct vertices
+ * that are not all on one line, and no self-intersections.
+ *
+ * Every element is type-checked before the closing test so that malformed
+ * input (`null`, a string) is reported as a `LibreDrawError` rather than
+ * surfacing as a `TypeError`.
  * @param ring - The ring to validate.
  */
 function validateRing(ring: Position[]): void {
@@ -68,12 +77,6 @@ function validateRing(ring: Position[]): void {
     );
   }
 
-  const first = ring[0];
-  const last = ring[ring.length - 1];
-  if (!positionsEqual(first, last)) {
-    throw new LibreDrawError('Ring is not closed. The first and last positions must be identical.');
-  }
-
   for (const pos of ring) {
     if (!Array.isArray(pos) || pos.length < 2) {
       throw new LibreDrawError('Each position in a ring must be an array of at least 2 numbers.');
@@ -81,7 +84,21 @@ function validateRing(ring: Position[]): void {
     validateCoordinate(pos as Position);
   }
 
-  if (hasRingSelfIntersection(ring as Position[])) {
+  const first = ring[0];
+  const last = ring[ring.length - 1];
+  if (!positionsEqual(first, last)) {
+    throw new LibreDrawError('Ring is not closed. The first and last positions must be identical.');
+  }
+
+  // Checked before self-intersection: a collinear ring of 5+ positions also
+  // has overlapping edges, and the degenerate shape is the more direct cause.
+  if (isCollinearRing(ring)) {
+    throw new LibreDrawError(
+      'Ring is degenerate: its positions are identical or collinear. A valid polygon ring requires 3 unique vertices that do not lie on one line.'
+    );
+  }
+
+  if (hasRingSelfIntersection(ring)) {
     throw new LibreDrawError(RING_ERROR_MESSAGES['self-intersection']);
   }
 }
@@ -243,6 +260,10 @@ function validatePolygonFeature(
 /**
  * Validate a single GeoJSON-like object as a valid LibreDraw Feature
  * with Point, LineString, or Polygon geometry.
+ *
+ * The result is a normalized copy: a non-string `id` becomes `''` (the
+ * store assigns one), a `properties` value that is not a plain object
+ * becomes `{}`, and any coordinate dimension beyond `[lng, lat]` is dropped.
  * @param feature - The object to validate.
  * @returns The validated feature.
  * @throws LibreDrawError if the feature is invalid.
@@ -289,7 +310,8 @@ export function tryValidateFeature(feature: unknown): FeatureValidationResult {
 
 /**
  * Validate that an unknown value is a valid GeoJSON FeatureCollection
- * containing only valid Polygon features.
+ * whose features all pass {@link validateFeature} (Point, LineString, or
+ * Polygon).
  * @param geojson - The value to validate.
  * @returns The validated FeatureCollection.
  * @throws LibreDrawError if the value is invalid.

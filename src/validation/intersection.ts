@@ -124,6 +124,34 @@ export function segmentsIntersect(p1: Position, p2: Position, p3: Position, p4: 
 }
 
 /**
+ * Check whether every vertex of a ring lies on one line. Rings with fewer
+ * than three distinct vertices count as collinear.
+ *
+ * The reference line runs from the first vertex to the vertex farthest from
+ * it, so duplicated vertices (`A, A, B, B, C, C`) do not hide a triangle the
+ * way a check on consecutive triples would; each vertex is then tested
+ * against that line with `orientation`, i.e. with the same normalised
+ * cross product as the intersection tests.
+ * @param ring - The ring coordinates, with or without the closing point.
+ * @returns True if the ring is degenerate (collinear or fewer than 3 distinct vertices).
+ */
+export function isCollinearRing(ring: Position[]): boolean {
+  if (ring.length === 0) return true;
+  const p = ring[0];
+  let q = p;
+  let farthest = 0;
+  for (const r of ring) {
+    const d = Math.hypot(r[0] - p[0], r[1] - p[1]);
+    if (d > farthest) {
+      farthest = d;
+      q = r;
+    }
+  }
+  if (farthest === 0) return true;
+  return ring.every((r) => orientation(p, q, r) === 0);
+}
+
+/**
  * Check if a closed polygon ring has any self-intersections.
  * The ring should include the closing point (first === last).
  * @param ring - The polygon ring coordinates.

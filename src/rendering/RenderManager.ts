@@ -642,6 +642,18 @@ export class RenderManager {
       1,
       style.midpoint.opacity,
     ]);
+    set(LAYER_IDS.EDIT_MIDPOINTS, 'circle-stroke-width', [
+      'case',
+      ['boolean', ['get', '_highlighted'], false],
+      style.editVertex.strokeWidth,
+      0,
+    ]);
+    set(LAYER_IDS.EDIT_MIDPOINTS, 'circle-stroke-color', [
+      'case',
+      ['boolean', ['get', '_highlighted'], false],
+      style.editVertex.highlightedStrokeColor,
+      'transparent',
+    ]);
   }
 
   /**

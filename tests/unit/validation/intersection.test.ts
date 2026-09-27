@@ -10,6 +10,7 @@ import {
   locatePointInRing,
   findRingRelationError,
   findPolygonRingError,
+  isCollinearRing,
 } from '../../../src/validation/intersection';
 import type { Position } from '../../../src/types/features';
 
@@ -583,4 +584,126 @@ describe('scale independence', () => {
       expect(findPolygonRingError([outer, hole])).toBeNull();
     });
   }
+});
+
+describe('isCollinearRing', () => {
+  const triangle: Position[] = [
+    [0, 0],
+    [4, 0],
+    [2, 3],
+    [0, 0],
+  ];
+
+  it('is false for a triangle and a square', () => {
+    expect(isCollinearRing(triangle)).toBe(false);
+    expect(
+      isCollinearRing([
+        [0, 0],
+        [1, 0],
+        [1, 1],
+        [0, 1],
+        [0, 0],
+      ])
+    ).toBe(false);
+  });
+
+  it('is true for fewer than three distinct positions', () => {
+    expect(isCollinearRing([])).toBe(true);
+    expect(isCollinearRing([[2, 2]])).toBe(true);
+    expect(
+      isCollinearRing([
+        [0, 0],
+        [3, 4],
+      ])
+    ).toBe(true);
+    expect(
+      isCollinearRing([
+        [1, 1],
+        [1, 1],
+        [1, 1],
+        [1, 1],
+      ])
+    ).toBe(true);
+  });
+
+  it('is true when every position lies on one line, closed or open', () => {
+    expect(
+      isCollinearRing([
+        [0, 0],
+        [1, 0],
+        [2, 0],
+        [0, 0],
+      ])
+    ).toBe(true);
+    expect(
+      isCollinearRing([
+        [0, 0],
+        [1, 1],
+        [3, 3],
+        [2, 2],
+      ])
+    ).toBe(true);
+    expect(
+      isCollinearRing([
+        [0, 0],
+        [1, 0],
+        [2, 0],
+        [3, 0],
+        [0, 0],
+      ])
+    ).toBe(true);
+  });
+
+  it('is true when the farthest position is not adjacent to the first', () => {
+    expect(
+      isCollinearRing([
+        [0, 0],
+        [1, 0],
+        [5, 0],
+        [3, 0],
+        [0, 0],
+      ])
+    ).toBe(true);
+  });
+
+  it('is false for a triangle whose vertices are each repeated', () => {
+    // Consecutive triples all contain a zero-length leg, so a check on
+    // neighbours alone would call this collinear.
+    expect(
+      isCollinearRing([
+        [0, 0],
+        [0, 0],
+        [4, 0],
+        [4, 0],
+        [2, 3],
+        [2, 3],
+        [0, 0],
+      ])
+    ).toBe(false);
+  });
+
+  describe('scale independence', () => {
+    const places: [string, number, number][] = [
+      ['near the origin', 0, 0],
+      ['in Tokyo', 139.7, 35.66],
+    ];
+    const scales = [1, 1e-5, 1e-6];
+    const place = (shape: Position[], ox: number, oy: number, k: number): Position[] =>
+      shape.map(([x, y]) => [ox + x * k, oy + y * k]);
+    const line: Position[] = [
+      [0, 0],
+      [1, 0],
+      [2, 0],
+      [0, 0],
+    ];
+
+    for (const [where, ox, oy] of places) {
+      for (const k of scales) {
+        it(`triangle ×${k} ${where} is not collinear, a line is`, () => {
+          expect(isCollinearRing(place(triangle, ox, oy, k))).toBe(false);
+          expect(isCollinearRing(place(line, ox, oy, k))).toBe(true);
+        });
+      }
+    }
+  });
 });
