@@ -397,6 +397,17 @@ describe('DrawAngledRectangleMode', () => {
       expect(snapContext.render.renderVertices).toHaveBeenLastCalledWith([[4, 4]], []);
     });
 
+    it('should show where the first point would snap before it is placed, without a preview', () => {
+      const snapContext = createSnapContext();
+      const snapMode = new DrawAngledRectangleMode(snapContext);
+      snapMode.activate();
+
+      snapMode.onPointerMove(createPointerEvent(4.5, 4.5));
+
+      expect(snapContext.render.renderSnapIndicator).toHaveBeenCalledWith([5, 5]);
+      expect(snapContext.render.renderPreview).not.toHaveBeenCalled();
+    });
+
     it('should snap the hover preview of the base edge', () => {
       const snapContext = createSnapContext();
       const snapMode = new DrawAngledRectangleMode(snapContext);

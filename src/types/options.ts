@@ -77,8 +77,10 @@ export interface LibreDrawOptions {
   /**
    * Whether to enable keyboard shortcuts, or shortcut configuration.
    * Defaults to true. Shortcuts only fire while the map has focus
-   * (clicking the map focuses it). Escape / Delete / Backspace handling
-   * inside the active mode is not affected by this option.
+   * (clicking the map focuses it). Escape / Delete / Backspace / Enter
+   * handling inside the active mode is not affected by this option; while
+   * a text field inside the map (such as a toolbar input) has focus,
+   * Delete, Backspace and Enter belong to that field.
    */
   keyboard?: boolean | KeyboardOptions;
   /** Maximum number of undo/redo history entries. Defaults to 100. */

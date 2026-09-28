@@ -204,6 +204,28 @@ describe('KeyboardInput shortcuts', () => {
     }
   );
 
+  it.each(['Delete', 'Backspace'])(
+    'should withhold %s from the mode while an <input> inside the map has focus',
+    (key) => {
+      // The key edits the field's text there; the mode would delete the selection.
+      const input = document.createElement('input');
+      container.appendChild(input);
+
+      input.dispatchEvent(keydown({ key }));
+
+      expect(onKeyDown).not.toHaveBeenCalled();
+    }
+  );
+
+  it('should still dispatch Escape from a focused <input>', () => {
+    const input = document.createElement('input');
+    container.appendChild(input);
+
+    input.dispatchEvent(keydown({ key: 'Escape' }));
+
+    expect(onKeyDown).toHaveBeenCalledWith('Escape', expect.anything());
+  });
+
   it('should still dispatch Escape from a focused button', () => {
     const button = document.createElement('button');
     container.appendChild(button);

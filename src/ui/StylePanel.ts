@@ -7,6 +7,21 @@ export interface StylePanelCallbacks {
   onStyleChange(style: PartialStyleConfig): void;
 }
 
+/**
+ * Copy of `obj` without the keys whose value is `undefined`, so that a
+ * partial style leaves those properties untouched when merged.
+ */
+function defined<T extends Record<string, unknown>>(obj: T): Defined<T> {
+  const out: Defined<T> = {};
+  for (const key of Object.keys(obj) as (keyof T)[]) {
+    const value = obj[key];
+    if (value !== undefined) out[key] = value as NonNullable<T[typeof key]>;
+  }
+  return out;
+}
+
+type Defined<T> = { [K in keyof T]?: NonNullable<T[K]> };
+
 interface StyleField {
   label: string;
   type: 'color' | 'number';
@@ -216,38 +231,49 @@ export class StylePanel {
 
   private collectStyle(): PartialStyleConfig {
     const get = (key: string): string => this.inputs.get(key)?.value ?? '';
-    const num = (key: string): number => Number(this.inputs.get(key)?.value ?? 0);
+    // A number field that is empty, not a number, or outside its min / max
+    // is still being edited: leave it out so the current value stays until
+    // a valid one is typed.
+    const num = (key: string): number | undefined => {
+      const input = this.inputs.get(key);
+      if (!input || input.value === '') return undefined;
+      const n = Number(input.value);
+      if (!Number.isFinite(n)) return undefined;
+      if (input.min !== '' && n < Number(input.min)) return undefined;
+      if (input.max !== '' && n > Number(input.max)) return undefined;
+      return n;
+    };
 
     return {
-      fill: {
+      fill: defined({
         color: get('fill.color'),
         opacity: num('fill.opacity'),
         selectedColor: get('fill.selectedColor'),
         selectedOpacity: num('fill.selectedOpacity'),
-      },
-      outline: {
+      }),
+      outline: defined({
         color: get('outline.color'),
         width: num('outline.width'),
         selectedColor: get('outline.selectedColor'),
-      },
-      point: {
+      }),
+      point: defined({
         color: get('point.color'),
         radius: num('point.radius'),
         hoverColor: get('point.hoverColor'),
-      },
-      editVertex: {
+      }),
+      editVertex: defined({
         color: get('editVertex.color'),
         radius: num('editVertex.radius'),
         highlightedColor: get('editVertex.highlightedColor'),
-      },
-      midpoint: {
+      }),
+      midpoint: defined({
         color: get('midpoint.color'),
         radius: num('midpoint.radius'),
-      },
-      preview: {
+      }),
+      preview: defined({
         color: get('preview.color'),
         width: num('preview.width'),
-      },
+      }),
     };
   }
 

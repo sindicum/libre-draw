@@ -76,11 +76,13 @@ function isButtonTarget(target: EventTarget | null): boolean {
  * keys meant for the rest of the page.
  *
  * Relevant keys (Escape, Delete, Backspace, Enter) are dispatched to the
- * active mode. Enter is withheld while a text-editing element or a button
- * has focus, where it already means "submit" or "click". When shortcut
- * callbacks are provided, undo / redo key combinations are routed to them
- * unless a text-editing element has focus, and the browser default is
- * suppressed only when the callback reports success.
+ * active mode. While a text-editing element has focus, Delete, Backspace
+ * and Enter belong to that element (editing its text, submitting it) and
+ * are withheld; Enter is also withheld from a focused button, which it
+ * clicks. Escape is always dispatched. When shortcut callbacks are
+ * provided, undo / redo key combinations are routed to them unless a
+ * text-editing element has focus, and the browser default is suppressed
+ * only when the callback reports success.
  */
 export class KeyboardInput {
   private target: HTMLElement;
@@ -92,7 +94,8 @@ export class KeyboardInput {
 
   private handleKeyDown = (e: KeyboardEvent): void => {
     if (KeyboardInput.RELEVANT_KEYS.has(e.key)) {
-      if (e.key === 'Enter' && (isEditableTarget(e.target) || isButtonTarget(e.target))) return;
+      if (e.key !== 'Escape' && isEditableTarget(e.target)) return;
+      if (e.key === 'Enter' && isButtonTarget(e.target)) return;
       this.callbacks.onKeyDown(e.key, e);
       return;
     }

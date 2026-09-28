@@ -956,3 +956,36 @@ describe('DrawPolygonMode with an onComplete hook', () => {
     expect(onComplete).not.toHaveBeenCalled();
   });
 });
+
+describe('DrawPolygonMode snap indicator before the first vertex', () => {
+  it('should show where the first click would snap, without a preview', () => {
+    const context = createMockContext();
+    const snapFeature: LibreDrawFeature = {
+      id: 'snap-target',
+      type: 'Feature',
+      geometry: {
+        type: 'Polygon',
+        coordinates: [
+          [
+            [5, 5],
+            [15, 5],
+            [15, 15],
+            [5, 15],
+            [5, 5],
+          ],
+        ],
+      },
+      properties: {},
+    };
+    vi.mocked(context.store.getAll).mockReturnValue([snapFeature]);
+    // getScreenPoint maps (lng, lat) -> (lng*10, lat*10): (4.5, 4.5) is ~7px from (5, 5).
+    context.getSnapConfig = () => ({ enabled: true, threshold: 20 });
+    const mode = new DrawPolygonMode(context);
+    mode.activate();
+
+    mode.onPointerMove(createPointerEvent(4.5, 4.5));
+
+    expect(context.render.renderSnapIndicator).toHaveBeenCalledWith([5, 5]);
+    expect(context.render.renderPreview).not.toHaveBeenCalled();
+  });
+});

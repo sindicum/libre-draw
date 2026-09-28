@@ -126,7 +126,12 @@ export class DrawPolygonMode implements DraftCapableMode {
       return;
     }
 
-    if (this.vertices.length === 0) return;
+    if (this.vertices.length === 0) {
+      // Nothing to preview yet, but the first click snaps too, so show
+      // where it would land.
+      this.applySnap(event.lngLat);
+      return;
+    }
 
     // A draft vertex under the pointer takes priority over store snapping:
     // it shows where a click would finish the polygon.
