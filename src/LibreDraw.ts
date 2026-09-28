@@ -71,6 +71,14 @@ import { ReticleOverlay } from './ui/ReticleOverlay';
 import { getBuiltinMessages, isBuiltinLocale, resolveMessages } from './ui/messages';
 import { cloneFeature } from './utils/featureSnapshot';
 
+function setHandlerEnabled(handler: { enable(): void; disable(): void }, enabled: boolean): void {
+  if (enabled) {
+    handler.enable();
+  } else {
+    handler.disable();
+  }
+}
+
 /**
  * Modes that place points, and so the modes the center reticle drives.
  */
@@ -145,7 +153,13 @@ export class LibreDraw {
   private messages: Messages;
   private destroyed = false;
   private inputEnabled = false;
-  /** Box zoom state of the map when LibreDraw was created; restored by modes that do not use Shift. */
+  /**
+   * Map interaction state when LibreDraw was created. Box zoom is restored
+   * by every mode that does not use Shift; all three are restored by
+   * {@link destroy}.
+   */
+  private mapDragPanEnabled: boolean;
+  private mapDoubleClickZoomEnabled: boolean;
   private mapBoxZoomEnabled: boolean;
   /**
    * Origin stamped on every event emitted while a public method runs.
@@ -227,6 +241,8 @@ export class LibreDraw {
    */
   constructor(map: MaplibreMap, options: LibreDrawOptions = {}) {
     this.map = map;
+    this.mapDragPanEnabled = map.dragPan.isEnabled();
+    this.mapDoubleClickZoomEnabled = map.doubleClickZoom.isEnabled();
     this.mapBoxZoomEnabled = map.boxZoom.isEnabled();
 
     // Core modules
@@ -1447,11 +1463,13 @@ export class LibreDraw {
   /**
    * Destroy the LibreDraw instance, cleaning up all resources.
    *
-   * Switches to idle mode, removes all map layers/sources, clears
-   * the event bus, history, and feature store, and removes the toolbar.
-   * After calling destroy, all other methods will throw
-   * {@link LibreDrawError}. Calling destroy on an already-destroyed
-   * instance is a no-op.
+   * Removes all event listeners first, so nothing is emitted while the
+   * instance is torn down; then leaves the active mode, removes all map
+   * layers/sources, clears the history and feature store, and removes the
+   * toolbar. Drag pan, double-click zoom and box zoom are put back to the
+   * state they had when the instance was created. After calling destroy,
+   * all other methods will throw {@link LibreDrawError}. Calling destroy
+   * on an already-destroyed instance is a no-op.
    *
    * @example
    * ```ts
@@ -1464,12 +1482,13 @@ export class LibreDraw {
     this.destroyed = true;
 
     this.map.off('styledata', this.handleStyleData);
-    this.asApi(() => this.modeManager.setMode('idle'));
+    this.eventBus.removeAllListeners();
+    this.modeManager.setMode('idle');
+    this.restoreMapInteractions();
     this.inputHandler.destroy();
     this.reticleInput.destroy();
     this.reticleOverlay.destroy();
     this.renderManager.destroy();
-    this.eventBus.removeAllListeners();
     this.historyManager.clear();
     this.featureStore.clear();
 
@@ -1688,25 +1707,21 @@ export class LibreDraw {
    */
   private applyMapInteractions(config: MapInteractionConfig): void {
     // The reticle is aimed by moving the map, so the map always pans.
-    if (config.dragPan || this.isReticleActive()) {
-      this.map.dragPan.enable();
-    } else {
-      this.map.dragPan.disable();
-    }
-
-    if (config.doubleClickZoom) {
-      this.map.doubleClickZoom.enable();
-    } else {
-      this.map.doubleClickZoom.disable();
-    }
+    setHandlerEnabled(this.map.dragPan, config.dragPan || this.isReticleActive());
+    setHandlerEnabled(this.map.doubleClickZoom, config.doubleClickZoom);
 
     // Only switched off by modes that give Shift a meaning; everywhere else
-    // (and after destroy(), which goes back to idle) the host's choice stands.
-    if (config.boxZoom ?? this.mapBoxZoomEnabled) {
-      this.map.boxZoom.enable();
-    } else {
-      this.map.boxZoom.disable();
-    }
+    // the host's choice stands.
+    setHandlerEnabled(this.map.boxZoom, config.boxZoom ?? this.mapBoxZoomEnabled);
+  }
+
+  /**
+   * Put the map interactions back to the state recorded in the constructor.
+   */
+  private restoreMapInteractions(): void {
+    setHandlerEnabled(this.map.dragPan, this.mapDragPanEnabled);
+    setHandlerEnabled(this.map.doubleClickZoom, this.mapDoubleClickZoomEnabled);
+    setHandlerEnabled(this.map.boxZoom, this.mapBoxZoomEnabled);
   }
 
   /**

@@ -988,7 +988,7 @@ draw.off('create', handler);
 
 Destroy the LibreDraw instance, cleaning up all resources.
 
-Switches to idle mode, removes all map layers/sources, clears the event bus, history, and feature store, and removes the toolbar. After calling `destroy`, all other methods will throw [`LibreDrawError`](/api/types#libredrawerror). Calling `destroy` on an already-destroyed instance is a no-op.
+Removes all event listeners first, so nothing is emitted while the instance is torn down; then leaves the active mode, removes all map layers/sources, clears the history and feature store, and removes the toolbar. Drag pan, double-click zoom and box zoom are put back to the state they had when the instance was created. After calling `destroy`, all other methods will throw [`LibreDrawError`](/api/types#libredrawerror). Calling `destroy` on an already-destroyed instance is a no-op.
 
 **Returns:** `void`
 

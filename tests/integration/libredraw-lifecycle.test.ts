@@ -5,6 +5,13 @@ import { SOURCE_IDS } from '../../src/rendering/SourceManager';
 import { LAYER_IDS } from '../../src/rendering/RenderManager';
 import { LibreDrawError } from '../../src/core/errors';
 
+function clickAt(map: FakeMap, x: number, y: number): void {
+  map
+    .getCanvasContainer()
+    .dispatchEvent(new MouseEvent('mousedown', { bubbles: true, clientX: x, clientY: y }));
+  window.dispatchEvent(new MouseEvent('mouseup', { bubbles: true, clientX: x, clientY: y }));
+}
+
 function makeFeature(id: string): GeoJSON.Feature {
   return {
     id,
@@ -161,6 +168,47 @@ describe('LibreDraw lifecycle integration', () => {
     expect(map.doubleClickZoom.enable).toHaveBeenCalledTimes(1);
 
     draw.destroy();
+  });
+
+  it.each([
+    { dragPan: false, doubleClickZoom: false },
+    { dragPan: false, doubleClickZoom: true },
+    { dragPan: true, doubleClickZoom: false },
+    { dragPan: true, doubleClickZoom: true },
+  ])(
+    'puts drag pan ($dragPan) and double-click zoom ($doubleClickZoom) back to how the host had them on destroy',
+    ({ dragPan, doubleClickZoom }) => {
+      const map = new FakeMap();
+      if (!dragPan) map.dragPan.disable();
+      if (!doubleClickZoom) map.doubleClickZoom.disable();
+      const draw = new LibreDraw(map.asMap(), { toolbar: false });
+
+      draw.setMode('draw-line');
+      expect(map.dragPan.isEnabled()).toBe(false);
+      expect(map.doubleClickZoom.isEnabled()).toBe(false);
+
+      draw.destroy();
+      expect(map.dragPan.isEnabled()).toBe(dragPan);
+      expect(map.doubleClickZoom.isEnabled()).toBe(doubleClickZoom);
+    }
+  );
+
+  it('emits nothing to listeners while being destroyed', () => {
+    const map = new FakeMap();
+    const draw = new LibreDraw(map.asMap(), { toolbar: false });
+    draw.setMode('draw-line');
+    clickAt(map, 10, 10);
+    expect(draw.getDraftVertexCount()).toBe(1);
+
+    const onModeChange = vi.fn();
+    const onDraftChange = vi.fn();
+    draw.on('modechange', onModeChange);
+    draw.on('draftchange', onDraftChange);
+
+    draw.destroy();
+
+    expect(onModeChange).not.toHaveBeenCalled();
+    expect(onDraftChange).not.toHaveBeenCalled();
   });
 
   it('should create toolbar by default when no options are given', () => {
