@@ -83,6 +83,32 @@ describe('setback utils', () => {
   });
 });
 
+describe('computeInwardNormal with a degenerate ring', () => {
+  const places: [string, number, number][] = [
+    ['near the origin', 0, 0],
+    ['in Tokyo', 139.7, 35.66],
+    ['far from the origin', 179.9, -80],
+  ];
+
+  it('returns the CCW normal unchanged when the ring has negligible area', () => {
+    // A sliver 1e-5 wide and 1e-15 high, wound clockwise. Near the origin
+    // its signed area is a tiny negative number; in Tokyo and far away the
+    // height is rounded off and the area is 0. Either way the ring is
+    // degenerate and its winding must not be trusted.
+    const s = 1e-5;
+    for (const [, ox, oy] of places) {
+      const sliver: Position[] = [
+        [ox, oy],
+        [ox + s, oy],
+        [ox + s, oy - s * 1e-10],
+      ];
+      const normal = computeInwardNormal(sliver[0], sliver[1], sliver);
+      expect(normal[0]).toBeCloseTo(0, 8);
+      expect(normal[1]).toBeCloseTo(1, 8);
+    }
+  });
+});
+
 describe('computeEdgeOffsetLine', () => {
   const square: Position[] = [
     [0, 0],

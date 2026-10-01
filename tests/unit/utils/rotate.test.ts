@@ -209,6 +209,43 @@ describe('getRotationCenter', () => {
   });
 });
 
+describe('getRotationCenter at metre scales', () => {
+  // The L-shape's area centroid is at (5/6, 5/6) of its size; the vertex
+  // mean is at (1, 1). The tolerance of 1% of the size tells the two apart
+  // and still allows for Mercator's slight nonlinearity.
+  const places: [string, number, number][] = [
+    ['near the origin', 0, 0],
+    ['in Tokyo', 139.7, 35.66],
+    ['far from the origin', 179.9, -80],
+  ];
+
+  it('keeps the centroid of a 1.1 m L-shape at its area centroid, not the vertex mean', () => {
+    const s = 1e-5;
+    for (const [, ox, oy] of places) {
+      const feature: LibreDrawFeature = {
+        ...makeLShape(),
+        geometry: {
+          type: 'Polygon',
+          coordinates: [
+            [
+              [ox, oy],
+              [ox + 2 * s, oy],
+              [ox + 2 * s, oy + s],
+              [ox + s, oy + s],
+              [ox + s, oy + 2 * s],
+              [ox, oy + 2 * s],
+              [ox, oy],
+            ],
+          ],
+        },
+      };
+      const center = getRotationCenter(feature);
+      expect(Math.abs(center.lng - (ox + (5 / 6) * s))).toBeLessThan(s / 100);
+      expect(Math.abs(center.lat - (oy + (5 / 6) * s))).toBeLessThan(s / 100);
+    }
+  });
+});
+
 describe('rotateFeature', () => {
   it('returns the same vertices for 0°', () => {
     const rotated = rotateFeature(makeSquare(), 0);

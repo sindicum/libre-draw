@@ -445,6 +445,33 @@ describe('splitPolygon at metre scales', () => {
   }
 });
 
+describe('splitPolygon with a collinear chain', () => {
+  const places: [string, number, number][] = [
+    ['near the origin', 0, 0],
+    ['in Tokyo', 139.7, 35.66],
+    ['far from the origin', 179.9, -80],
+  ];
+
+  it('refuses a split whose one side would be a zero-area ring of three points', () => {
+    // (0.5, 1)·s sits on the top edge; a line along that edge meets the ring
+    // at (1, 1)·s and (0, 1)·s, and the chain between them is collinear.
+    const s = 1e-5;
+    for (const [, ox, oy] of places) {
+      const feature = makeFeature('notched', [
+        [ox, oy],
+        [ox + s, oy],
+        [ox + s, oy + s],
+        [ox + 0.5 * s, oy + s],
+        [ox, oy + s],
+        [ox, oy],
+      ]);
+
+      const result = splitPolygon(feature, [ox - s / 2, oy + s], [ox + 1.5 * s, oy + s]);
+      expect(result).toEqual({ type: 'error', reason: 'invalid-intersection-count' });
+    }
+  });
+});
+
 describe('splitLine at the vertices of the line', () => {
   const line = () =>
     makeLineFeature('line', [
