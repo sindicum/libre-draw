@@ -67,7 +67,7 @@ All types are exported as TypeScript type-only exports:
 | [`create`](/api/events#create)                   | `CreateEvent`          | Feature created (point, line, or polygon) |
 | [`update`](/api/events#update)                   | `UpdateEvent`          | Feature edited (point, line, or polygon)  |
 | [`delete`](/api/events#delete)                   | `DeleteEvent`          | Feature deleted (point, line, or polygon) |
-| [`split`](/api/events#split)                     | `SplitEvent`           | Polygon split into two polygons           |
+| [`split`](/api/events#split)                     | `SplitEvent`           | Polygon or line split into two            |
 | [`splitfailed`](/api/events#splitfailed)         | `SplitFailedEvent`     | Split operation failed                    |
 | [`setback`](/api/events#setback)                 | `SetbackEvent`         | Setback operation succeeded               |
 | [`setbackfailed`](/api/events#setbackfailed)     | `SetbackFailedEvent`   | Setback operation failed                  |

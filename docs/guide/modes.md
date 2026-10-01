@@ -343,7 +343,7 @@ draw.on('selectionchange', (e) => {
 
 ## Split Mode
 
-In split mode, you split one polygon into two polygons.
+In split mode, you split one polygon or line into two.
 
 | Action             | Effect                                                  |
 | ------------------ | ------------------------------------------------------- |

@@ -464,7 +464,7 @@ type ModeName =
 | `'draw-rectangle'`        | Create an axis-aligned rectangle by clicking/tapping two opposite corners.                                  |
 | `'draw-angled-rectangle'` | Create a rectangle at any angle: click/tap two points of a base edge, then a point that sets the width.     |
 | `'select'`                | Select and edit existing features (points, lines, and polygons).                                            |
-| `'split'`                 | Split a polygon into two polygons with a two-point line.                                                    |
+| `'split'`                 | Split a polygon or line into two with a two-point line.                                                     |
 | `'union'`                 | Merge two or more touching or overlapping polygons into one: click them, then press Enter or execute.       |
 | `'setback'`               | Apply inward edge setback with distance input and preview.                                                  |
 | `'rotate'`                | Rotate a polygon or line around its center by dragging or angle input.                                      |

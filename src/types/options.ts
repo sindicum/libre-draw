@@ -7,7 +7,7 @@ import type { Locale, Messages } from './messages';
 export interface SnapConfig {
   /** Whether snapping is enabled. Defaults to true. */
   enabled?: boolean;
-  /** Snap distance threshold in pixels. Defaults to 10. */
+  /** Snap distance threshold in pixels. Defaults to 10; values below 1 are clamped to 1. */
   threshold?: number;
 }
 
@@ -60,7 +60,8 @@ export interface KeyboardOptions {
 }
 
 /**
- * How the drawing modes take a point.
+ * How the drawing modes, and cut / reshape once a target is selected,
+ * take a point.
  *
  * - `'tap'`: a click or tap on the map places the point (default).
  * - `'reticle'`: the point is placed at a crosshair fixed at the center of

@@ -1,4 +1,4 @@
-// LibreDraw - MapLibre GL JS polygon drawing and editing library
+// LibreDraw - MapLibre GL JS point, line and polygon drawing and editing library
 export { LibreDraw } from './LibreDraw';
 
 // Public types

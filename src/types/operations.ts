@@ -68,7 +68,7 @@ export type AddFeatureResult =
 /**
  * Outcome of {@link LibreDraw.validateFeature}: the normalized feature when
  * the input is acceptable, otherwise the rejection reason. The same rules
- * apply as for `addFeatures` / `setFeatures`, but nothing is thrown.
+ * apply as for `addFeatures` / `setFeatures`.
  */
 export type FeatureValidationResult =
   | { valid: true; feature: LibreDrawFeature }

@@ -259,9 +259,10 @@ export interface ModeChangeEvent {
 /**
  * Event payload for draft (in-progress drawing) vertex count changes.
  *
- * Fires whenever the active drawing mode's draft state mutates:
- * vertex added, vertex removed (long-press auto-pop),
- * draft finalized, draft cancelled, or mode exited.
+ * Fires whenever the draft of the active drawing mode, or the cutter /
+ * line of cut / reshape mode, mutates: vertex added, vertex removed
+ * (long press, `undoLastVertex()`, the reticle's undo button), draft
+ * finalized, draft cancelled, or mode exited.
  */
 export interface DraftChangeEvent {
   /** Where the change came from. See {@link EventOrigin}. */
