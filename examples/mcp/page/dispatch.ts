@@ -16,6 +16,8 @@ export type DrawApi = Pick<
   | 'setback'
   | 'rotate'
   | 'union'
+  | 'cut'
+  | 'reshape'
   | 'selectFeature'
   | 'undo'
   | 'redo'
@@ -32,6 +34,8 @@ export const TOOL_NAMES = [
   'setback',
   'rotate',
   'union',
+  'cut',
+  'reshape',
   'select_feature',
   'undo',
   'redo',
@@ -74,6 +78,10 @@ export function dispatch(draw: DrawApi, tool: string, args: unknown): unknown {
         return draw.rotate(String(a.id), Number(a.angleDeg));
       case 'union':
         return draw.union(a.ids as string[]);
+      case 'cut':
+        return draw.cut(String(a.id), a.cutter as Position[]);
+      case 'reshape':
+        return draw.reshape(String(a.id), a.line as Position[]);
       case 'select_feature':
         return draw.selectFeature(String(a.id)) ? { ok: true } : { ok: false, reason: 'not-found' };
       case 'undo':

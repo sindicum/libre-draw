@@ -1,6 +1,7 @@
 import type { LibreDraw, LibreDrawEventMap } from '../../../src';
 
-const EVENT_NAMES: (keyof LibreDrawEventMap)[] = [
+/** Every LibreDraw event; the panel subscribes to all of them. */
+export const EVENT_NAMES = [
   'create',
   'update',
   'delete',
@@ -10,11 +11,20 @@ const EVENT_NAMES: (keyof LibreDrawEventMap)[] = [
   'setbackfailed',
   'union',
   'unionfailed',
+  'cut',
+  'cutfailed',
+  'reshape',
+  'reshapefailed',
   'rotate',
   'selectionchange',
   'modechange',
   'draftchange',
-];
+] as const satisfies readonly (keyof LibreDrawEventMap)[];
+
+// A key of LibreDrawEventMap missing from EVENT_NAMES fails the typecheck here.
+type UnlistedEvent = Exclude<keyof LibreDrawEventMap, (typeof EVENT_NAMES)[number]>;
+const everyEventListed: [UnlistedEvent] extends [never] ? true : never = true;
+void everyEventListed;
 
 const MAX_ROWS = 200;
 
@@ -69,14 +79,18 @@ function summarize<K extends keyof LibreDrawEventMap>(
     case 'delete':
     case 'rotate':
     case 'setback':
+    case 'reshape':
       return String((e.feature as { id?: string } | undefined)?.id ?? '');
     case 'split':
+    case 'cut':
       return `${(e.originalFeature as { id: string }).id} → ${(e.features as { id: string }[]).map((f) => f.id).join(', ')}`;
     case 'union':
       return `${(e.originalFeatures as { id: string }[]).map((f) => f.id).join(' + ')} → ${(e.feature as { id: string }).id}`;
     case 'splitfailed':
     case 'setbackfailed':
     case 'unionfailed':
+    case 'cutfailed':
+    case 'reshapefailed':
       return String(e.reason);
     case 'selectionchange':
       return JSON.stringify(e.selectedIds);
