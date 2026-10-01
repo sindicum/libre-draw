@@ -5,7 +5,7 @@ import { cloneFeature } from '../utils/featureSnapshot';
 import { moveLine, movePolygon } from '../utils/geometry';
 
 /**
- * Handles whole-polygon drag interactions.
+ * Handles whole-feature drag interactions.
  */
 export class PolygonDragger {
   private context: ModeContext;

@@ -1,8 +1,6 @@
 import { describe, it, expect, vi } from 'vitest';
 import { ToolbarButton } from '../../../src/ui/ToolbarButton';
 
-// We test ToolbarButton directly since Toolbar requires a MapLibre map instance.
-
 describe('ToolbarButton', () => {
   it('should create a button element', () => {
     const btn = new ToolbarButton({

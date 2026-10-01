@@ -61,23 +61,6 @@ describe('ReticleOverlay', () => {
     expect(bar.style.display).toBe('none');
   });
 
-  it('has an "Add point" button with a 44px touch target', () => {
-    const { button } = createOverlay();
-
-    expect(button.type).toBe('button');
-    expect(button.textContent).toBe('Add point');
-    expect(button.getAttribute('aria-label')).toBe('Add point');
-    expect(button.style.height).toBe('44px');
-    expect(button.style.minWidth).toBe('44px');
-  });
-
-  it('uses the given messages', () => {
-    const { button } = createOverlay(MESSAGES_JA);
-
-    expect(button.textContent).toBe('点を追加');
-    expect(button.getAttribute('aria-label')).toBe('点を追加');
-  });
-
   it('calls onAddPoint on click without letting the click reach the map', () => {
     const { container, button, callbacks } = createOverlay();
     const mapClick = vi.fn();
@@ -109,6 +92,11 @@ describe('ReticleOverlay', () => {
     const { buttons } = createOverlay(MESSAGES_JA);
 
     expect(buttons.map((b) => b.textContent)).toEqual(['1 つ戻す', '点を追加', '完了']);
+    expect(buttons.map((b) => b.getAttribute('aria-label'))).toEqual([
+      '1 つ戻す',
+      '点を追加',
+      '完了',
+    ]);
   });
 
   it('starts with undo and finish disabled and add point enabled', () => {

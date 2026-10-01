@@ -14,7 +14,7 @@ import { LONG_PRESS_MS, clickTolerance, pointerTravel } from '../input/gestures'
 import { findDraftVertexTarget, finishRadius, type DraftVertexTarget } from './draftVertexTarget';
 
 /**
- * Minimum number of unique vertices required to form a valid polygon.
+ * Minimum number of vertices required to form a polygon.
  */
 const MIN_VERTICES = 3;
 
@@ -128,8 +128,7 @@ export class DrawPolygonMode implements DraftCapableMode {
 
     if (this.vertices.length === 0) return;
 
-    // A draft vertex under the pointer takes priority over store snapping:
-    // it shows where a click would finish the polygon.
+    // A draft vertex under the pointer takes priority over store snapping.
     const draftTarget = this.findDraftTarget(event);
     if (draftTarget) {
       this.context.render.renderSnapIndicator(draftTarget.position);
@@ -203,9 +202,6 @@ export class DrawPolygonMode implements DraftCapableMode {
 
   /**
    * Finalize the current draft into a polygon feature.
-   *
-   * Succeeds when: mode is active, vertices >= 3, and closing
-   * the ring would not produce a self-intersection.
    */
   finishDrawing(): boolean {
     if (!this.isActive) return false;
@@ -252,7 +248,7 @@ export class DrawPolygonMode implements DraftCapableMode {
   }
 
   /**
-   * @returns Whether {@link finishDrawing} would create a feature now.
+   * @returns Whether the draft meets the conditions {@link finishDrawing} checks.
    */
   canFinishDrawing(): boolean {
     return (

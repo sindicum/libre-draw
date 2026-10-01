@@ -423,7 +423,6 @@ describe('SetbackMode', () => {
     expect(hasOriginalBottomEdge).toBe(false);
 
     // Second setback: select the result polygon, choose top edge, execute
-    // Need to re-create mode to reset state
     mode = new SetbackMode(harness.context);
     mode.activate();
 
@@ -450,7 +449,7 @@ describe('SetbackMode', () => {
     expect(secondVertices.length).toBeGreaterThanOrEqual(4);
   });
 
-  it('should switch selected edge even when clicking slightly outside polygon', () => {
+  it('should switch selected edge on a click just outside the polygon, within the hit threshold', () => {
     harness.setDistance(1000);
 
     mode.activate();

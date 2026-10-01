@@ -182,9 +182,7 @@ export function splitLine(
 
   const { point, segmentIndex, t } = bestIntersection;
 
-  // Build two LineStrings from the split point. An intersection at either
-  // end of the segment is that vertex itself: it is not added a second time,
-  // and the vertex becomes the shared end of both parts.
+  // Build two LineStrings from the split point.
   const atSegmentEnd = t >= 1 - EPSILON;
   const splitPoint = atSegmentEnd ? clonePosition(coords[segmentIndex + 1]) : point;
   const firstIndexOfB = atSegmentEnd ? segmentIndex + 2 : segmentIndex + 1;

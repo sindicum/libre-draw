@@ -118,8 +118,8 @@ export class RotateMode implements Mode {
   }
 
   /**
-   * Re-read the selected feature from the store after an external change
-   * (undo / redo / setFeatures). The stored shape becomes the new rotation
+   * Re-read the selected feature from the store after an external change.
+   * The stored shape becomes the new rotation
    * base so that the next relative rotation starts from what is on screen;
    * a feature that has disappeared drops the selection.
    */
@@ -151,9 +151,7 @@ export class RotateMode implements Mode {
   }
 
   /**
-   * Forget the selection without touching the store. For callers that have
-   * replaced the store contents (setFeatures), where restoring the old base
-   * would clobber the new data.
+   * Forget the selection without touching the store.
    */
   dropSelection(): void {
     this.dropTransientState();

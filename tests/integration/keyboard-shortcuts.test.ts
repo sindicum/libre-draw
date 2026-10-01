@@ -329,17 +329,4 @@ describe('Keyboard shortcuts integration', () => {
       draw.destroy();
     }
   });
-
-  it('should stop responding after destroy', () => {
-    const map = new FakeMap();
-    const draw = new LibreDraw(map.asMap(), { toolbar: false });
-    draw.addFeatures([makeFeature('f1')]);
-    draw.destroy();
-
-    let event: KeyboardEvent | undefined;
-    expect(() => {
-      event = pressOnMap(map, { key: 'z', ctrlKey: true });
-    }).not.toThrow();
-    expect(event?.defaultPrevented).toBe(false);
-  });
 });

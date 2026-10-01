@@ -161,8 +161,6 @@ export class LibreDraw {
     this.renderManager.initialize();
     this.renderAllFeatures();
 
-    // The style swap rebuilt the sources empty: the active mode redraws its
-    // own overlays (vertex handles, the rotation pivot).
     this.renderManager.clearVertices();
     this.modeManager.getCurrentMode()?.refreshFromStore?.();
   };

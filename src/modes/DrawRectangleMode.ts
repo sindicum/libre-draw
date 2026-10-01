@@ -122,7 +122,6 @@ export class DrawRectangleMode implements DraftCapableMode {
 
     if (this.pointerDown !== null) {
       // The pointer is held down: this is a drag (map pan), not a hover.
-      // Leave the preview untouched so no stale rectangle is left behind.
       if (pointerTravel(this.pointerDown, event.point) > clickTolerance(event.inputType)) {
         this.isDragging = true;
       }

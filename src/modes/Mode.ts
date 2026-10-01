@@ -31,7 +31,7 @@ export interface Mode {
   /** Called when the mode is deactivated. */
   deactivate(): void;
 
-  /** Handle a pointer down (mouse click or touch start). */
+  /** Handle a pointer down. */
   onPointerDown(event: NormalizedInputEvent): void;
 
   /** Handle pointer movement. */
@@ -66,7 +66,7 @@ export interface Mode {
 
 /**
  * Marker interface for modes that maintain an in-progress draft
- * of vertices (polygon/line drawing).
+ * of vertices.
  *
  * Modes implementing this interface expose programmatic control
  * over the draft lifecycle, enabling external UIs (buttons, etc.)

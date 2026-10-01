@@ -60,7 +60,6 @@ export class RenderManager {
 
   /**
    * Initialize rendering layers on the map.
-   * Should be called after the map style and sources are ready.
    */
   initialize(): void {
     if (this.initialized && this.isReadyForCurrentStyle()) return;
@@ -256,8 +255,7 @@ export class RenderManager {
     }
 
     // Rotation center layer: the crosshair at the pivot of rotate mode. A
-    // style swap drops map images, so the image is registered on every
-    // initialize.
+    // style swap drops map images.
     if (!this.map.hasImage(ROTATION_CENTER_IMAGE_ID)) {
       this.map.addImage(ROTATION_CENTER_IMAGE_ID, createCrosshairImage(), {
         pixelRatio: CROSSHAIR_PIXEL_RATIO,
@@ -277,8 +275,7 @@ export class RenderManager {
       });
     }
 
-    // Edit vertices layer (white circles with blue stroke at polygon vertices)
-    // Uses data-driven styling to highlight the nearest vertex
+    // Edit vertices layer. Uses data-driven styling to highlight the nearest vertex
     if (!this.map.getLayer(LAYER_IDS.EDIT_VERTICES)) {
       this.map.addLayer({
         id: LAYER_IDS.EDIT_VERTICES,
@@ -329,8 +326,8 @@ export class RenderManager {
   }
 
   /**
-   * Render a polygon preview for in-progress drawing.
-   * @param coordinates - The preview polygon coordinates (ring).
+   * Render the preview line of an in-progress draft.
+   * @param coordinates - The preview coordinates.
    */
   renderPreview(coordinates: Position[]): void {
     if (coordinates.length < 2) {

@@ -242,7 +242,7 @@ describe('RenderManager', () => {
       expect(map.hasImage(ROTATION_CENTER_IMAGE_ID)).toBe(true);
     });
 
-    it('registers the crosshair image only once and removes it on destroy', () => {
+    it('registers the crosshair image on initialize and removes it on destroy', () => {
       manager.initialize();
       expect(map.images.size).toBe(1);
 

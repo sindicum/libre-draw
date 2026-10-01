@@ -16,8 +16,6 @@ import { union } from '../operations/union';
  * toolbar's execute button ({@link UnionMode.execute}) merges the selected
  * polygons once at least two are selected. A successful union replaces
  * them with the merged one as a single history step and emits `union`.
- * A failed union leaves the store untouched, emits `unionfailed`, and keeps
- * the selection so it can be adjusted and run again.
  *
  * Map panning stays enabled because the second polygon may be off screen:
  * a pointer that travels beyond the click tolerance is treated as a pan,
@@ -109,10 +107,9 @@ export class UnionMode implements Mode {
   }
 
   /**
-   * Merge the selected polygons, in selection order, through the `union`
-   * operation (one UnionAction, one `union` or `unionfailed` event). Called
-   * for Enter and by the toolbar's execute button. Does nothing with fewer
-   * than two polygons selected. A failure keeps the selection.
+   * Merge the selected polygons through the `union` operation. Called for
+   * Enter and by the toolbar's execute button. Does nothing with fewer than
+   * two polygons selected.
    */
   execute(): void {
     if (!this.isActive) return;

@@ -4,10 +4,6 @@ import { KeyboardInput } from '../../../src/input/KeyboardInput';
 import { InputHandler } from '../../../src/input/InputHandler';
 import type { Mode } from '../../../src/modes/Mode';
 
-// KeyboardInput is exercised directly below because it has the simplest DOM
-// interaction. MouseInput and TouchInput need a map, so the InputHandler
-// suite further down builds a minimal mock of the two methods they call.
-
 describe('KeyboardInput', () => {
   let onKeyDown: ReturnType<typeof vi.fn>;
   let keyboardInput: KeyboardInput;

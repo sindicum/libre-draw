@@ -125,7 +125,7 @@ export class DrawLineMode implements DraftCapableMode {
     if (this.vertices.length === 0) return;
 
     // The last draft vertex under the pointer takes priority over store
-    // snapping: it shows where a click would finish the line.
+    // snapping.
     const draftTarget = this.findDraftTarget(event);
     if (draftTarget) {
       this.context.render.renderSnapIndicator(draftTarget.position);
@@ -197,8 +197,6 @@ export class DrawLineMode implements DraftCapableMode {
 
   /**
    * Finalize the current draft into a LineString feature.
-   *
-   * Succeeds when the mode is active and vertices >= 2.
    * Self-intersection is allowed (LineString has no ring-closing constraint).
    */
   finishDrawing(): boolean {
@@ -246,7 +244,7 @@ export class DrawLineMode implements DraftCapableMode {
   }
 
   /**
-   * @returns Whether {@link finishDrawing} would create a feature now.
+   * @returns Whether the draft meets the conditions {@link finishDrawing} checks.
    */
   canFinishDrawing(): boolean {
     return this.isActive && this.vertices.length >= MIN_VERTICES;

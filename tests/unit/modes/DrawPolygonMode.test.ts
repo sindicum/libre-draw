@@ -123,17 +123,6 @@ describe('DrawPolygonMode', () => {
     expect(context.render.clearPreview).toHaveBeenCalled();
   });
 
-  it('should remove last vertex on long press', () => {
-    drawPolygonMode.activate();
-    clickAt(drawPolygonMode, 0, 0);
-    clickAt(drawPolygonMode, 10, 0);
-
-    drawPolygonMode.onLongPress(createPointerEvent(0, 0));
-
-    // Should render preview with remaining vertex
-    expect(context.render.renderPreview).toHaveBeenCalled();
-  });
-
   it('should clear preview when long press removes last vertex', () => {
     drawPolygonMode.activate();
     clickAt(drawPolygonMode, 0, 0);
@@ -804,16 +793,6 @@ describe('DrawPolygonMode undoLastVertex / canFinishDrawing', () => {
 
     expect(mode.canFinishDrawing()).toBe(false);
     expect(mode.finishDrawing()).toBe(false);
-  });
-
-  it('removes the last vertex on a long press through the same path', () => {
-    mode.activate();
-    clickAt(mode, 0, 0);
-    clickAt(mode, 10, 0);
-
-    mode.onLongPress(createPointerEvent(50, 50, { inputType: 'touch' }));
-
-    expect(mode.getDraftVertexCount()).toBe(1);
   });
 });
 

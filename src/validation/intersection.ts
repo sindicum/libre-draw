@@ -2,9 +2,8 @@ import type { Position } from '../types/features';
 
 /**
  * Tolerance shared by the geometry helpers. It is applied to three kinds of
- * quantity, and never to a raw cross product or area:
- * - a difference between two coordinates, in degrees (`posEqual` and the
- *   `positionsEqual` helpers built on it: about 10 µm);
+ * quantity:
+ * - a difference between two coordinates, in degrees (about 10 µm);
  * - a cross product divided by the product of the segment lengths, i.e. the
  *   sine of the angle between them (`orientation`, `computeIntersectionPoint`)
  *   or an area divided by the square of a ring's extent (`hasNegligibleArea`
@@ -129,9 +128,7 @@ export function segmentsIntersect(p1: Position, p2: Position, p3: Position, p4: 
  *
  * The reference line runs from the first vertex to the vertex farthest from
  * it, so duplicated vertices (`A, A, B, B, C, C`) do not hide a triangle the
- * way a check on consecutive triples would; each vertex is then tested
- * against that line with `orientation`, i.e. with the same normalised
- * cross product as the intersection tests.
+ * way a check on consecutive triples would.
  * @param ring - The ring coordinates, with or without the closing point.
  * @returns True if the ring is degenerate (collinear or fewer than 3 distinct vertices).
  */
