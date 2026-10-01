@@ -174,7 +174,8 @@ authentication), so treat it as a proof of the contract rather than a deployment
 What carries over unchanged:
 
 - **The tool definitions** (`server/tools.ts`): names, descriptions, and argument shapes,
-  one per public method. They work as MCP tools, and the same names, descriptions, and
+  one per query or editing method of the public API (mode, style and lifecycle calls
+  stay with the page). They work as MCP tools, and the same names, descriptions, and
   argument shapes can be adapted to the tool definition format of a direct LLM tool-use
   call.
 - **The page-side dispatch** (`page/dispatch.ts`): tool name to `draw.xxx(...)`, with the

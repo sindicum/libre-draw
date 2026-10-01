@@ -22,6 +22,8 @@ function fakeDraw(): DrawApi & Record<keyof DrawApi, ReturnType<typeof vi.fn>> {
     setback: vi.fn(() => ({ ok: false as const, reason: 'invalid-distance' })),
     rotate: vi.fn(() => success),
     union: vi.fn(() => success),
+    cut: vi.fn(() => success),
+    reshape: vi.fn(() => success),
     selectFeature: vi.fn((id: string) => id === 'a'),
     undo: vi.fn(() => true),
     redo: vi.fn(() => false),
@@ -67,6 +69,17 @@ describe('dispatch', () => {
 
     dispatch(draw, 'union', { ids: ['a', 'b'] });
     expect(draw.union).toHaveBeenCalledWith(['a', 'b']);
+
+    const cutter = [
+      [0, 0],
+      [1, 0],
+      [1, 1],
+    ];
+    expect(dispatch(draw, 'cut', { id: 'a', cutter })).toBe(success);
+    expect(draw.cut).toHaveBeenCalledWith('a', cutter);
+
+    expect(dispatch(draw, 'reshape', { id: 'a', line })).toBe(success);
+    expect(draw.reshape).toHaveBeenCalledWith('a', line);
 
     dispatch(draw, 'update_feature', { id: 'a', properties: { crop: 'wheat' } });
     expect(draw.updateFeature).toHaveBeenCalledWith('a', {

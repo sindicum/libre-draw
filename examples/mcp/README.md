@@ -6,7 +6,7 @@ toolbar. It is the working example for the `OperationResult` / `origin` contract
 
 ```
 MCP client ──stdio──▶ server/index.ts ──WebSocket──▶ browser page ──▶ LibreDraw (src/)
-                      (12 tools)        localhost:8787   page/main.ts
+                      (14 tools)        127.0.0.1:8787   page/main.ts
 ```
 
 The Node server only relays: each tool is one LibreDraw method, the arguments are passed
@@ -27,6 +27,8 @@ LibreDraw, in the browser.
 | `setback`        | `setback(id, { ring?, index }, distanceMeters)` | `OperationResult`                  |
 | `rotate`         | `rotate(id, angleDeg)`                          | `OperationResult`                  |
 | `union`          | `union(ids)`                                    | `OperationResult`                  |
+| `cut`            | `cut(id, cutter)`                               | `OperationResult`                  |
+| `reshape`        | `reshape(id, line)`                             | `OperationResult`                  |
 | `select_feature` | `selectFeature(id)`                             | `{ ok: true }` or `{ ok, reason }` |
 | `undo` / `redo`  | `undo()` / `redo()`                             | `boolean`                          |
 
@@ -116,8 +118,8 @@ with the `user` badge. That distinction is the `origin` field on every LibreDraw
 - No authentication and no remote access: the WebSocket server binds to `127.0.0.1` only
   (check with `lsof -nP -iTCP:8787 -sTCP:LISTEN`), so it is reachable from this machine
   and nowhere else. It is meant for a local agent talking to a local browser.
-  Browser connections are also checked by `Origin`: only pages served from `localhost` /
-  `127.0.0.1` are accepted (`local pages only`).
+  Browser connections are also checked by `Origin`: only pages served from `localhost`,
+  `127.0.0.1` or `[::1]` are accepted (`local pages only`).
 - stdio only. There is no HTTP / SSE transport.
 - The server relays and does not validate GeoJSON; LibreDraw validates it and reports the
   reason.

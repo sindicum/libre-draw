@@ -1,9 +1,13 @@
 import { z } from 'zod';
+import type { ToolName } from '../page/dispatch';
 
 /**
- * The MCP tools, one per LibreDraw public method. Input schemas only shape
- * the arguments; GeoJSON is validated by LibreDraw itself so that the
- * failure reasons come from one place.
+ * The MCP tools, one per LibreDraw method the bridge exposes (the queries
+ * and the editing operations; mode, style and lifecycle calls stay with the
+ * page). The names are those of `TOOL_NAMES` in the page, which the
+ * `satisfies` below enforces. Input schemas only shape the arguments;
+ * GeoJSON is validated by LibreDraw itself so that the failure reasons come
+ * from one place.
  */
 
 const geometry = z.record(z.string(), z.unknown()).describe('GeoJSON geometry object');
@@ -61,6 +65,16 @@ export const TOOLS = {
       'Merge two or more touching Polygons into one. The merged polygon gets a new id and keeps the properties of the first id in ids. Fails without changes if any polygon does not connect to the others. Returns an OperationResult.',
     inputSchema: z.object({ ids: z.array(z.string()) }),
   },
+  cut: {
+    description:
+      'Cut the area of a ring out of a Polygon. cutter needs three or more distinct positions and must not cross itself; the closing position may be omitted. A cutter inside the polygon makes a hole, one across its boundary makes a notch, and one that cuts it apart leaves several pieces (one piece keeps the id; several get fresh ids and a copy of the properties each). Returns an OperationResult.',
+    inputSchema: z.object({ id: z.string(), cutter: z.array(position).min(3) }),
+  },
+  reshape: {
+    description:
+      "Replace part of a Polygon's outer ring with a line of two or more positions. The line must cross the outer ring exactly twice; the stretch of the ring between the crossings is replaced by the line (outside adds area, inside removes it). Holes are kept and must still fit. Returns an OperationResult.",
+    inputSchema: z.object({ id: z.string(), line: z.array(position).min(2) }),
+  },
   select_feature: {
     description:
       'Select a feature on the map (switches to select mode). Returns { ok: true }, or { ok: false, reason: "not-found" } when no feature has that id.',
@@ -74,6 +88,6 @@ export const TOOLS = {
     description: 'Redo the last undone change. Returns true when something was redone.',
     inputSchema: z.object({}),
   },
-} as const;
+} as const satisfies Record<ToolName, { description: string; inputSchema: z.ZodType }>;
 
-export type ToolName = keyof typeof TOOLS;
+export type { ToolName };

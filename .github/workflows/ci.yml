@@ -29,6 +29,9 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
+      - name: Install example dependencies
+        run: npm ci --prefix examples/mcp
+
       - name: Lint
         run: npm run lint
 
@@ -37,6 +40,9 @@ jobs:
 
       - name: Typecheck
         run: npm run typecheck
+
+      - name: Typecheck examples
+        run: npm run typecheck --prefix examples/mcp
 
       - name: Test
         run: npm test
