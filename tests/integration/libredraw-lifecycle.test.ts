@@ -1242,6 +1242,38 @@ describe('LibreDraw lifecycle integration', () => {
       draw.destroy();
     });
   });
+  describe('keys typed into toolbar inputs', () => {
+    it('should not delete the selected feature when Backspace is typed into the style panel', () => {
+      const map = new FakeMap();
+      const draw = new LibreDraw(map.asMap(), { toolbar: true });
+      map.finishLoading();
+      draw.addFeatures([makeFeature('f1')]);
+      draw.setMode('select');
+      draw.selectFeature('f1');
+      const onDelete = vi.fn();
+      draw.on('delete', onDelete);
+      const backspace = () =>
+        new KeyboardEvent('keydown', { key: 'Backspace', bubbles: true, cancelable: true });
+
+      const input = map
+        .getContainer()
+        .querySelector<HTMLInputElement>('.libre-draw-style-panel input[type="number"]');
+      expect(input).not.toBeNull();
+      input!.dispatchEvent(backspace());
+
+      expect(draw.getFeatures()).toHaveLength(1);
+      expect(onDelete).not.toHaveBeenCalled();
+
+      // The same key on the map itself still deletes.
+      map.getCanvasContainer().dispatchEvent(backspace());
+
+      expect(draw.getFeatures()).toHaveLength(0);
+      expect(onDelete).toHaveBeenCalledTimes(1);
+
+      draw.destroy();
+    });
+  });
+
   describe('setStyle accumulation', () => {
     it('should keep constructor style overrides when setStyle changes another section', () => {
       const map = new FakeMap();

@@ -577,7 +577,7 @@ or, equivalently for the undo / redo pair:
 const draw = new LibreDraw(map, { keyboard: { undoRedo: false } });
 ```
 
-The keys below are handled by the active mode, likewise only while the map has focus, and are not affected by the `keyboard` option:
+The keys below are handled by the active mode, likewise only while the map has focus, and are not affected by the `keyboard` option. While a text field inside the map has focus (the toolbar's distance, angle and style inputs), Delete, Backspace and Enter belong to that field and are not passed to the mode; Escape still is:
 
 | Key                | Mode                     | Action                                                                                                          |
 | ------------------ | ------------------------ | --------------------------------------------------------------------------------------------------------------- |

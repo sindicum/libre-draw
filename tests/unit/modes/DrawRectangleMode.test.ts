@@ -464,6 +464,17 @@ describe('DrawRectangleMode', () => {
       expect(previewCoords[0]).toEqual([5, 5]);
     });
 
+    it('should show where the first corner would snap before it is placed, without a preview', () => {
+      const snapContext = createSnapContext();
+      const snapMode = new DrawRectangleMode(snapContext);
+      snapMode.activate();
+
+      snapMode.onPointerMove(createPointerEvent(4.5, 4.5));
+
+      expect(snapContext.render.renderSnapIndicator).toHaveBeenCalledWith([5, 5]);
+      expect(snapContext.render.renderPreview).not.toHaveBeenCalled();
+    });
+
     it('should clear the snap indicator when moving away from targets', () => {
       const snapContext = createSnapContext();
       const snapMode = new DrawRectangleMode(snapContext);

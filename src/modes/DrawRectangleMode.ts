@@ -132,7 +132,12 @@ export class DrawRectangleMode implements DraftCapableMode {
     // Hover preview. Touch has no hover, and a touch move without a pointer
     // down can only be a stray event after a long press, so ignore it.
     if (event.inputType !== 'mouse') return;
-    if (this.firstCorner === null) return;
+    if (this.firstCorner === null) {
+      // Nothing to preview yet, but the first click snaps too, so show
+      // where it would land.
+      this.applySnap(event.lngLat);
+      return;
+    }
 
     const snapTarget = this.findSnap(event.lngLat);
     if (snapTarget) {

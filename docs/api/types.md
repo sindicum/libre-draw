@@ -265,9 +265,9 @@ interface KeyboardOptions {
 }
 ```
 
-| Property   | Type      | Default | Description                                                                                                                       |
-| ---------- | --------- | ------- | --------------------------------------------------------------------------------------------------------------------------------- |
-| `undoRedo` | `boolean` | `true`  | Whether Ctrl/Cmd+Z (undo), Ctrl/Cmd+Shift+Z and Ctrl+Y (redo) are handled. Escape / Delete handling inside modes is not affected. |
+| Property   | Type      | Default | Description                                                                                                                                                                                                                                          |
+| ---------- | --------- | ------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `undoRedo` | `boolean` | `true`  | Whether Ctrl/Cmd+Z (undo), Ctrl/Cmd+Shift+Z and Ctrl+Y (redo) are handled. Escape / Delete / Backspace / Enter handling inside modes is not affected; while a text field inside the map has focus, Delete, Backspace and Enter belong to that field. |
 
 ---
 
