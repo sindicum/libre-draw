@@ -153,14 +153,30 @@ describe('FeatureStore', () => {
     expect(store.getById('f1')!.geometry.coordinates[0][0][0]).toBe(0);
   });
 
-  it('should export as GeoJSON FeatureCollection', () => {
+  it('should export as GeoJSON FeatureCollection with properties and coordinates intact', () => {
     const store = new FeatureStore();
-    store.add(makeFeature('f1'));
+    store.add({ ...makeFeature('f1'), properties: { name: 'Area A' } });
     store.add(makeFeature('f2'));
 
     const geojson = store.toGeoJSON();
     expect(geojson.type).toBe('FeatureCollection');
     expect(geojson.features).toHaveLength(2);
+    expect(geojson.features[0]).toEqual({
+      id: 'f1',
+      type: 'Feature',
+      geometry: {
+        type: 'Polygon',
+        coordinates: [
+          [
+            [0, 0],
+            [10, 0],
+            [10, 10],
+            [0, 0],
+          ],
+        ],
+      },
+      properties: { name: 'Area A' },
+    });
   });
 
   it('should return snapshots from getById', () => {

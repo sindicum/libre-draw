@@ -341,7 +341,6 @@ export class Toolbar {
       );
     }
 
-    // Right after the drawing modes: the input method only applies to them.
     if (controls.inputMethod) {
       this.addButton(
         'input-method',

@@ -120,7 +120,7 @@ export class SetbackMode implements Mode {
   }
 
   /**
-   * Called by UI execute button.
+   * Run the setback with the given distance.
    */
   executeFromUi(distance: number): void {
     this.executeSetback(distance);
@@ -224,9 +224,8 @@ export class SetbackMode implements Mode {
   }
 
   /**
-   * Commit the setback through the `setback` operation (one SetbackAction,
-   * one `setback` or `setbackfailed` event). On failure the polygon stays
-   * selected and the mode goes back to picking an edge.
+   * Commit the setback through the `setback` operation. On failure the
+   * polygon stays selected and the mode goes back to picking an edge.
    */
   private executeSetback(distanceOverride?: number): void {
     if (!this.isActive || this.state !== 'previewing') return;
@@ -268,12 +267,12 @@ export class SetbackMode implements Mode {
     return undefined;
   }
 
-  /** Mark a feature as selected and notify render/event layers. */
+  /** Mark a feature as selected. */
   private selectFeature(id: string): void {
     this.context.selection.set([id]);
   }
 
-  /** Clear current feature selection and notify render/event layers. */
+  /** Clear current feature selection. */
   private clearSelection(): void {
     this.context.selection.clear();
   }

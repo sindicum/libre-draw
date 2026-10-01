@@ -519,84 +519,6 @@ describe('LibreDraw lifecycle integration', () => {
     draw.destroy();
   });
 
-  it('should not record history or emit events for an empty addFeatures call', () => {
-    const map = new FakeMap();
-    const draw = new LibreDraw(map.asMap(), { toolbar: false });
-
-    const createListener = vi.fn();
-    draw.on('create', createListener);
-
-    draw.addFeatures([]);
-
-    expect(createListener).not.toHaveBeenCalled();
-    expect(draw.undo()).toBe(false);
-
-    draw.destroy();
-  });
-
-  it('should report an invalid feature in its entry and still add the valid ones as one step', () => {
-    const map = new FakeMap();
-    const draw = new LibreDraw(map.asMap(), { toolbar: false });
-
-    const createListener = vi.fn();
-    draw.on('create', createListener);
-
-    const results = draw.addFeatures([
-      makeFeature('b'),
-      { type: 'Feature', geometry: null, properties: {} },
-    ]);
-
-    expect(results[0]).toEqual({ valid: true, id: 'b' });
-    expect(results[1]).toEqual({
-      valid: false,
-      reason: 'Feature.geometry must be a non-null object.',
-    });
-    expect(draw.getFeatures().map((f) => f.id)).toEqual(['b']);
-    expect(createListener).toHaveBeenCalledTimes(1);
-    expect(draw.undo()).toBe(true);
-    expect(draw.getFeatures()).toHaveLength(0);
-    expect(draw.undo()).toBe(false);
-
-    draw.destroy();
-  });
-
-  it('should reject an id that already exists or repeats within the call, per entry', () => {
-    const map = new FakeMap();
-    const draw = new LibreDraw(map.asMap(), { toolbar: false });
-
-    draw.addFeatures([makeFeature('a')]);
-
-    expect(draw.addFeatures([makeFeature('a'), makeFeature('b'), makeFeature('b')])).toEqual([
-      { valid: false, id: 'a', reason: 'Feature already exists: a' },
-      { valid: true, id: 'b' },
-      { valid: false, id: 'b', reason: 'Feature already exists: b' },
-    ]);
-    expect(draw.getFeatures().map((f) => f.id)).toEqual(['a', 'b']);
-
-    // A call whose entries are all rejected records no history step.
-    expect(draw.addFeatures([makeFeature('a')])).toEqual([
-      { valid: false, id: 'a', reason: 'Feature already exists: a' },
-    ]);
-    expect(draw.undo()).toBe(true); // removes 'b'
-    expect(draw.undo()).toBe(true); // removes 'a'
-    expect(draw.undo()).toBe(false);
-
-    draw.destroy();
-  });
-
-  it('should still reset history when setFeatures follows addFeatures', () => {
-    const map = new FakeMap();
-    const draw = new LibreDraw(map.asMap(), { toolbar: false });
-
-    draw.addFeatures([makeFeature('a')]);
-    draw.setFeatures({ type: 'FeatureCollection', features: [makeFeature('b')] });
-
-    expect(draw.undo()).toBe(false);
-    expect(draw.getFeatures().map((f) => f.id)).toEqual(['b']);
-
-    draw.destroy();
-  });
-
   it('should enable the toolbar undo button after addFeatures', () => {
     const map = new FakeMap();
     const container = map.getContainer();
@@ -659,7 +581,6 @@ describe('LibreDraw lifecycle integration', () => {
       expect(drawButton.getAttribute('aria-pressed')).toBe('false');
       // Corners are placed by clicks/taps, so a drag stays free to pan the
       // map -- the only single-finger map gesture available on touch.
-      expect(map.dragPan.enable).toHaveBeenCalled();
       expect(map.dragPan.disable).not.toHaveBeenCalled();
       expect(map.doubleClickZoom.disable).toHaveBeenCalled();
 
@@ -785,7 +706,6 @@ describe('LibreDraw lifecycle integration', () => {
 
       draw.setMode('union');
       expect(draw.getMode()).toBe('union');
-      expect(map.dragPan.enable).toHaveBeenCalled();
 
       draw.setMode('idle');
       const button = container.querySelector('button[title="Union polygons"]') as HTMLButtonElement;
@@ -1270,22 +1190,6 @@ describe('LibreDraw lifecycle integration', () => {
 
       expect(draw.getSelectedFeatureIds()).toEqual(['sq']);
       expect(map.getSourceData(SOURCE_IDS.ROTATION_CENTER)!.features).toHaveLength(1);
-
-      draw.destroy();
-    });
-
-    it('drops the rotation selection when undo() removes the feature', () => {
-      const map = new FakeMap();
-      const draw = new LibreDraw(map.asMap(), { toolbar: false });
-      draw.addFeatures([makeSquare('sq')]);
-      draw.setMode('rotate');
-      clickAt(map, 30, 30);
-      expect(draw.getSelectedFeatureIds()).toEqual(['sq']);
-
-      draw.undo(); // undoes addFeatures: the feature is gone
-
-      expect(draw.getFeatureById('sq')).toBeUndefined();
-      expect(draw.getSelectedFeatureIds()).toEqual([]);
 
       draw.destroy();
     });

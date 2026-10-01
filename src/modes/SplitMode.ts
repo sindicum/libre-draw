@@ -9,7 +9,7 @@ import { split } from '../operations/split';
 type SplitState = 'idle' | 'first-point' | 'second-point';
 
 /**
- * Mode for splitting a selected polygon with a two-point line.
+ * Mode for splitting a selected feature with a two-point line.
  *
  * The first point is marked like a draft vertex of the drawing modes. The
  * dashed preview to the pointer only appears while the pointer hovers, so
@@ -102,7 +102,7 @@ export class SplitMode implements Mode {
     this.resetInteractionState(true);
   }
 
-  /** Perform a hit-test at the pointer position and select the target polygon. */
+  /** Perform a hit-test at the pointer position and select the target. */
   private handleTargetSelection(event: NormalizedInputEvent): void {
     const hit = this.hitTest([event.lngLat.lng, event.lngLat.lat]);
     if (!hit) {
@@ -118,9 +118,7 @@ export class SplitMode implements Mode {
   }
 
   /**
-   * Commit the split through the `split` operation (one SplitAction, one
-   * `split` or `splitfailed` event). On failure the target stays selected
-   * and the mode waits for a new first point.
+   * Commit the split through the `split` operation.
    */
   private executeSplit(lineEnd: Position): void {
     if (!this.selectedFeatureId || !this.lineStart) {

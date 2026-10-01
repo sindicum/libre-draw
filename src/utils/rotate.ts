@@ -34,7 +34,7 @@ export function fromMercator(point: PlanarPoint): Position {
   return [lng, lat];
 }
 
-/** Plain average of points; the fallback for degenerate (zero-area / zero-length) shapes. */
+/** Plain average of points. */
 function meanPoint(points: PlanarPoint[]): PlanarPoint {
   let x = 0;
   let y = 0;

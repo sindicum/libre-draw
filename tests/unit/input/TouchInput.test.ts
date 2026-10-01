@@ -83,7 +83,7 @@ describe('TouchInput', () => {
     vi.restoreAllMocks();
   });
 
-  it('should end pointer interaction on long press and suppress double tap in same series', () => {
+  it('should end the pointer interaction on long press and not treat the later touchend as another up', () => {
     const touch = createTouchLike(1, 10, 10);
 
     dispatchTouchEvent(canvas, 'touchstart', [touch], [touch]);

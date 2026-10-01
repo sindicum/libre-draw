@@ -92,9 +92,14 @@ describe('structured results and event origin', () => {
       expect(draw.getFeatureById(generated)?.properties).toEqual({ name: 'anonymous' });
     });
 
-    it('returns an empty array for empty input without touching history', () => {
+    it('returns an empty array for empty input without events or history', () => {
       const draw = new LibreDraw(new FakeMap().asMap(), { toolbar: false });
+      const createListener = vi.fn();
+      draw.on('create', createListener);
+
       expect(draw.addFeatures([])).toEqual([]);
+
+      expect(createListener).not.toHaveBeenCalled();
       expect(draw.undo()).toBe(false);
     });
 
@@ -152,6 +157,14 @@ describe('structured results and event origin', () => {
         { valid: false, id: 'b', reason: 'Feature already exists: b' },
       ]);
       expect(draw.getFeatures().map((f) => f.id)).toEqual(['a', 'b']);
+
+      // A call whose entries are all rejected records no history step.
+      expect(draw.addFeatures([makeSquare('a')])).toEqual([
+        { valid: false, id: 'a', reason: 'Feature already exists: a' },
+      ]);
+      expect(draw.undo()).toBe(true); // removes 'b'
+      expect(draw.undo()).toBe(true); // removes 'a'
+      expect(draw.undo()).toBe(false);
     });
 
     it('records nothing when every feature is invalid', () => {
