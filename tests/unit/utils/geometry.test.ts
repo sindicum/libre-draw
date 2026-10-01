@@ -498,6 +498,25 @@ describe('hasNegligibleArea threshold', () => {
     expect(hasNegligibleArea(sliver(2.1e-9))).toBe(false);
   });
 
+  it('is true for a tall sliver whose extent lies along y', () => {
+    // 1e-9 wide and 10 high: area 5e-9 against an extent of 10, so the
+    // verdict must use the longer side of the bounding box.
+    for (const [ox, oy] of [
+      [0, 0],
+      [139.7, 35.66],
+      [179.9, -80],
+    ]) {
+      expect(
+        hasNegligibleArea([
+          [ox, oy],
+          [ox + 1e-9, oy],
+          [ox + 1e-9, oy + 10],
+          [ox, oy],
+        ])
+      ).toBe(true);
+    }
+  });
+
   it('gives the same verdict whichever vertex the ring starts from', () => {
     for (const w of [1.9e-9, 2.1e-9]) {
       const ring = sliver(w).slice(0, 3);
