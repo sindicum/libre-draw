@@ -22,8 +22,8 @@ class FakeMap {
   private images: Map<string, unknown> = new Map();
   private listeners: Map<string, Set<(...args: unknown[]) => void>> = new Map();
 
-  public dragPan = { enable: vi.fn(), disable: vi.fn() };
-  public doubleClickZoom = { enable: vi.fn(), disable: vi.fn() };
+  public dragPan = { enable: vi.fn(), disable: vi.fn(), isEnabled: vi.fn(() => true) };
+  public doubleClickZoom = { enable: vi.fn(), disable: vi.fn(), isEnabled: vi.fn(() => true) };
   public boxZoom = { enable: vi.fn(), disable: vi.fn(), isEnabled: vi.fn(() => true) };
 
   constructor() {

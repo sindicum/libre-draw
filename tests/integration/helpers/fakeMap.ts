@@ -18,6 +18,19 @@ export class FakeGeoJSONSource {
   }
 }
 
+function fakeHandler() {
+  let enabled = true;
+  return {
+    enable: vi.fn(() => {
+      enabled = true;
+    }),
+    disable: vi.fn(() => {
+      enabled = false;
+    }),
+    isEnabled: vi.fn(() => enabled),
+  };
+}
+
 export class FakeMap {
   private styleLoaded = true;
   private canvas: HTMLDivElement;
@@ -31,29 +44,10 @@ export class FakeMap {
    */
   private offset = { dx: 0, dy: 0 };
 
-  public dragPan = {
-    enable: vi.fn(),
-    disable: vi.fn(),
-  };
-
-  public doubleClickZoom = {
-    enable: vi.fn(),
-    disable: vi.fn(),
-  };
-
-  /** Box zoom keeps a real on / off state so tests can create a map with it disabled. */
-  public boxZoom = (() => {
-    let enabled = true;
-    return {
-      enable: vi.fn(() => {
-        enabled = true;
-      }),
-      disable: vi.fn(() => {
-        enabled = false;
-      }),
-      isEnabled: vi.fn(() => enabled),
-    };
-  })();
+  /** Each handler keeps a real on / off state so tests can create a map with it disabled. */
+  public dragPan = fakeHandler();
+  public doubleClickZoom = fakeHandler();
+  public boxZoom = fakeHandler();
 
   /** Runtime style updates are applied per layer; record them instead of rendering. */
   public setPaintProperty = vi.fn();
