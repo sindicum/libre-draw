@@ -514,7 +514,7 @@ draw.on('reshapefailed', (e) => {
 
 ## `rotate`
 
-Emitted when a rotation is committed in `rotate` mode, either by releasing a drag or by executing the angle input. Each commit is one history step.
+Emitted when a rotation is committed in `rotate` mode, either by releasing a drag or by executing the angle input, or through [`rotate()`](/api/libre-draw#rotate-id-angledeg) (`origin` tells which). Each commit is one history step.
 
 Undo and redo of a rotation emit [`update`](#update) events rather than `rotate`, because the history stores a rotation as a plain feature replacement.
 
@@ -564,7 +564,7 @@ interface SelectionChangeEvent {
 | `origin`      | [`EventOrigin`](#event-origin) | Who caused the change: `'api'` or `'user'`                                                                      |
 | `selectedIds` | `string[]`                     | Array of currently selected feature IDs, in the order they were selected. Empty array when nothing is selected. |
 
-Fired once per change, in every mode (the selection is shared). A change that leaves the set as it was fires nothing. In select mode the array can hold several IDs (Shift / Ctrl / Cmd + click, or `selectFeatures()`); in union mode it holds the polygons picked for the merge; in rotate, split and setback mode it holds at most one.
+Fired once per change, in every mode (the selection is shared). A change that leaves the set as it was fires nothing. In select mode the array can hold several IDs (Shift / Ctrl / Cmd + click, or `selectFeatures()`); in union mode it holds the polygons picked for the merge; in rotate, split, setback, cut and reshape mode it holds at most one.
 
 ### Example
 

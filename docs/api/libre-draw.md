@@ -346,7 +346,7 @@ Applies the same rules (Feature envelope, geometry type, finite coordinates with
 | --------- | --------- | ---------------------- |
 | `feature` | `unknown` | The object to validate |
 
-**Returns:** [`FeatureValidationResult`](/api/types#featurevalidationresult) — `{ valid: true, feature }` with a normalized copy, or `{ valid: false, reason }` with the same message `addFeatures` would throw.
+**Returns:** [`FeatureValidationResult`](/api/types#featurevalidationresult) — `{ valid: true, feature }` with a normalized copy, or `{ valid: false, reason }` with the same message `addFeatures` reports for that feature.
 
 **Throws:** [`LibreDrawError`](/api/types#libredrawerror) if this instance has been destroyed.
 
@@ -392,7 +392,7 @@ if (feature) {
 
 Delete a feature by its ID.
 
-Removes the feature from the store, records a delete action in the history (making it **undoable**), and emits a `delete` event. If the feature is currently selected, the selection is also cleared.
+Removes the feature from the store, records a delete action in the history (making it **undoable**), and emits a `delete` event. If the feature is currently selected, that id is removed from the selection; other selected features stay selected.
 
 **Parameters:**
 
@@ -491,7 +491,7 @@ Same computation as the [`split` mode](/guide/modes#split): a Polygon is cut whe
 | `id`   | `string`                                          | The feature to split                                 |
 | `line` | `[`[`Position`](/api/types#position)`, Position]` | Two positions `[start, end]` defining the split line |
 
-**Returns:** [`OperationResult`](/api/types#operationresult) — `{ ok: true, created: [a, b], deleted: [original] }`, or `{ ok: false, reason }` with `'not-found'`, `'not-splittable'` (a Point), a [`SplitFailReason`](/api/events#payload-splitfailedevent), or a validation message (see [`SplitOperationFailReason`](/api/types#splitoperationfailreason)). Nothing changes on failure.
+**Returns:** [`OperationResult`](/api/types#operationresult) — `{ ok: true, created: [a, b], deleted: [original] }`, or `{ ok: false, reason }` with `'not-found'`, `'not-splittable'` (a Point), or a [`SplitFailReason`](/api/events#payload-splitfailedevent) (a part that fails validation is `'invalid-result'`; see [`SplitOperationFailReason`](/api/types#splitoperationfailreason)). Nothing changes on failure.
 
 **Throws:** [`LibreDrawError`](/api/types#libredrawerror) if this instance has been destroyed.
 
@@ -705,7 +705,7 @@ draw.on('selectionchange', (e) => {
 
 Clear the current feature selection.
 
-Deselects all features, removes vertex handles, and emits a `selectionchange` event. In rotate mode this also discards any uncommitted rotation preview, and in split / setback mode the half-finished operation on the target. No-op if nothing is selected.
+Deselects all features, removes vertex handles, and emits a `selectionchange` event. In rotate mode this also discards any uncommitted rotation preview, in split / setback mode the half-finished operation on the target, and in cut / reshape mode the cutter or the line being drafted. No-op if nothing is selected.
 
 **Returns:** `void`
 
@@ -829,7 +829,7 @@ Finalize the in-progress draft of the active drawing mode.
 
 On success, a feature is added to the store, a [`create`](/api/events#create) event fires, and a [`draftchange`](/api/events#draftchange) event with `vertexCount: 0` is emitted. The mode remains active so the user can start a new draft.
 
-In `'cut'` mode, finishing closes the cutter and runs the cut instead of adding a feature: a [`cut`](/api/events#cut) event fires on success, a [`cutfailed`](/api/events#cutfailed) event on failure (the target stays selected and the cutter is discarded either way). In `'reshape'` mode, finishing runs the reshape with the line in the same way ([`reshape`](/api/events#reshape) / [`reshapefailed`](/api/events#reshapefailed)).
+In `'cut'` mode, finishing closes the cutter and runs the cut instead of adding a feature: a [`cut`](/api/events#cut) event fires on success, a [`cutfailed`](/api/events#cutfailed) event on failure. The cutter is discarded either way; the selection is cleared on success and the target stays selected on failure. In `'reshape'` mode, finishing runs the reshape with the line in the same way ([`reshape`](/api/events#reshape) / [`reshapefailed`](/api/events#reshapefailed)).
 
 **Returns:** `boolean` — `true` if the draft was finalized (in `'cut'` / `'reshape'` mode: if the operation succeeded), `false` if it could not be (non-drawing mode, insufficient vertices, or a polygon whose closing would produce a self-intersection). In `'draw-rectangle'` and `'draw-angled-rectangle'` modes this always returns `false`: the rectangle is only defined once its last point (the second corner, or the third point that sets the width) is clicked.
 

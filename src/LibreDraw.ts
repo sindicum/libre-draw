@@ -180,8 +180,9 @@ export class LibreDraw {
    *
    * @param map - The MapLibre GL JS map instance to draw on.
    * @param options - Configuration options. Defaults to toolbar enabled,
-   *   100-action history limit, snap enabled with 10px threshold,
-   *   keyboard shortcuts enabled, English UI strings, and tap input.
+   *   100-action history limit, snap enabled with 10px threshold
+   *   (`snap.threshold` below 1 is clamped to 1), keyboard shortcuts
+   *   enabled, English UI strings, and tap input.
    *
    * @throws {LibreDrawError} If `options.locale` is not a bundled locale.
    * @throws {LibreDrawError} If `options.inputMethod` is not `'tap'` or `'reticle'`.
@@ -777,7 +778,8 @@ export class LibreDraw {
    *
    * Removes the feature from the store, records a {@link DeleteAction}
    * in the history (making it undoable), and emits a `'delete'` event.
-   * If the feature is currently selected, the selection is also cleared.
+   * If the feature is currently selected, that id is removed from the
+   * selection; other selected features stay selected.
    *
    * @param id - The unique identifier of the feature to delete.
    * @returns The deleted feature, or `undefined` if not found.
@@ -873,8 +875,8 @@ export class LibreDraw {
    * @param line - Two positions `[start, end]` defining the split line.
    * @returns `{ ok: true, created: [a, b], deleted: [original] }`, or
    *   `{ ok: false, reason }` with `'not-found'`, `'not-splittable'` (a
-   *   Point), a {@link SplitFailReason}, or a validation message. Nothing
-   *   changes on failure.
+   *   Point), or a {@link SplitFailReason} (a part that fails validation
+   *   is `'invalid-result'`). Nothing changes on failure.
    *
    * @throws {LibreDrawError} If this instance has been destroyed.
    *
@@ -1126,8 +1128,9 @@ export class LibreDraw {
    *
    * Deselects all features, removes vertex handles, and emits
    * a `'selectionchange'` event. In rotate mode this also discards any
-   * uncommitted rotation preview, and in split / setback mode the
-   * half-finished operation on the target. No-op if nothing is selected.
+   * uncommitted rotation preview, in split / setback mode the
+   * half-finished operation on the target, and in cut / reshape mode the
+   * cutter or the line being drafted. No-op if nothing is selected.
    *
    * @throws {LibreDrawError} If this instance has been destroyed.
    *
@@ -1146,16 +1149,23 @@ export class LibreDraw {
   /**
    * Finalize the in-progress draft of the active drawing mode.
    *
-   * Applies to `'draw-polygon'` and `'draw-line'` (linestring) modes.
    * On success, a feature is added to the store, a `'create'` event fires,
    * and a `'draftchange'` event with `vertexCount: 0` is emitted. The mode
    * remains active so the user can start a new draft.
+   *
+   * In `'cut'` mode, finishing closes the cutter and runs the cut instead
+   * of adding a feature: a `'cut'` event fires on success, a `'cutfailed'`
+   * event on failure. The cutter is discarded either way; the selection is
+   * cleared on success and the target stays selected on failure. In
+   * `'reshape'` mode, finishing runs the reshape with the line in the same
+   * way (`'reshape'` / `'reshapefailed'`).
    *
    * In `'draw-rectangle'` and `'draw-angled-rectangle'` modes this always
    * returns `false`: the rectangle is only defined once its last point
    * (the second corner, or the third point that sets the width) is clicked.
    *
-   * @returns `true` if the draft was finalized, `false` if it could not be
+   * @returns `true` if the draft was finalized (in `'cut'` / `'reshape'`
+   *   mode: if the operation succeeded), `false` if it could not be
    *   (non-drawing mode, insufficient vertices, or a polygon whose closing
    *   would produce a self-intersection).
    *
@@ -1180,11 +1190,12 @@ export class LibreDraw {
   /**
    * Discard the in-progress draft of the active drawing mode.
    *
-   * Applies to `'draw-polygon'`, `'draw-line'`, `'draw-rectangle'`, and
-   * `'draw-angled-rectangle'` modes.
    * Clears the preview, resets the vertex list, and emits a `'draftchange'` event with
    * `vertexCount: 0`. The mode remains active; to exit drawing use
-   * {@link setMode} afterwards.
+   * {@link setMode} afterwards. In `'cut'` and `'reshape'` modes it
+   * discards the cutter or the line and keeps the target selected. In
+   * other modes, and in `'cut'` / `'reshape'` before a target is selected,
+   * this is a no-op.
    *
    * @throws {LibreDrawError} If this instance has been destroyed.
    *
@@ -1203,9 +1214,10 @@ export class LibreDraw {
   /**
    * Get the number of vertices in the current draft.
    *
-   * @returns The draft vertex count for the active drawing mode
-   *   (`1` while a rectangle's first corner is placed),
-   *   or `0` when no drawing mode is active.
+   * @returns The draft vertex count for the active drawing mode (in
+   *   `'cut'` / `'reshape'` mode: of the cutter or the line; `1` while a
+   *   rectangle's first corner is placed), or `0` when no drawing mode is
+   *   active or no target is selected yet.
    *
    * @throws {LibreDrawError} If this instance has been destroyed.
    *
@@ -1234,7 +1246,9 @@ export class LibreDraw {
    *   "Add point" button at the bottom. The map pans freely, clicks and taps
    *   on it place nothing, and the button places a point at the crosshair
    *   under the same rules as a tap (snapping; the first or last vertex
-   *   finishes). Other modes keep working with taps and clicks.
+   *   finishes). In `'cut'` and `'reshape'` modes the target is picked by
+   *   click or tap, and the crosshair drafts the cutter or the line once a
+   *   target is selected. Other modes keep working with taps and clicks.
    *
    * The setting is kept across mode changes. Changing it while drawing keeps
    * the draft.
@@ -1265,7 +1279,8 @@ export class LibreDraw {
    * Take back the last placed point of the in-progress draft, as a touch
    * long press does.
    *
-   * - `'draw-polygon'` / `'draw-line'`: removes the last vertex.
+   * - `'draw-polygon'` / `'draw-line'` / `'cut'` / `'reshape'`: removes the
+   *   last vertex.
    * - `'draw-rectangle'`: discards the first corner.
    * - `'draw-angled-rectangle'`: removes the last base-edge point (2 → 1 → 0).
    *

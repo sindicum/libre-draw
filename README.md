@@ -16,7 +16,7 @@ A point, line, and polygon drawing and editing library for [MapLibre GL JS](http
 - **Draw angled rectangles** — Click/tap a base edge at any angle, then a point that sets the width
 - **Select & edit** — Click a feature to select it, drag vertices to reshape, drag midpoints to add vertices; a polygon's holes are edited the same way
 - **Feature drag** — Drag an entire selected point, line, or polygon to reposition it
-- **Split polygon** — Cut a polygon into two polygons with a two-point split line
+- **Split** — Cut a polygon or line into two with a two-point split line
 - **Cut** — Remove an area from a polygon by drawing its outline: a hole, a notch, or separate pieces
 - **Reshape** — Redraw part of a polygon's boundary with a line that crosses it twice, adding or removing area
 - **Union** — Merge two or more touching or overlapping polygons into one: click them to select, then press Enter or the execute button
@@ -114,7 +114,7 @@ new LibreDraw(map: maplibregl.Map, options?: LibreDrawOptions)
 | `create`          | `{ feature }`                                         | A feature was created (point, line, or polygon)                            |
 | `update`          | `{ feature, oldFeature }`                             | A feature was updated                                                      |
 | `delete`          | `{ feature }`                                         | A feature was deleted                                                      |
-| `split`           | `{ originalFeature, features: [featureA, featureB] }` | A polygon was split into two polygons                                      |
+| `split`           | `{ originalFeature, features: [featureA, featureB] }` | A polygon or line was split into two                                       |
 | `splitfailed`     | `{ reason, featureId }`                               | Split operation failed                                                     |
 | `setback`         | `{ originalFeature, feature, edgeIndex, distance }`   | Setback operation succeeded                                                |
 | `setbackfailed`   | `{ reason, featureId }`                               | Setback operation failed                                                   |
