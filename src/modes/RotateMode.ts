@@ -4,7 +4,7 @@ import type { MapInteractionConfig, Mode } from './Mode';
 import type { ModeContext } from '../core/ModeContext';
 import type { LibreDrawFeature } from '../types/features';
 import type { NormalizedInputEvent } from '../types/input';
-import { clickTolerance, pointerTravel } from '../input/gestures';
+import { bodyHitThreshold, clickTolerance, pointerTravel } from '../input/gestures';
 import { cloneFeature } from '../utils/featureSnapshot';
 import { rotate } from '../operations/rotate';
 import {
@@ -14,12 +14,6 @@ import {
   rotateFeature,
   snapAngle,
 } from '../utils/rotate';
-
-/**
- * Hit threshold in pixels for selecting LineString features; the same in
- * every mode so a line is equally easy to grab.
- */
-const LINE_HIT_THRESHOLD_PX = 20;
 
 /**
  * Angle step in degrees used while Shift is held during a drag.
@@ -388,16 +382,24 @@ export class RotateMode implements Mode {
       );
     }
     if (feature.geometry.type === 'LineString') {
-      return this.isLineHit(feature.geometry.coordinates, event.point);
+      return this.isLineHit(
+        feature.geometry.coordinates,
+        event.point,
+        bodyHitThreshold(event.inputType)
+      );
     }
     return false;
   }
 
-  private isLineHit(coords: [number, number][], clickScreen: { x: number; y: number }): boolean {
+  private isLineHit(
+    coords: [number, number][],
+    clickScreen: { x: number; y: number },
+    threshold: number
+  ): boolean {
     for (let i = 0; i < coords.length - 1; i++) {
       const a = this.context.getScreenPoint({ lng: coords[i][0], lat: coords[i][1] });
       const b = this.context.getScreenPoint({ lng: coords[i + 1][0], lat: coords[i + 1][1] });
-      if (distanceToSegment(clickScreen, a, b) <= LINE_HIT_THRESHOLD_PX) return true;
+      if (distanceToSegment(clickScreen, a, b) <= threshold) return true;
     }
     return false;
   }

@@ -183,6 +183,28 @@ describe('SplitMode', () => {
     });
   });
 
+  it('should reach a line 22px away with touch but not with mouse', () => {
+    harness.features.set('ln', {
+      id: 'ln',
+      type: 'Feature',
+      geometry: {
+        type: 'LineString',
+        coordinates: [
+          [20, 0],
+          [30, 0],
+        ],
+      },
+      properties: {},
+    });
+    mode.activate();
+
+    mode.onPointerDown(pointerEvent(25, 2.2));
+    expect(harness.mocks.setSelectedIds).not.toHaveBeenCalledWith(['ln']);
+
+    mode.onPointerDown(pointerEvent(25, 2.2, 'touch'));
+    expect(harness.mocks.setSelectedIds).toHaveBeenCalledWith(['ln']);
+  });
+
   it('should render split preview while choosing second point', () => {
     mode.activate();
     mode.onPointerDown(pointerEvent(5, 5)); // select target

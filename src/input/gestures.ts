@@ -44,6 +44,28 @@ export function clickTolerance(inputType: InputType): number {
 }
 
 /**
+ * Hit distance, in pixels, from a Point or LineString feature that still
+ * selects it with a mouse.
+ */
+export const MOUSE_BODY_HIT_PX = 20;
+
+/**
+ * Hit distance, in pixels, from a Point or LineString feature that still
+ * selects it with a finger: the same as a vertex handle's touch target.
+ */
+export const TOUCH_BODY_HIT_PX = 24;
+
+/**
+ * Hit distance from a Point or LineString feature for an input type.
+ *
+ * Points and lines have no area to land in, so every mode that picks them
+ * shares this to keep them equally easy to grab.
+ */
+export function bodyHitThreshold(inputType: InputType): number {
+  return inputType === 'touch' ? TOUCH_BODY_HIT_PX : MOUSE_BODY_HIT_PX;
+}
+
+/**
  * Screen-space distance in pixels between two pointer positions.
  */
 export function pointerTravel(

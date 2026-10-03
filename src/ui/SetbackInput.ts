@@ -147,21 +147,24 @@ export class SetbackInput {
   private applyInputStyles(): void {
     const s = this.input.style;
     s.width = '64px';
-    s.height = '28px';
+    s.height = '44px';
+    s.boxSizing = 'border-box';
     s.border = '1px solid #c8c8c8';
     s.borderRadius = '4px';
     s.padding = '0 6px';
-    s.fontSize = '12px';
+    s.fontSize = '14px';
   }
 
   private applyButtonStyles(): void {
     const s = this.executeButton.style;
-    s.height = '28px';
+    // The toolbar's touch target size, as for the union execute button.
+    s.minWidth = '44px';
+    s.height = '44px';
     s.border = '1px solid #c8c8c8';
     s.borderRadius = '4px';
     s.background = '#fff';
     s.padding = '0 8px';
     s.cursor = 'pointer';
-    s.fontSize = '12px';
+    s.fontSize = '14px';
   }
 }

@@ -262,8 +262,8 @@ In select mode, you can select existing features (points, lines, and polygons) a
 | Action                                  | Effect                                                    |
 | --------------------------------------- | --------------------------------------------------------- |
 | Click on polygon                        | Select it (shows vertex handles)                          |
-| Click near line                         | Select it (within 20px threshold, shows vertex handles)   |
-| Click near point                        | Select it (within 20px threshold)                         |
+| Click near line                         | Select it (within 20px, 24px on touch; shows handles)     |
+| Click near point                        | Select it (within 20px, 24px on touch)                    |
 | Shift / Ctrl / Cmd + click on a feature | Add it to the selection, or remove it if already selected |
 | Click outside                           | Deselect                                                  |
 | Delete key                              | Delete every selected feature                             |
