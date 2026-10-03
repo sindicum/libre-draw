@@ -67,6 +67,9 @@ export interface SplitEvent {
  * - `invalid-intersection-count`: the line does not cross the outer ring exactly twice
  * - `self-intersecting-result`: a part would be self-intersecting
  * - `invalid-result`: a part failed validation (rounding at the coordinate limits)
+ *
+ * Later versions may add or remove values, so the type also accepts any
+ * other string: handle values you do not know.
  */
 export type SplitFailReason =
   | 'same-points'
@@ -74,7 +77,8 @@ export type SplitFailReason =
   | 'has-holes'
   | 'invalid-intersection-count'
   | 'self-intersecting-result'
-  | 'invalid-result';
+  | 'invalid-result'
+  | (string & {});
 
 /**
  * Event payload for a failed split operation.
@@ -86,7 +90,19 @@ export interface SplitFailedEvent {
   featureId: string;
 }
 
-export type SetbackFailReason = 'has-holes' | 'invalid-split';
+/**
+ * Reasons a setback operation can fail.
+ *
+ * - `has-holes`: the target Polygon has an inner ring, or the edge is not
+ *   on the outer ring
+ * - `invalid-result`: the offset line cannot be built, it does not divide the
+ *   polygon in two (the distance reaches past the opposite side), or the
+ *   remaining part failed validation
+ *
+ * Later versions may add or remove values, so the type also accepts any
+ * other string: handle values you do not know.
+ */
+export type SetbackFailReason = 'has-holes' | 'invalid-result' | (string & {});
 
 /**
  * Event payload for successful setback operation.
@@ -117,8 +133,16 @@ export interface SetbackFailedEvent {
  * - `has-holes`: a target has an inner ring, or the merged shape would enclose a hole
  * - `disjoint`: the targets do not all connect, so the result would be a MultiPolygon
  * - `invalid-result`: the geometry engine produced no usable polygon
+ *
+ * Later versions may add or remove values, so the type also accepts any
+ * other string: handle values you do not know.
  */
-export type UnionFailReason = 'not-polygon' | 'has-holes' | 'disjoint' | 'invalid-result';
+export type UnionFailReason =
+  | 'not-polygon'
+  | 'has-holes'
+  | 'disjoint'
+  | 'invalid-result'
+  | (string & {});
 
 /**
  * Event payload for a successful union operation.
@@ -166,8 +190,11 @@ export interface CutEvent {
  *   only touches it, or lies inside one of its holes)
  * - `empty-result`: the cutter covers the whole polygon
  * - `invalid-result`: the geometry engine failed, or a piece failed validation
+ *
+ * Later versions may add or remove values, so the type also accepts any
+ * other string: handle values you do not know.
  */
-export type CutFailReason = 'no-overlap' | 'empty-result' | 'invalid-result';
+export type CutFailReason = 'no-overlap' | 'empty-result' | 'invalid-result' | (string & {});
 
 /**
  * Event payload for a failed cut.
@@ -204,13 +231,17 @@ export interface ReshapeEvent {
  * - `hole-outside`: a hole would end up outside the new outer ring
  * - `invalid-result`: the new outer ring is degenerate (no area), or the
  *   result failed validation
+ *
+ * Later versions may add or remove values, so the type also accepts any
+ * other string: handle values you do not know.
  */
 export type ReshapeFailReason =
   | 'invalid-intersection-count'
   | 'self-intersecting-result'
   | 'ring-intersection'
   | 'hole-outside'
-  | 'invalid-result';
+  | 'invalid-result'
+  | (string & {});
 
 /**
  * Event payload for a failed reshape.

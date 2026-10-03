@@ -631,7 +631,7 @@ type SplitOperationFailReason = 'not-found' | 'not-splittable' | SplitFailReason
 
 ### `SetbackOperationFailReason`
 
-Failure codes of [`setback()`](/api/libre-draw#setback-id-edge-distancemeters). `'has-holes'` and `'invalid-split'` are the [`SetbackFailReason`](/api/events#payload-setbackfailedevent) values of the `setbackfailed` event, which is emitted alongside; the argument errors below emit no event.
+Failure codes of [`setback()`](/api/libre-draw#setback-id-edge-distancemeters). The geometric codes are the [`SetbackFailReason`](/api/events#payload-setbackfailedevent) values of the `setbackfailed` event, which is emitted alongside; the argument errors below emit no event.
 
 ```ts
 type SetbackOperationFailReason =

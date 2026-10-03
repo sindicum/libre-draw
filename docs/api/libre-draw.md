@@ -586,7 +586,7 @@ Same computation as the [`setback` mode](/guide/modes#setback): the ring is spli
 | `edge`           | [`EdgeRef`](/api/types#edgeref) | The edge to move (`{ index }`, counted like `SetbackEvent.edgeIndex`). Only the outer ring is supported for now |
 | `distanceMeters` | `number`                        | Offset distance in meters, greater than zero                                                                    |
 
-**Returns:** [`OperationResult`](/api/types#operationresult) — `{ ok: true, created: [result], deleted: [original] }`, or `{ ok: false, reason }` with `'not-found'`, `'not-polygon'`, `'invalid-edge'`, `'invalid-distance'`, `'has-holes'`, or `'invalid-split'` (see [`SetbackOperationFailReason`](/api/types#setbackoperationfailreason)). Nothing changes on failure.
+**Returns:** [`OperationResult`](/api/types#operationresult) — `{ ok: true, created: [result], deleted: [original] }`, or `{ ok: false, reason }` with `'not-found'`, `'not-polygon'`, `'invalid-edge'`, `'invalid-distance'`, `'has-holes'`, or `'invalid-result'` (see [`SetbackOperationFailReason`](/api/types#setbackoperationfailreason)). Nothing changes on failure.
 
 **Throws:** [`LibreDrawError`](/api/types#libredrawerror) if this instance has been destroyed.
 

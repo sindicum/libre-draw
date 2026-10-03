@@ -126,17 +126,17 @@ describe('setback', () => {
       expect(emit).toHaveBeenCalledWith('setbackfailed', { reason: 'has-holes', featureId: 'sq' });
     });
 
-    it('reports an offset that leaves nothing to keep as invalid-split', () => {
+    it('reports an offset that leaves nothing to keep as invalid-result', () => {
       const { context, features, push, emit } = createContext([makeSquare('sq')]);
       // 3000 km is far beyond the 10-degree square: the offset line misses it.
       expect(setback(context, 'sq', { index: 0 }, 3_000_000)).toEqual({
         ok: false,
-        reason: 'invalid-split',
+        reason: 'invalid-result',
       });
       expect(features.size).toBe(1);
       expect(push).not.toHaveBeenCalled();
       expect(emit).toHaveBeenCalledWith('setbackfailed', {
-        reason: 'invalid-split',
+        reason: 'invalid-result',
         featureId: 'sq',
       });
     });

@@ -53,6 +53,22 @@ draw.on('delete', (e) => {
 
 The value is decided by the call path, not by the kind of change: the same `delete` is `'api'` from `deleteFeature()` and `'user'` from the Delete key. A public method invoked from inside a `'user'` listener stamps only its own events; the surrounding user-originated events keep `'user'`.
 
+## Failure reasons
+
+The `reason` of the `*failed` events (`splitfailed`, `setbackfailed`, `unionfailed`, `cutfailed`, `reshapefailed`) is one of the values listed under each event, but its type also accepts any other string: later versions may add or remove values. Your editor still suggests the known values; give a `switch` on `reason` a `default` branch for values you do not know.
+
+```ts
+draw.on('cutfailed', (e) => {
+  switch (e.reason) {
+    case 'no-overlap':
+      showHint('Draw the cutter across the polygon');
+      break;
+    default:
+      showHint(`Cut failed: ${e.reason}`);
+  }
+});
+```
+
 ---
 
 ## `create`
@@ -198,7 +214,8 @@ type SplitFailReason =
   | 'has-holes'
   | 'invalid-intersection-count'
   | 'self-intersecting-result'
-  | 'invalid-result';
+  | 'invalid-result'
+  | (string & {});
 
 interface SplitFailedEvent {
   origin: EventOrigin;
@@ -265,7 +282,7 @@ Emitted when a setback fails for a geometric reason, in `setback` mode or throug
 ### Payload: `SetbackFailedEvent`
 
 ```ts
-type SetbackFailReason = 'has-holes' | 'invalid-split';
+type SetbackFailReason = 'has-holes' | 'invalid-result' | (string & {});
 
 interface SetbackFailedEvent {
   origin: EventOrigin;
@@ -279,6 +296,11 @@ interface SetbackFailedEvent {
 | `origin`    | [`EventOrigin`](#event-origin) | Who caused the change: `'api'` or `'user'` |
 | `reason`    | `SetbackFailReason`            | Reason of setback failure                  |
 | `featureId` | `string`                       | Target feature ID                          |
+
+| Reason             | Meaning                                                                                                                                                       |
+| ------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `'has-holes'`      | The polygon has a hole, or the edge is not on the outer ring                                                                                                  |
+| `'invalid-result'` | The offset line cannot be built, it does not divide the polygon in two (the distance reaches past the opposite side), or the remaining part failed validation |
 
 ### Example
 
@@ -332,7 +354,7 @@ Emitted when a union fails for a geometric reason, in `union` mode or through [`
 ### Payload: `UnionFailedEvent`
 
 ```ts
-type UnionFailReason = 'not-polygon' | 'has-holes' | 'disjoint' | 'invalid-result';
+type UnionFailReason = 'not-polygon' | 'has-holes' | 'disjoint' | 'invalid-result' | (string & {});
 
 interface UnionFailedEvent {
   origin: EventOrigin;
@@ -405,7 +427,7 @@ Emitted when a cut fails for a geometric reason, in `cut` mode or through [`cut(
 ### Payload: `CutFailedEvent`
 
 ```ts
-type CutFailReason = 'no-overlap' | 'empty-result' | 'invalid-result';
+type CutFailReason = 'no-overlap' | 'empty-result' | 'invalid-result' | (string & {});
 
 interface CutFailedEvent {
   origin: EventOrigin;
@@ -480,7 +502,8 @@ type ReshapeFailReason =
   | 'self-intersecting-result'
   | 'ring-intersection'
   | 'hole-outside'
-  | 'invalid-result';
+  | 'invalid-result'
+  | (string & {});
 
 interface ReshapeFailedEvent {
   origin: EventOrigin;

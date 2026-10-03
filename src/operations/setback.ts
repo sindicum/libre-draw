@@ -28,11 +28,11 @@ const EXTENDED_OFFSET_LINE_RATIO = 1.0;
  * `has-holes`.
  *
  * The result is validated like `addFeatures` input before anything is
- * written; an unusable result is `invalid-split`.
+ * written; an unusable result is `invalid-result`.
  *
  * @returns `created: [result], deleted: [original]` on success; otherwise
  *   `not-found`, `not-polygon`, `invalid-edge`, `invalid-distance`,
- *   `has-holes`, or `invalid-split`.
+ *   `has-holes`, or `invalid-result`.
  */
 export function setback(
   context: OperationContext,
@@ -63,8 +63,8 @@ export function setback(
 
   const remaining = computeSetbackResult(current, vertices, edgeIndex, distanceMeters);
   if (!remaining) {
-    context.events.emit('setbackfailed', { reason: 'invalid-split', featureId: current.id });
-    return { ok: false, reason: 'invalid-split' };
+    context.events.emit('setbackfailed', { reason: 'invalid-result', featureId: current.id });
+    return { ok: false, reason: 'invalid-result' };
   }
 
   context.store.remove(current.id);
