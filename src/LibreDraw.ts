@@ -940,7 +940,7 @@ export class LibreDraw {
    * @returns `{ ok: true, created: [result], deleted: [original] }`, or
    *   `{ ok: false, reason }` with `'not-found'`, `'not-polygon'`,
    *   `'invalid-edge'`, `'invalid-distance'`, `'has-holes'`, or
-   *   `'invalid-split'`. Nothing changes on failure.
+   *   `'invalid-result'`. Nothing changes on failure.
    *
    * @throws {LibreDrawError} If this instance has been destroyed.
    *

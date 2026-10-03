@@ -354,7 +354,7 @@ describe('SetbackMode', () => {
     expect(harness.mocks.remove).not.toHaveBeenCalled();
   });
 
-  it('should emit setbackfailed(invalid-split) when offset split fails', () => {
+  it('should emit setbackfailed(invalid-result) when offset split fails', () => {
     harness.setDistance(3000000);
 
     mode.activate();
@@ -363,7 +363,7 @@ describe('SetbackMode', () => {
     mode.executeFromUi(3000000);
 
     expect(harness.mocks.emit).toHaveBeenCalledWith('setbackfailed', {
-      reason: 'invalid-split',
+      reason: 'invalid-result',
       featureId: 'f1',
     });
   });

@@ -134,9 +134,9 @@ export interface EdgeRef {
 export type SplitOperationFailReason = 'not-found' | 'not-splittable' | SplitFailReason;
 
 /**
- * Failure codes of {@link LibreDraw.setback}. `has-holes` and
- * `invalid-split` are the `setbackfailed` event's codes and emit that event;
- * the argument errors below emit nothing.
+ * Failure codes of {@link LibreDraw.setback}. Geometric failures reuse the
+ * `SetbackFailReason` codes of the `setbackfailed` event and emit that
+ * event; the argument errors below emit nothing.
  *
  * - `not-found`: no feature has that id
  * - `not-polygon`: the feature is not a Polygon
