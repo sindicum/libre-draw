@@ -3,6 +3,7 @@ import { LibreDraw } from '../../src/LibreDraw';
 import type { ModeName } from '../../src/types/mode';
 import type { LibreDrawFeature } from '../../src/types/features';
 import { FakeMap } from './helpers/fakeMap';
+import { LONG_PRESS_MS } from '../../src/input/gestures';
 
 // FakeMap projects lng/lat straight to screen pixels, so coordinates below
 // are also the canvas positions used for clicks.
@@ -55,6 +56,20 @@ function releaseAt(x: number, y: number): void {
 function clickAt(map: FakeMap, x: number, y: number, modifiers: Modifiers = {}): void {
   pressAt(map, x, y, modifiers);
   releaseAt(x, y);
+}
+
+function touchAt(map: FakeMap, type: 'touchstart' | 'touchend', x: number, y: number): void {
+  const touch = { identifier: 0, clientX: x, clientY: y } as Touch;
+  const event = new Event(type, { bubbles: true, cancelable: true }) as TouchEvent;
+  Object.defineProperty(event, 'touches', { value: type === 'touchstart' ? [touch] : [] });
+  Object.defineProperty(event, 'changedTouches', { value: [touch] });
+  map.getCanvasContainer().dispatchEvent(event);
+}
+
+function longPressAt(map: FakeMap, x: number, y: number): void {
+  touchAt(map, 'touchstart', x, y);
+  vi.advanceTimersByTime(LONG_PRESS_MS);
+  touchAt(map, 'touchend', x, y);
 }
 
 function pressOnMap(map: FakeMap, key: string): void {
@@ -119,6 +134,35 @@ describe('multi-selection', () => {
       clickAt(map, 120, 20);
 
       expect(draw.getSelectedFeatureIds()).toEqual(['p']);
+    });
+  });
+
+  describe('touch long press in select mode', () => {
+    beforeEach(() => {
+      vi.useFakeTimers();
+    });
+
+    afterEach(() => {
+      vi.useRealTimers();
+    });
+
+    it('adds and removes features as user changes, and the release is not a tap', () => {
+      const events: Array<{ selectedIds: string[]; origin: string }> = [];
+      draw.on('selectionchange', (e) =>
+        events.push({ selectedIds: e.selectedIds, origin: e.origin })
+      );
+      draw.setMode('select');
+
+      longPressAt(map, 20, 20);
+      longPressAt(map, 60, 20);
+      longPressAt(map, 20, 20);
+
+      expect(draw.getSelectedFeatureIds()).toEqual(['b']);
+      expect(events).toEqual([
+        { selectedIds: ['a'], origin: 'user' },
+        { selectedIds: ['a', 'b'], origin: 'user' },
+        { selectedIds: ['b'], origin: 'user' },
+      ]);
     });
   });
 

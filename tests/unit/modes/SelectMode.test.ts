@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { SelectMode } from '../../../src/modes/SelectMode';
 import type { ModeContext } from '../../../src/core/ModeContext';
 import type { NormalizedInputEvent } from '../../../src/types/input';
@@ -6,6 +6,7 @@ import type { LibreDrawFeature } from '../../../src/types/features';
 import { BatchAction, DeleteAction, UpdateAction } from '../../../src/types/features';
 import type { Mode } from '../../../src/modes/Mode';
 import { attachSelection } from '../../helpers/selection';
+import { LONG_PRESS_MS } from '../../../src/input/gestures';
 
 function makeFeature(id: string): LibreDrawFeature {
   return {
@@ -482,7 +483,9 @@ describe('SelectMode', () => {
       selectMode.onPointerDown(createPointerEvent(at[0], at[1]));
       expect(selectMode.getSelectedIds()).toEqual([]);
 
+      // A tap selects on release.
       selectMode.onPointerDown(createTouchEvent(at[0], at[1]));
+      selectMode.onPointerUp(createTouchEvent(at[0], at[1]));
       expect(selectMode.getSelectedIds()).toEqual(['body']);
     });
   });
@@ -866,6 +869,203 @@ describe('SelectMode', () => {
   });
 
   // --- Multi-selection ---
+
+  describe('touch long press', () => {
+    // TouchInput's order for a held finger: down, then (after LONG_PRESS_MS)
+    // up immediately followed by the long press, and no up on release.
+    function longPress(lng: number, lat: number): void {
+      selectMode.onPointerDown(createTouchEvent(lng, lat));
+      vi.advanceTimersByTime(LONG_PRESS_MS);
+      selectMode.onPointerUp(createTouchEvent(lng, lat));
+      selectMode.onLongPress(createTouchEvent(lng, lat));
+    }
+
+    function tap(lng: number, lat: number): void {
+      selectMode.onPointerDown(createTouchEvent(lng, lat));
+      selectMode.onPointerUp(createTouchEvent(lng, lat));
+    }
+
+    function square(id: string, x: number): LibreDrawFeature {
+      return {
+        id,
+        type: 'Feature',
+        geometry: {
+          type: 'Polygon',
+          coordinates: [
+            [
+              [x, 0],
+              [x + 10, 0],
+              [x + 10, 10],
+              [x, 10],
+              [x, 0],
+            ],
+          ],
+        },
+        properties: {},
+      };
+    }
+
+    beforeEach(() => {
+      vi.useFakeTimers();
+      featureMap.set('f2', square('f2', 20));
+      selectMode.activate();
+    });
+
+    afterEach(() => {
+      vi.useRealTimers();
+    });
+
+    it('adds an unselected feature to the selection', () => {
+      tap(5, 5);
+      longPress(25, 5);
+
+      expect(selectMode.getSelectedIds()).toEqual(['f1', 'f2']);
+      expect(callbacks.emitEvent).toHaveBeenLastCalledWith('selectionchange', {
+        selectedIds: ['f1', 'f2'],
+      });
+    });
+
+    it('removes a selected feature without moving the selection', () => {
+      selectMode.selectFeatures(['f1', 'f2']);
+      const before = structuredClone(featureMap.get('f2'));
+
+      // Pressing a member of a multi-selection starts a whole-selection drag.
+      selectMode.onPointerDown(createTouchEvent(25, 5));
+      selectMode.onPointerMove(createTouchEvent(25.5, 5)); // a 5px wobble
+      vi.advanceTimersByTime(LONG_PRESS_MS);
+      selectMode.onPointerUp(createTouchEvent(25.5, 5));
+      selectMode.onLongPress(createTouchEvent(25, 5));
+
+      expect(selectMode.getSelectedIds()).toEqual(['f1']);
+      expect(featureMap.get('f2')).toEqual(before);
+      expect(callbacks.pushToHistory).not.toHaveBeenCalled();
+    });
+
+    it('removes the single selected feature when pressed on its body', () => {
+      tap(5, 5);
+      const before = structuredClone(featureMap.get('f1'));
+
+      longPress(5, 5);
+
+      expect(selectMode.getSelectedIds()).toEqual([]);
+      expect(featureMap.get('f1')).toEqual(before);
+      expect(callbacks.pushToHistory).not.toHaveBeenCalled();
+    });
+
+    it('deletes a vertex of the single selected feature instead of toggling it', () => {
+      tap(5, 5);
+
+      longPress(0, 0);
+
+      expect(selectMode.getSelectedIds()).toEqual(['f1']);
+      const ring = (featureMap.get('f1')!.geometry as { coordinates: number[][][] }).coordinates[0];
+      expect(ring).toHaveLength(4);
+      expect(ring).not.toContainEqual([0, 0]);
+    });
+
+    it('reads a hold measured just short of the long press time as a long press', () => {
+      selectMode.selectFeatures(['f1', 'f2']);
+
+      // TouchInput's timer starts before the mode records the press, so the
+      // hold the mode measures can come out a millisecond or two short.
+      selectMode.onPointerDown(createTouchEvent(50, 50));
+      vi.advanceTimersByTime(LONG_PRESS_MS - 2);
+      selectMode.onPointerUp(createTouchEvent(50, 50));
+      selectMode.onLongPress(createTouchEvent(50, 50));
+
+      expect(selectMode.getSelectedIds()).toEqual(['f1', 'f2']);
+    });
+
+    // Just short of the long press time, the release cannot yet tell whether
+    // TouchInput's long press follows in the same task; when none does, it is
+    // an ordinary tap or drag once the microtask runs.
+    it('still selects on a slow tap released just before the long press time', async () => {
+      selectMode.onPointerDown(createTouchEvent(25, 5));
+      vi.advanceTimersByTime(LONG_PRESS_MS - 20);
+      selectMode.onPointerUp(createTouchEvent(25, 5));
+      await Promise.resolve();
+
+      expect(selectMode.getSelectedIds()).toEqual(['f2']);
+    });
+
+    it('still commits a slow short drag released just before the long press time', async () => {
+      tap(5, 5);
+
+      selectMode.onPointerDown(createTouchEvent(5, 5));
+      selectMode.onPointerMove(createTouchEvent(6, 5)); // 10px
+      vi.advanceTimersByTime(LONG_PRESS_MS - 20);
+      selectMode.onPointerUp(createTouchEvent(6, 5));
+      await Promise.resolve();
+
+      expect(callbacks.pushToHistory).toHaveBeenCalledTimes(1);
+      expect(selectMode.getSelectedIds()).toEqual(['f1']);
+    });
+
+    it('drops a release still waiting to be read when the mode is left', async () => {
+      selectMode.onPointerDown(createTouchEvent(25, 5));
+      vi.advanceTimersByTime(LONG_PRESS_MS - 20);
+      selectMode.onPointerUp(createTouchEvent(25, 5));
+      selectMode.deactivate();
+      callbacks.emitEvent.mockClear();
+      await Promise.resolve();
+
+      expect(selectMode.getSelectedIds()).toEqual([]);
+      expect(callbacks.emitEvent).not.toHaveBeenCalled();
+    });
+
+    it('keeps the selection when a vertex under a long press cannot be deleted', () => {
+      featureMap.set('f1', makeTriangle('f1'));
+      tap(5, 2);
+
+      // A triangle is at its minimum of three vertices.
+      longPress(0, 0);
+
+      expect(selectMode.getSelectedIds()).toEqual(['f1']);
+      expect(featureMap.get('f1')).toEqual(makeTriangle('f1'));
+    });
+
+    it('lets selectFeatures() during a press win over the tap on release', () => {
+      selectMode.onPointerDown(createTouchEvent(25, 5));
+      selectMode.selectFeatures(['f1']);
+      selectMode.onPointerUp(createTouchEvent(25, 5));
+
+      expect(selectMode.getSelectedIds()).toEqual(['f1']);
+    });
+
+    it('does nothing on empty space', () => {
+      tap(5, 5);
+      callbacks.emitEvent.mockClear();
+
+      longPress(50, 50);
+
+      expect(selectMode.getSelectedIds()).toEqual(['f1']);
+      expect(callbacks.emitEvent).not.toHaveBeenCalled();
+    });
+
+    it('selects on the release of a tap, not on the press', () => {
+      selectMode.onPointerDown(createTouchEvent(25, 5));
+      expect(selectMode.getSelectedIds()).toEqual([]);
+
+      selectMode.onPointerUp(createTouchEvent(25, 5));
+      expect(selectMode.getSelectedIds()).toEqual(['f2']);
+    });
+
+    it('leaves the selection alone when the finger pans the map', () => {
+      tap(5, 5);
+
+      // From the other feature and from empty space: both are pans.
+      for (const [x, y] of [
+        [25, 5],
+        [50, 50],
+      ]) {
+        selectMode.onPointerDown(createTouchEvent(x, y));
+        selectMode.onPointerMove(createTouchEvent(x + 3, y));
+        selectMode.onPointerUp(createTouchEvent(x + 3, y));
+      }
+
+      expect(selectMode.getSelectedIds()).toEqual(['f1']);
+    });
+  });
 
   describe('multi-selection', () => {
     function makeSquareAt(id: string, x: number): LibreDrawFeature {

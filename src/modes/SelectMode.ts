@@ -4,13 +4,51 @@ import type { LibreDrawFeature } from '../types/features';
 import type { Action } from '../types/features';
 import { BatchAction, DeleteAction, UpdateAction } from '../types/features';
 import type { ModeContext } from '../core/ModeContext';
-import { bodyHitThreshold } from '../input/gestures';
+import {
+  LONG_PRESS_MS,
+  LONG_PRESS_TOLERANCE,
+  bodyHitThreshold,
+  clickTolerance,
+  pointerTravel,
+} from '../input/gestures';
 import { cloneFeature } from '../utils/featureSnapshot';
 import { moveLine, movePolygon } from '../utils/geometry';
 import { VertexEditor } from './VertexEditor';
 import { PolygonDragger } from './PolygonDragger';
 import booleanPointInPolygon from '@turf/boolean-point-in-polygon';
 import { point as turfPoint } from '@turf/helpers';
+
+/** A touch press in select mode; see {@link SelectMode} `touchPress`. */
+interface TouchPress {
+  down: NormalizedInputEvent;
+  time: number;
+  maxTravel: number;
+  /** The press started on a vertex or midpoint handle. */
+  onHandle: boolean;
+  /** No drag started, so a release within the tap tolerance selects. */
+  pendingTap: boolean;
+}
+
+/**
+ * Allowance, in milliseconds, under {@link LONG_PRESS_MS} for a touch release
+ * that may be the one TouchInput sends just before a long press. Its timer
+ * starts before this mode records the press, and `Date.now()` rounds to whole
+ * milliseconds (or coarser), so the measured hold can come out just short.
+ */
+const LONG_PRESS_SLACK_MS = 50;
+
+/**
+ * Whether a touch release may be the one TouchInput sends just before a long
+ * press: the finger was held about the long press time and never moved far
+ * enough to cancel it. A real release in the same window is not followed by
+ * a long press, so {@link SelectMode.onPointerUp} waits to see which it is.
+ */
+function mayBeLongPressEnd(press: TouchPress): boolean {
+  return (
+    Date.now() - press.time >= LONG_PRESS_MS - LONG_PRESS_SLACK_MS &&
+    press.maxTravel <= LONG_PRESS_TOLERANCE
+  );
+}
 
 /**
  * Whether the pointer event carries a modifier that adds to / toggles the
@@ -55,6 +93,13 @@ export class SelectMode implements Mode {
     startFeatures: LibreDrawFeature[];
     startLngLat: { lng: number; lat: number };
   } | null = null;
+  /**
+   * The current touch press, from pointer down until it ends as a tap, a
+   * drag or a long press. A touch has no modifier key, so a long press on a
+   * feature toggles it, and the selection waits for the release to tell a
+   * tap from a long press.
+   */
+  private touchPress: TouchPress | null = null;
 
   constructor(context: ModeContext, onSelectionChange?: (selectedIds: string[]) => void) {
     this.context = context;
@@ -120,6 +165,8 @@ export class SelectMode implements Mode {
     if (!this.isActive) return false;
     if (ids.length === 0 || ids.some((id) => !this.context.store.getById(id))) return false;
 
+    // A tap still waiting for its release must not overwrite this selection.
+    this.touchPress = null;
     this.abortInteraction();
     if (!this.context.selection.set(ids)) {
       // Same selection: the handles were already right, but the abort above
@@ -190,6 +237,11 @@ export class SelectMode implements Mode {
   onPointerDown(event: NormalizedInputEvent): void {
     if (!this.isActive) return;
 
+    this.touchPress =
+      event.inputType === 'touch'
+        ? { down: event, time: Date.now(), maxTravel: 0, onHandle: false, pendingTap: false }
+        : null;
+
     if (isAdditive(event)) {
       this.toggleAt(event);
       return;
@@ -212,6 +264,7 @@ export class SelectMode implements Mode {
           }
         } else if (feature.geometry.type === 'LineString') {
           if (this.vertexEditor.tryStartVertexDragOrInsert(feature, selectedId, event)) {
+            this.markPressOnHandle();
             return;
           }
           // Drag entire line if clicked near it
@@ -221,6 +274,7 @@ export class SelectMode implements Mode {
           }
         } else {
           if (this.vertexEditor.tryStartVertexDragOrInsert(feature, selectedId, event)) {
+            this.markPressOnHandle();
             return;
           }
 
@@ -244,19 +298,20 @@ export class SelectMode implements Mode {
       return;
     }
 
-    if (hitFeature) {
-      if (selection.has(hitFeature.id)) {
-        selection.remove(hitFeature.id);
-      } else {
-        selection.set([hitFeature.id]);
-      }
-    } else {
-      selection.clear();
+    if (this.touchPress) {
+      this.touchPress.pendingTap = true;
+      return;
     }
+    this.applyClickSelection(hitFeature);
   }
 
   onPointerMove(event: NormalizedInputEvent): void {
     if (!this.isActive) return;
+
+    if (this.touchPress) {
+      const travel = pointerTravel(this.touchPress.down.point, event.point);
+      this.touchPress.maxTravel = Math.max(this.touchPress.maxTravel, travel);
+    }
 
     // Handle point dragging
     if (this.pointDragState) {
@@ -302,6 +357,33 @@ export class SelectMode implements Mode {
 
   onPointerUp(_event: NormalizedInputEvent): void {
     if (!this.isActive) return;
+
+    const press = this.touchPress;
+    if (press && mayBeLongPressEnd(press)) {
+      // TouchInput ends the pointer right before it reports a long press, in
+      // the same task. Decide once it is known: onLongPress takes the press,
+      // and a real release in this window still ends as a tap or a drag.
+      // TouchInput's double-tap check, which also runs before the microtask,
+      // never fires here: this press alone lasted longer than a double tap.
+      queueMicrotask(() => {
+        if (!this.isActive || this.touchPress !== press) return;
+        this.touchPress = null;
+        this.finishRelease(press);
+      });
+      return;
+    }
+    this.touchPress = null;
+    this.finishRelease(press);
+  }
+
+  /** End a press that did not become a long press: a tap or a drag. */
+  private finishRelease(press: TouchPress | null): void {
+    if (press?.pendingTap) {
+      if (press.maxTravel <= clickTolerance('touch')) {
+        this.applyClickSelection(this.findHitFeature(this.context.store.getAll(), press.down));
+      }
+      return;
+    }
 
     // Handle point drag end
     if (this.pointDragState) {
@@ -359,13 +441,28 @@ export class SelectMode implements Mode {
   onLongPress(event: NormalizedInputEvent): void {
     if (!this.isActive) return;
 
+    const press = this.touchPress;
+    this.touchPress = null;
+    if (press?.onHandle) {
+      // As before: the drag a handle press started ends, then the vertex goes.
+      this.finishRelease(press);
+    } else if (press) {
+      // The press becomes a toggle: put back what a wobbling finger dragged.
+      this.abortInteraction();
+    }
+
+    // A vertex of the single selected feature wins over its body.
     const selectedId = this.context.selection.getSingleId();
-    if (!selectedId) return;
+    const selected = selectedId ? this.context.store.getById(selectedId) : undefined;
+    if (selectedId && selected) {
+      if (this.vertexEditor.deleteVertexAtPointer(selectedId, selected, event)) return;
+    }
+    // A press that started on a handle never toggles, even when the vertex
+    // could not be removed.
+    if (press?.onHandle || event.inputType !== 'touch') return;
 
-    const feature = this.context.store.getById(selectedId);
-    if (!feature) return;
-
-    this.vertexEditor.deleteVertexAtPointer(selectedId, feature, event);
+    const hitFeature = this.findHitFeature(this.context.store.getAll(), event);
+    if (hitFeature) this.context.selection.toggle(hitFeature.id);
   }
 
   onKeyDown(key: string, _event: KeyboardEvent): void {
@@ -386,6 +483,7 @@ export class SelectMode implements Mode {
 
     // The store is now the truth: drop any drag without writing its start
     // shape back, or the external change would be overwritten.
+    this.touchPress = null;
     this.resetInteractionState();
 
     const store = this.context.store;
@@ -429,6 +527,27 @@ export class SelectMode implements Mode {
     }
 
     selection.clear();
+  }
+
+  /**
+   * A plain click or tap: select only the hit feature, deselect it when it
+   * is the selected one, or clear the selection on empty space.
+   */
+  private applyClickSelection(hitFeature: LibreDrawFeature | undefined): void {
+    const selection = this.context.selection;
+    if (hitFeature) {
+      if (selection.has(hitFeature.id)) {
+        selection.remove(hitFeature.id);
+      } else {
+        selection.set([hitFeature.id]);
+      }
+    } else {
+      selection.clear();
+    }
+  }
+
+  private markPressOnHandle(): void {
+    if (this.touchPress) this.touchPress.onHandle = true;
   }
 
   /** Shift / Ctrl / Cmd + click: add the hit feature to the selection, or take it out. */
@@ -564,6 +683,7 @@ export class SelectMode implements Mode {
   }
 
   private forceClearSelectionState(): void {
+    this.touchPress = null;
     this.abortInteraction();
     this.context.selection.clear();
   }

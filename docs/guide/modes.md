@@ -265,12 +265,13 @@ In select mode, you can select existing features (points, lines, and polygons) a
 | Click near line                         | Select it (within 20px, 24px on touch; shows handles)     |
 | Click near point                        | Select it (within 20px, 24px on touch)                    |
 | Shift / Ctrl / Cmd + click on a feature | Add it to the selection, or remove it if already selected |
+| Long press on a feature (touch)         | Add it to the selection, or remove it if already selected |
 | Click outside                           | Deselect                                                  |
 | Delete key                              | Delete every selected feature                             |
 
 ### Multiple Selection
 
-Shift, Ctrl, or Cmd + click builds a selection of several features; points, lines, and polygons can be mixed. `selectFeatures(ids)` does the same from code. While more than one feature is selected:
+Shift, Ctrl, or Cmd + click (a long press on touch) builds a selection of several features; points, lines, and polygons can be mixed. `selectFeatures(ids)` does the same from code. While more than one feature is selected:
 
 | Action                      | Effect                                                                 |
 | --------------------------- | ---------------------------------------------------------------------- |
@@ -278,7 +279,7 @@ Shift, Ctrl, or Cmd + click builds a selection of several features; points, line
 | Delete key / toolbar delete | Delete all of them (one undo step, one `delete` each)                  |
 | Click an unselected feature | Select only that feature                                               |
 
-Vertex and midpoint handles are shown only while exactly one feature is selected. On touch devices there is no modifier key, so a tap always selects a single feature; use `selectFeatures(ids)` to select several.
+Vertex and midpoint handles are shown only while exactly one feature is selected. On touch devices there is no modifier key: a tap selects a single feature (on release, so a one-finger drag still pans the map without changing the selection), and a long press on a feature adds it to the selection or removes it. A long press on a vertex of the single selected feature still deletes that vertex, and a long press on empty space does nothing.
 
 ### Point Editing
 
