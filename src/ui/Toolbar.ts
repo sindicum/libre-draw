@@ -266,10 +266,12 @@ export class Toolbar {
   }
 
   /**
-   * Current setback distance in meters.
+   * Show a setback distance set elsewhere (the public API) in the input
+   * field. No-op when the setback control is hidden.
+   * @param meters - Distance in meters.
    */
-  getSetbackDistance(): number {
-    return this.setbackInput?.getDistance() ?? 10;
+  setSetbackDistance(meters: number): void {
+    this.setbackInput?.setDistance(meters);
   }
 
   /**

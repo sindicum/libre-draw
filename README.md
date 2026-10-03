@@ -107,6 +107,10 @@ new LibreDraw(map: maplibregl.Map, options?: LibreDrawOptions)
 | `getSelectedFeatureIds()`           | Get IDs of selected features                                                                                                                                                                                  |
 | `undo()`                            | Undo the last action                                                                                                                                                                                          |
 | `redo()`                            | Redo the last undone action                                                                                                                                                                                   |
+| `canUndo()` / `canRedo()`           | Whether there is something to undo / redo (also carried by the `historychange` event)                                                                                                                         |
+| `setSetbackDistance(meters)`        | Set the distance the setback mode previews and applies (the value behind the toolbar's field; works with `toolbar: false`)                                                                                    |
+| `getSetbackDistance()`              | Get that distance                                                                                                                                                                                             |
+| `getSetbackEdge()`                  | Get the edge picked in the setback mode (`undefined` until one is picked), to pass to `setback()`                                                                                                             |
 | `setStyle(style)`                   | Change the map style of the features (merged onto the current style)                                                                                                                                          |
 | `getStyle()`                        | Get the current style                                                                                                                                                                                         |
 | `on(event, callback)`               | Register an event listener                                                                                                                                                                                    |
@@ -134,6 +138,7 @@ new LibreDraw(map: maplibregl.Map, options?: LibreDrawOptions)
 | `selectionchange` | `{ selectedIds }`                                     | Selection changed                                                          |
 | `modechange`      | `{ mode, previousMode }`                              | Active mode changed                                                        |
 | `draftchange`     | `{ vertexCount }`                                     | The in-progress draft gained or lost a point, or was finished or discarded |
+| `historychange`   | `{ canUndo, canRedo }`                                | The undo / redo stacks changed                                             |
 
 Every payload also carries `origin: 'api' | 'user'`, so a listener can tell changes made through the API (its own `addFeatures()` / `deleteFeature()` / `undo()` …) from the user's pointer, toolbar, and keyboard input.
 

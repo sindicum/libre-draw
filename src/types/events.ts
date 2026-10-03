@@ -271,6 +271,23 @@ export interface DraftChangeEvent {
 }
 
 /**
+ * Event payload for history changes.
+ *
+ * Fires whenever the undo / redo stacks change: an action is recorded
+ * (a drawing is finished, an edit is committed, `addFeatures()` /
+ * `deleteFeature()` and the editing methods), `undo()` / `redo()` move
+ * an action across the stacks, or `setFeatures()` resets the history.
+ * Carries what `canUndo()` / `canRedo()` return after the change, so a
+ * custom UI can set its undo / redo buttons from the payload alone.
+ */
+export interface HistoryChangeEvent {
+  /** Where the change came from. See {@link EventOrigin}. */
+  origin: EventOrigin;
+  canUndo: boolean;
+  canRedo: boolean;
+}
+
+/**
  * Map of all LibreDraw event types to their payloads.
  */
 export interface LibreDrawEventMap {
@@ -291,4 +308,5 @@ export interface LibreDrawEventMap {
   selectionchange: SelectionChangeEvent;
   modechange: ModeChangeEvent;
   draftchange: DraftChangeEvent;
+  historychange: HistoryChangeEvent;
 }

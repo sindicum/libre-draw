@@ -37,6 +37,7 @@ export type {
   SelectionChangeEvent,
   ModeChangeEvent,
   DraftChangeEvent,
+  HistoryChangeEvent,
   EventOrigin,
 } from './types';
 

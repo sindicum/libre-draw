@@ -4,6 +4,7 @@ import type { Mode } from './Mode';
 import type { ModeContext } from '../core/ModeContext';
 import type { LibreDrawFeature, PolygonGeometry, Position } from '../types/features';
 import type { NormalizedInputEvent } from '../types/input';
+import type { EdgeRef } from '../types/operations';
 import { setback } from '../operations/setback';
 import { getVertices } from '../utils/geometry';
 import { computeEdgeOffsetLine, findNearestEdge } from '../utils/setback';
@@ -109,6 +110,18 @@ export class SetbackMode implements Mode {
     if (key === 'Enter') {
       this.executeSetback();
     }
+  }
+
+  /**
+   * The edge picked on the map, while the mode previews it.
+   * @returns The edge of the selected polygon (outer ring), or `undefined`
+   *   before an edge is picked and after the setback runs or is cancelled.
+   */
+  getSelectedEdge(): EdgeRef | undefined {
+    if (!this.isActive || this.state !== 'previewing' || this.selectedEdgeIndex < 0) {
+      return undefined;
+    }
+    return { index: this.selectedEdgeIndex };
   }
 
   /**

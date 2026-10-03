@@ -97,6 +97,12 @@ const DRAWING_MODES: ReadonlySet<ModeName> = new Set<ModeName>([
 const TARGETED_DRAFT_MODES: ReadonlySet<ModeName> = new Set<ModeName>(['cut', 'reshape']);
 
 /**
+ * Initial setback distance in meters. The toolbar's input field starts at
+ * the same value so the two never disagree before the first change.
+ */
+const DEFAULT_SETBACK_DISTANCE_METERS = 10;
+
+/**
  * Runtime check for values that bypass the type (plain JS callers, casts).
  */
 function isInputMethod(value: unknown): value is InputMethod {
@@ -167,6 +173,12 @@ export class LibreDraw {
    * a call so modes and the toolbar never have to know who triggered them.
    */
   private eventOrigin: EventOrigin = 'user';
+  /**
+   * Distance the setback mode previews and applies. Owned here rather than
+   * by the toolbar's input field so it exists without the toolbar and can
+   * be read and set through the public API; the field only displays it.
+   */
+  private setbackDistance = DEFAULT_SETBACK_DISTANCE_METERS;
 
   private handleStyleData = (): void => {
     if (this.destroyed || !this.map.isStyleLoaded()) return;
@@ -194,7 +206,7 @@ export class LibreDraw {
    * @param options - Configuration options. Defaults to toolbar enabled,
    *   100-action history limit, snap enabled with 10px threshold
    *   (`snap.threshold` below 1 is clamped to 1), keyboard shortcuts
-   *   enabled, English UI strings, and tap input.
+   *   enabled, English UI strings, tap input, and a 10 m setback distance.
    *
    * @throws {LibreDrawError} If `options.locale` is not a bundled locale.
    * @throws {LibreDrawError} If `options.inputMethod` is not `'tap'` or `'reticle'`.
@@ -305,7 +317,7 @@ export class LibreDraw {
       history: {
         push: (action) => {
           this.historyManager.push(action);
-          this.updateToolbarHistoryState();
+          this.notifyHistoryChange();
         },
       },
       selection: this.selection,
@@ -347,7 +359,7 @@ export class LibreDraw {
           map.dragPan.disable();
         }
       },
-      getSetbackDistance: () => this.toolbar?.getSetbackDistance() ?? 10,
+      getSetbackDistance: () => this.setbackDistance,
       getSnapConfig: () => this.snapConfig,
       getViewportBounds: () => {
         const bounds = map.getBounds();
@@ -615,7 +627,7 @@ export class LibreDraw {
       this.featureStore.setAll(validated.features);
       this.historyManager.clear();
       this.renderAllFeatures();
-      this.updateToolbarHistoryState();
+      this.notifyHistoryChange();
       return this.featureStore.getAll();
     });
     return { ok: true, created, updated: [], deleted: previous };
@@ -703,7 +715,7 @@ export class LibreDraw {
         this.eventBus.emit('create', { feature: cloneFeature(feature) });
       }
       this.renderAllFeatures();
-      this.updateToolbarHistoryState();
+      this.notifyHistoryChange();
     });
     return results;
   }
@@ -1333,6 +1345,81 @@ export class LibreDraw {
   }
 
   /**
+   * Set the distance the setback mode previews and applies.
+   *
+   * This is the value behind the toolbar's distance field, so it also
+   * works with `toolbar: false`; with the toolbar, the field shows the new
+   * value. A preview in progress is redrawn with it. The `setback(id, edge,
+   * distanceMeters)` method takes its own distance and is not affected.
+   *
+   * @param meters - Distance in meters, greater than zero.
+   * @returns `true` if the distance was set, `false` if `meters` is not a
+   *   finite positive number (nothing changes).
+   *
+   * @throws {LibreDrawError} If this instance has been destroyed.
+   *
+   * @example
+   * ```ts
+   * const draw = new LibreDraw(map, { toolbar: false });
+   * draw.setSetbackDistance(25);
+   * draw.setMode('setback'); // the preview and Enter use 25 m
+   * ```
+   */
+  setSetbackDistance(meters: number): boolean {
+    this.assertNotDestroyed();
+    if (!Number.isFinite(meters) || meters <= 0) return false;
+    this.setbackDistance = meters;
+    this.toolbar?.setSetbackDistance(meters);
+    this.setbackMode.onDistanceChange(meters);
+    return true;
+  }
+
+  /**
+   * Get the distance the setback mode previews and applies.
+   *
+   * @returns Distance in meters (10 until changed by
+   *   {@link setSetbackDistance} or the toolbar's distance field).
+   *
+   * @throws {LibreDrawError} If this instance has been destroyed.
+   *
+   * @example
+   * ```ts
+   * distanceField.value = String(draw.getSetbackDistance());
+   * ```
+   */
+  getSetbackDistance(): number {
+    this.assertNotDestroyed();
+    return this.setbackDistance;
+  }
+
+  /**
+   * Get the edge the person picked in the setback mode.
+   *
+   * In `'setback'` mode the person clicks a polygon, then an edge, and the
+   * mode previews the offset. This returns that edge so a UI of your own
+   * can apply it with `setback(id, edge, distanceMeters)`, as the toolbar's
+   * execute button does.
+   *
+   * @returns The picked edge of the selected polygon, or `undefined` when
+   *   no edge is picked: outside setback mode, before the person picks one,
+   *   and after the setback runs or is cancelled.
+   *
+   * @throws {LibreDrawError} If this instance has been destroyed.
+   *
+   * @example
+   * ```ts
+   * const edge = draw.getSetbackEdge();
+   * const [id] = draw.getSelectedFeatureIds();
+   * if (edge && id) draw.setback(id, edge, draw.getSetbackDistance());
+   * ```
+   */
+  getSetbackEdge(): EdgeRef | undefined {
+    this.assertNotDestroyed();
+    if (this.modeManager.getMode() !== 'setback') return undefined;
+    return this.setbackMode.getSelectedEdge();
+  }
+
+  /**
    * Update the global render style at runtime.
    *
    * Merges the given partial overrides with the current style and
@@ -1414,12 +1501,53 @@ export class LibreDraw {
   }
 
   /**
+   * Whether {@link undo} would undo something.
+   *
+   * Reads the history without changing it. The same value arrives with
+   * every `historychange` event, which is the way to keep an undo button
+   * in sync; call this for a one-off check.
+   *
+   * @returns `true` if there is an action to undo.
+   *
+   * @throws {LibreDrawError} If this instance has been destroyed.
+   *
+   * @example
+   * ```ts
+   * undoButton.disabled = !draw.canUndo();
+   * ```
+   */
+  canUndo(): boolean {
+    this.assertNotDestroyed();
+    return this.historyManager.canUndo();
+  }
+
+  /**
+   * Whether {@link redo} would redo something.
+   *
+   * Reads the history without changing it. The same value arrives with
+   * every `historychange` event.
+   *
+   * @returns `true` if there is an undone action to redo.
+   *
+   * @throws {LibreDrawError} If this instance has been destroyed.
+   *
+   * @example
+   * ```ts
+   * redoButton.disabled = !draw.canRedo();
+   * ```
+   */
+  canRedo(): boolean {
+    this.assertNotDestroyed();
+    return this.historyManager.canRedo();
+  }
+
+  /**
    * Register an event listener.
    *
    * Supported events: `'create'`, `'update'`, `'delete'`, `'split'`,
    * `'splitfailed'`, `'setback'`, `'setbackfailed'`, `'union'`, `'unionfailed'`, `'cut'`,
    * `'cutfailed'`, `'reshape'`, `'reshapefailed'`, `'rotate'`, `'selectionchange'`,
-   * `'modechange'`, `'draftchange'`.
+   * `'modechange'`, `'draftchange'`, `'historychange'`.
    *
    * @param type - The event type to listen for.
    * @param listener - The callback to invoke when the event fires.
@@ -1438,6 +1566,7 @@ export class LibreDraw {
    * draw.on('selectionchange', (e) => console.log('Selected:', e.selectedIds));
    * draw.on('modechange', (e) => console.log(`${e.previousMode} -> ${e.mode}`));
    * draw.on('draftchange', (e) => console.log('Draft vertices:', e.vertexCount));
+   * draw.on('historychange', (e) => console.log('Can undo:', e.canUndo));
    * ```
    */
   on<K extends keyof LibreDrawEventMap>(
@@ -1548,7 +1677,7 @@ export class LibreDraw {
     this.historyManager.push(action);
     this.eventBus.emit('delete', { feature: cloneFeature(feature) });
     this.renderAllFeatures();
-    this.updateToolbarHistoryState();
+    this.notifyHistoryChange();
 
     return feature;
   }
@@ -1561,7 +1690,7 @@ export class LibreDraw {
     const action = this.historyManager.undo(this.featureStore);
     if (action) {
       this.syncAfterExternalChange();
-      this.updateToolbarHistoryState();
+      this.notifyHistoryChange();
       this.emitUndoEvent(action);
     }
     return action !== null;
@@ -1574,7 +1703,7 @@ export class LibreDraw {
     const action = this.historyManager.redo(this.featureStore);
     if (action) {
       this.syncAfterExternalChange();
-      this.updateToolbarHistoryState();
+      this.notifyHistoryChange();
       this.emitRedoEvent(action);
     }
     return action !== null;
@@ -1665,10 +1794,14 @@ export class LibreDraw {
           const current = this.modeManager.getMode();
           this.modeManager.setMode(current === 'setback' ? 'idle' : 'setback');
         },
+        // The input field is a view of the facade's distance: store the
+        // typed value first so getSetbackDistance() returns it.
         onSetbackExecute: (distance) => {
+          this.setbackDistance = distance;
           this.setbackMode.executeFromUi(distance);
         },
         onSetbackDistanceChange: (distance) => {
+          this.setbackDistance = distance;
           this.setbackMode.onDistanceChange(distance);
         },
         onCutClick: () => {
@@ -1807,12 +1940,15 @@ export class LibreDraw {
   }
 
   /**
-   * Update toolbar undo/redo button states.
+   * Report a change of the undo / redo stacks: set the toolbar's buttons
+   * and emit `historychange`. The one place both are updated, so a custom
+   * UI listening to the event sees exactly what the toolbar sees.
    */
-  private updateToolbarHistoryState(): void {
-    if (this.toolbar) {
-      this.toolbar.setHistoryState(this.historyManager.canUndo(), this.historyManager.canRedo());
-    }
+  private notifyHistoryChange(): void {
+    const canUndo = this.historyManager.canUndo();
+    const canRedo = this.historyManager.canRedo();
+    this.toolbar?.setHistoryState(canUndo, canRedo);
+    this.eventBus.emit('historychange', { canUndo, canRedo });
   }
 
   /**

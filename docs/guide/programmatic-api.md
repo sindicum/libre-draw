@@ -1,11 +1,12 @@
 # Programmatic API
 
-Everything the toolbar does is also a method on `LibreDraw`, so a program can take part in
-a map that a person is editing: an application script, a sync loop, or an AI agent driving
-the same page. The API is made for that setting, where a person sees the map and the
-changes on it. Batch work that nobody watches (reprojecting a dataset, splitting ten
-thousand parcels overnight) belongs on the server, writing to your database; use
-LibreDraw for the map people edit.
+What the toolbar does is also a method or an event on `LibreDraw` (with the few exceptions
+listed under [Building your own UI](#building-your-own-ui)), so a program can take part in
+a map that a person is editing: an application script, a sync loop, an AI agent driving
+the same page, or a UI of your own in place of the toolbar. The API is made for that
+setting, where a person sees the map and the changes on it. Batch work that nobody watches
+(reprojecting a dataset, splitting ten thousand parcels overnight) belongs on the server,
+writing to your database; use LibreDraw for the map people edit.
 
 LibreDraw always runs in a browser, next to a MapLibre map. Running it, or its geometry
 operations, without a map on the server is not supported.
@@ -39,6 +40,9 @@ the table leaves that out.
 | `getMode()`                         | [`ModeName`](/api/types#modename)                               | never             |                                                                                                                                                                                                                   |
 | `setInputMethod(method)`            | `void`                                                          | Unknown method    | `'tap'` or `'reticle'`. Keeps the draft. Nothing changes when it throws.                                                                                                                                          |
 | `getInputMethod()`                  | [`InputMethod`](/api/types#inputmethod)                         | never             |                                                                                                                                                                                                                   |
+| `setSetbackDistance(meters)`        | `boolean`                                                       | never             | `false` for a value that is not a finite positive number: nothing changes.                                                                                                                                        |
+| `getSetbackDistance()`              | `number`                                                        | never             |                                                                                                                                                                                                                   |
+| `getSetbackEdge()`                  | [`EdgeRef`](/api/types#edgeref) `\| undefined`                  | never             | `undefined` outside setback mode, before an edge is picked, and after the setback runs or is cancelled.                                                                                                           |
 | `getFeatures()`                     | [`LibreDrawFeature[]`](/api/types#libredrawfeature)             | never             |                                                                                                                                                                                                                   |
 | `toGeoJSON()`                       | [`FeatureCollection`](/api/types#featurecollection)             | never             |                                                                                                                                                                                                                   |
 | `setFeatures(geojson)`              | [`OperationResult`](/api/types#operationresult)                 | never             | All or nothing. `created` is the new set, `deleted` the previous one. Resets history and selection; emits no `create` / `delete`.                                                                                 |
@@ -63,6 +67,7 @@ the table leaves that out.
 | `undoLastVertex()`                  | `boolean`                                                       | never             | `false` outside a drawing mode with a draft (`cut` / `reshape` count once a target is picked), or when the draft is empty.                                                                                        |
 | `setStyle(style)` / `getStyle()`    | `void` / [`StyleConfig`](/api/types#styleconfig)                | never             |                                                                                                                                                                                                                   |
 | `undo()` / `redo()`                 | `boolean`                                                       | never             | `false` when there is nothing to undo / redo.                                                                                                                                                                     |
+| `canUndo()` / `canRedo()`           | `boolean`                                                       | never             | Reads the history without changing it.                                                                                                                                                                            |
 | `on()` / `off()`                    | `void`                                                          | never             |                                                                                                                                                                                                                   |
 | `destroy()`                         | `void`                                                          | never             | Idempotent.                                                                                                                                                                                                       |
 
@@ -82,6 +87,7 @@ change:
 | Your code called `undo()` / `redo()`, even to revert the person's edit                                      | `'api'`                                                                                             |
 | Your code called a public method from inside a `'user'` event listener                                      | The nested call's own events are `'api'`; the remaining events of the person's action stay `'user'` |
 | Your code called `finishDrawing()` on a draft the person was drawing                                        | `'api'`                                                                                             |
+| The person pressed a button of your own UI, which called a public method                                    | `'api'` (only the built-in toolbar, the pointer, and the keyboard are `'user'`)                     |
 
 The value says who triggered the change, not whose change is being undone. Use it to keep a
 sync loop from echoing its own writes:
@@ -92,6 +98,48 @@ draw.on('delete', (e) => {
   api.deleteParcel(e.feature.id); // the person's change
 });
 ```
+
+## Building your own UI
+
+With `toolbar: false` you can replace the built-in toolbar with your own buttons. Every
+button of the toolbar maps onto a public method, and every state it shows is readable
+through a method and announced by an event, so a custom UI never has to guess:
+
+| Toolbar control                         | Method                                                     | State to show                                            | Event that announces a change            |
+| --------------------------------------- | ---------------------------------------------------------- | -------------------------------------------------------- | ---------------------------------------- |
+| Mode buttons                            | `setMode(mode)` (`'idle'` to switch off)                   | `getMode()`                                              | `modechange`                             |
+| Input method toggle                     | `setInputMethod(method)`                                   | `getInputMethod()`                                       | none; only your UI changes it            |
+| Style settings                          | `setStyle(style)`                                          | `getStyle()`                                             | none; only your UI changes it            |
+| Delete                                  | `deleteFeature(id)` per selected id                        | `getSelectedFeatureIds().length > 0`                     | `selectionchange`                        |
+| Undo / Redo                             | `undo()` / `redo()`                                        | `canUndo()` / `canRedo()`                                | `historychange`                          |
+| Union execute (union mode, 2+ selected) | `union(getSelectedFeatureIds())`                           | `getMode()` and `getSelectedFeatureIds()`                | `modechange`, `selectionchange`          |
+| Setback distance field                  | `setSetbackDistance(meters)`                               | `getSetbackDistance()`                                   | none; only your UI changes it            |
+| Setback execute                         | `setback(id, getSetbackEdge(), getSetbackDistance())`      | `getSetbackEdge()` (`undefined` until an edge is picked) | none; read it when the button is pressed |
+| Rotate angle field and execute          | `rotate(id, angleDeg)`                                     | `getMode()` and `getSelectedFeatureIds()`                | `modechange`, `selectionchange`          |
+| Finish / undo point (reticle bar)       | `finishDrawing()` / `undoLastVertex()` / `cancelDrawing()` | `getDraftVertexCount()`                                  | `draftchange`                            |
+
+The repository has a working page built this way in
+[`examples/custom-ui`](https://github.com/sindicum/libre-draw/tree/main/examples/custom-ui):
+`state.ts` turns those readings into button states, `main.ts` re-reads them after each of
+the four events above. Run it with `npx vite examples/custom-ui`.
+
+Three things the toolbar does have no equivalent in the API:
+
+- **Rotation preview.** The toolbar's angle field redraws the selected feature at the
+  typed angle before Enter commits it. `rotate(id, angleDeg)` commits at once; offer
+  `undo()` instead of a preview.
+- **Union execute clears the selection.** `union(ids)` leaves the selection as it was
+  (minus the merged features); call `clearSelection()` after it if you want the same
+  behaviour.
+- **Delete as one undo step.** The toolbar's Delete button removes the whole selection as
+  one history entry. `deleteFeature(id)` records one entry per call, so deleting three
+  selected features takes three `undo()` calls to revert.
+
+Events caused by your UI's buttons carry `origin: 'api'`, like any other call of a public
+method. Only the built-in toolbar, pointer and touch input on the map, and the keyboard
+shortcuts are `'user'`. A sync loop that filters on `origin` therefore treats your UI as
+part of the program, which is usually what you want; if it must tell the person's clicks
+on your buttons from your own automated calls, keep that distinction in your UI code.
 
 ## Using it from an AI agent
 

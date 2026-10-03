@@ -20,10 +20,10 @@ You can create it before the map's style has loaded (right after `new maplibregl
 
 **Parameters:**
 
-| Name      | Type                                              | Required | Description                                                                                                                                                                           |
-| --------- | ------------------------------------------------- | -------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `map`     | `maplibregl.Map`                                  | Yes      | The MapLibre GL JS map instance to draw on                                                                                                                                            |
-| `options` | [`LibreDrawOptions`](/api/types#libredrawoptions) | No       | Configuration options. Defaults: toolbar enabled, 100-action history limit, built-in layer style, snapping enabled (10 px), keyboard shortcuts enabled, English UI strings, tap input |
+| Name      | Type                                              | Required | Description                                                                                                                                                                                                  |
+| --------- | ------------------------------------------------- | -------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `map`     | `maplibregl.Map`                                  | Yes      | The MapLibre GL JS map instance to draw on                                                                                                                                                                   |
+| `options` | [`LibreDrawOptions`](/api/types#libredrawoptions) | No       | Configuration options. Defaults: toolbar enabled, 100-action history limit, built-in layer style, snapping enabled (10 px), keyboard shortcuts enabled, English UI strings, tap input, 10 m setback distance |
 
 **Example:**
 
@@ -190,6 +190,66 @@ Get how the drawing modes take a point.
 **Returns:** [`InputMethod`](/api/types#inputmethod) — `'tap'` or `'reticle'`.
 
 **Throws:** [`LibreDrawError`](/api/types#libredrawerror) if this instance has been destroyed.
+
+---
+
+## Setback Mode State
+
+What the [`setback` mode](/guide/modes#setback-mode) previews when the person picks an edge on the map: the distance, which is the value behind the toolbar's distance field and so exists with `toolbar: false` too, and the picked edge. A UI of your own applies them with [`setback(id, edge, distanceMeters)`](#setback-id-edge-distancemeters), as the toolbar's execute button does; that method takes its own arguments and does not read them by itself.
+
+### `setSetbackDistance(meters)`
+
+Set the setback mode's distance.
+
+With the toolbar, the distance field shows the new value. A preview in progress is redrawn with it.
+
+**Parameters:**
+
+| Name     | Type     | Description                           |
+| -------- | -------- | ------------------------------------- |
+| `meters` | `number` | Distance in meters, greater than zero |
+
+**Returns:** `boolean` — `true` if the distance was set, `false` if `meters` is not a finite positive number (nothing changes).
+
+**Throws:** [`LibreDrawError`](/api/types#libredrawerror) if this instance has been destroyed.
+
+**Example:**
+
+```ts
+const draw = new LibreDraw(map, { toolbar: false });
+draw.setSetbackDistance(25);
+draw.setMode('setback'); // the preview and Enter use 25 m
+```
+
+---
+
+### `getSetbackDistance()`
+
+Get the setback mode's distance.
+
+**Returns:** `number` — Distance in meters. `10` until changed by `setSetbackDistance()` or the toolbar's distance field.
+
+**Throws:** [`LibreDrawError`](/api/types#libredrawerror) if this instance has been destroyed.
+
+---
+
+### `getSetbackEdge()`
+
+Get the edge the person picked in the setback mode.
+
+In `'setback'` mode the person clicks a polygon, then an edge, and the mode previews the offset. This returns that edge so your UI can apply it with [`setback(id, edge, distanceMeters)`](#setback-id-edge-distancemeters), as the toolbar's execute button does.
+
+**Returns:** [`EdgeRef`](/api/types#edgeref) `| undefined` — The picked edge of the selected polygon (outer ring), or `undefined` when no edge is picked: outside setback mode, before the person picks one, and after the setback runs or is cancelled.
+
+**Throws:** [`LibreDrawError`](/api/types#libredrawerror) if this instance has been destroyed.
+
+**Example:**
+
+```ts
+const edge = draw.getSetbackEdge();
+const [id] = draw.getSelectedFeatureIds();
+if (edge && id) draw.setback(id, edge, draw.getSetbackDistance());
+```
 
 ---
 
@@ -816,6 +876,42 @@ Re-applies the most recently undone action. The redo stack is cleared whenever a
 ```ts
 draw.undo();
 draw.redo(); // re-applies the undone action
+```
+
+---
+
+### `canUndo()`
+
+Whether `undo()` would undo something.
+
+Reads the history without changing it. The same value arrives with every [`historychange`](/api/events#historychange) event, which is the way to keep an undo button in sync; call this for a one-off check.
+
+**Returns:** `boolean` — `true` if there is an action to undo.
+
+**Throws:** [`LibreDrawError`](/api/types#libredrawerror) if this instance has been destroyed.
+
+**Example:**
+
+```ts
+undoButton.disabled = !draw.canUndo();
+```
+
+---
+
+### `canRedo()`
+
+Whether `redo()` would redo something.
+
+Reads the history without changing it. The same value arrives with every [`historychange`](/api/events#historychange) event.
+
+**Returns:** `boolean` — `true` if there is an undone action to redo.
+
+**Throws:** [`LibreDrawError`](/api/types#libredrawerror) if this instance has been destroyed.
+
+**Example:**
+
+```ts
+redoButton.disabled = !draw.canRedo();
 ```
 
 ---
