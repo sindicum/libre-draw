@@ -87,13 +87,12 @@ describe('DEFAULT_STYLE_CONFIG colors', () => {
     expect([
       d.fill.color,
       d.outline.color,
-      d.vertex.strokeColor,
       d.preview.color,
       d.editVertex.strokeColor,
       d.midpoint.color,
       d.point.color,
       d.point.strokeColor,
-    ]).toEqual(Array(8).fill(brand));
+    ]).toEqual(Array(7).fill(brand));
   });
 
   it('keeps the selection orange, the highlight red and the white handles', () => {

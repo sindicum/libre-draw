@@ -11,9 +11,6 @@ export type {
   FeatureProperties,
   LibreDrawFeature,
   FeatureCollection,
-  ActionType,
-  Action,
-  FeatureStoreInterface,
 } from './types';
 
 export type {
@@ -74,13 +71,10 @@ export type {
   PointStyle,
   FillStyle,
   OutlineStyle,
-  VertexStyle,
   PreviewStyle,
   EditVertexStyle,
   MidpointStyle,
 } from './types';
-
-export type { NormalizedInputEvent, InputType } from './types';
 
 // UI strings (i18n)
 export type { Locale, Messages } from './types';
@@ -93,18 +87,3 @@ export { LibreDrawError } from './core/errors';
 
 // Style helpers
 export { DEFAULT_STYLE_CONFIG, mergeStyleConfig } from './types';
-
-// Split history action
-export { SplitAction } from './types';
-
-// Setback history action
-export { SetbackAction } from './types';
-
-// Union history action
-export { UnionAction } from './types';
-
-// Cut history action
-export { CutAction } from './types';
-
-// Batch history action (used by addFeatures)
-export { BatchAction } from './types';

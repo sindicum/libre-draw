@@ -33,7 +33,7 @@
     "test:e2e": "playwright test"
   },
   "peerDependencies": {
-    "maplibre-gl": ">=3.0.0"
+    "maplibre-gl": ">=5.0.0 <7.0.0"
   },
   "dependencies": {
     "@turf/boolean-point-in-polygon": "^7.0.0",
@@ -49,7 +49,7 @@
     "eslint": "^9.0.0",
     "eslint-config-prettier": "^10.0.0",
     "happy-dom": "^20.7.0",
-    "maplibre-gl": "^4.0.0",
+    "maplibre-gl": "^6.11.2",
     "mermaid": "^11.17.2",
     "prettier": "^3.0.0",
     "typescript": "~5.7.0",

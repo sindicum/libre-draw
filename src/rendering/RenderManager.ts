@@ -526,7 +526,11 @@ export class RenderManager {
     if (!this.initialized) return;
 
     const m = this.map;
-    const set = (layer: string, prop: string, value: unknown): void => {
+    // Typed from the map's own signature so the helper follows whichever
+    // maplibre-gl major the project compiles against (v5 takes strings,
+    // v6 keys the property name and value together).
+    type PaintArgs = Parameters<MaplibreMap['setPaintProperty']>;
+    const set = (layer: string, prop: PaintArgs[1], value: PaintArgs[2]): void => {
       if (m.getLayer(layer)) {
         m.setPaintProperty(layer, prop, value);
       }
