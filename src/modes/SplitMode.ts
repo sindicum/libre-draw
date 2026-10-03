@@ -3,7 +3,8 @@ import { point as turfPoint } from '@turf/helpers';
 import type { Mode } from './Mode';
 import type { ModeContext } from '../core/ModeContext';
 import type { LibreDrawFeature, Position } from '../types/features';
-import type { NormalizedInputEvent } from '../types/input';
+import type { InputType, NormalizedInputEvent } from '../types/input';
+import { bodyHitThreshold } from '../input/gestures';
 import { split } from '../operations/split';
 
 type SplitState = 'idle' | 'first-point' | 'second-point';
@@ -104,7 +105,7 @@ export class SplitMode implements Mode {
 
   /** Perform a hit-test at the pointer position and select the target. */
   private handleTargetSelection(event: NormalizedInputEvent): void {
-    const hit = this.hitTest([event.lngLat.lng, event.lngLat.lat]);
+    const hit = this.hitTest([event.lngLat.lng, event.lngLat.lat], event.inputType);
     if (!hit) {
       this.clearSelection();
       this.context.render.clearPreview();
@@ -145,7 +146,7 @@ export class SplitMode implements Mode {
   }
 
   /** Find the topmost polygon or line feature at the given position. */
-  private hitTest(position: Position): LibreDrawFeature | undefined {
+  private hitTest(position: Position, inputType: InputType): LibreDrawFeature | undefined {
     const clickPoint = turfPoint([position[0], position[1]]);
     const features = this.context.store.getAll();
     const clickScreen = this.context.getScreenPoint({
@@ -158,7 +159,7 @@ export class SplitMode implements Mode {
       if (f.geometry.type === 'Polygon' && booleanPointInPolygon(clickPoint, f.geometry)) {
         return f;
       }
-      if (f.geometry.type === 'LineString' && this.isLineHit(f, clickScreen)) {
+      if (f.geometry.type === 'LineString' && this.isLineHit(f, clickScreen, inputType)) {
         return f;
       }
     }
@@ -167,10 +168,14 @@ export class SplitMode implements Mode {
   }
 
   /** Check if a screen point is within threshold of a LineString's segments. */
-  private isLineHit(feature: LibreDrawFeature, clickScreen: { x: number; y: number }): boolean {
+  private isLineHit(
+    feature: LibreDrawFeature,
+    clickScreen: { x: number; y: number },
+    inputType: InputType
+  ): boolean {
     if (feature.geometry.type !== 'LineString') return false;
     const coords = feature.geometry.coordinates;
-    const threshold = 20;
+    const threshold = bodyHitThreshold(inputType);
 
     for (let i = 0; i < coords.length - 1; i++) {
       const a = this.context.getScreenPoint({ lng: coords[i][0], lat: coords[i][1] });

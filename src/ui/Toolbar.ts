@@ -88,6 +88,9 @@ export interface ToolbarCallbacks {
 export class Toolbar {
   private map: MaplibreMap;
   private container: HTMLDivElement;
+  private buttonList: HTMLDivElement;
+  private mountedInControlContainer = false;
+  private popupAnchors: { row: HTMLElement; popup: HTMLElement }[] = [];
   private buttons: Map<string, ToolbarButton> = new Map();
   private setbackInput: SetbackInput | null = null;
   private rotateInput: RotateInput | null = null;
@@ -117,8 +120,16 @@ export class Toolbar {
     this.container.className = 'libre-draw-toolbar';
     this.applyContainerStyles();
 
+    this.buttonList = document.createElement('div');
+    this.buttonList.className = 'libre-draw-toolbar-buttons';
+    this.applyButtonListStyles();
+    this.buttonList.addEventListener('scroll', this.positionPopups, { passive: true });
+    this.container.appendChild(this.buttonList);
+
     this.createButtons();
     this.mount();
+    this.updateMaxHeight();
+    this.map.on('resize', this.updateMaxHeight);
   }
 
   /**
@@ -183,6 +194,7 @@ export class Toolbar {
     }
     this.updateRotateInputVisibility();
     this.updateUnionExecuteVisibility();
+    this.positionPopups();
   }
 
   /**
@@ -203,6 +215,7 @@ export class Toolbar {
   setUnionSelectionCount(count: number): void {
     this.unionSelectionCount = count;
     this.updateUnionExecuteVisibility();
+    this.positionPopups();
   }
 
   /**
@@ -215,6 +228,7 @@ export class Toolbar {
   setRotateSelection(hasSelection: boolean): void {
     this.rotateHasSelection = hasSelection;
     this.updateRotateInputVisibility();
+    this.positionPopups();
   }
 
   /**
@@ -238,6 +252,7 @@ export class Toolbar {
    * Remove the toolbar from the map and clean up.
    */
   destroy(): void {
+    this.map.off('resize', this.updateMaxHeight);
     if (this.setbackInput) {
       this.setbackInput.destroy();
       this.setbackInput = null;
@@ -262,6 +277,7 @@ export class Toolbar {
       button.destroy();
     }
     this.buttons.clear();
+    this.popupAnchors = [];
     this.container.remove();
   }
 
@@ -453,7 +469,7 @@ export class Toolbar {
     this.buttons.set(id, button);
     const row = this.createControlRow();
     row.appendChild(button.getElement());
-    this.container.appendChild(row);
+    this.buttonList.appendChild(row);
   }
 
   /**
@@ -461,7 +477,6 @@ export class Toolbar {
    */
   private addSetbackControl(): void {
     const row = this.createControlRow();
-    row.style.position = 'relative';
 
     const button = new ToolbarButton({
       id: 'setback',
@@ -485,9 +500,8 @@ export class Toolbar {
     const isRight = position === 'top-right' || position === 'bottom-right';
     this.setbackInput.setPosition(isRight ? 'left' : 'right');
 
-    row.appendChild(this.setbackInput.getElement());
-
-    this.container.appendChild(row);
+    this.buttonList.appendChild(row);
+    this.addPopup(row, this.setbackInput.getElement());
   }
 
   /**
@@ -495,7 +509,6 @@ export class Toolbar {
    */
   private addRotateControl(): void {
     const row = this.createControlRow();
-    row.style.position = 'relative';
 
     const button = new ToolbarButton({
       id: 'rotate',
@@ -519,9 +532,8 @@ export class Toolbar {
     const isRight = position === 'top-right' || position === 'bottom-right';
     this.rotateInput.setPosition(isRight ? 'left' : 'right');
 
-    row.appendChild(this.rotateInput.getElement());
-
-    this.container.appendChild(row);
+    this.buttonList.appendChild(row);
+    this.addPopup(row, this.rotateInput.getElement());
   }
 
   /**
@@ -529,7 +541,6 @@ export class Toolbar {
    */
   private addUnionControl(): void {
     const row = this.createControlRow();
-    row.style.position = 'relative';
 
     const button = new ToolbarButton({
       id: 'union',
@@ -550,9 +561,8 @@ export class Toolbar {
     const isRight = position === 'top-right' || position === 'bottom-right';
     this.unionExecute.setPosition(isRight ? 'left' : 'right');
 
-    row.appendChild(this.unionExecute.getElement());
-
-    this.container.appendChild(row);
+    this.buttonList.appendChild(row);
+    this.addPopup(row, this.unionExecute.getElement());
   }
 
   /** Show the union execute button only while union mode has two or more selected. */
@@ -573,9 +583,6 @@ export class Toolbar {
    * so that its top edge aligns with the toolbar's top edge.
    */
   private addSettingsControl(): void {
-    // Toolbar container needs relative positioning for the panel
-    this.container.style.position = 'relative';
-
     const row = this.createControlRow();
     const button = new ToolbarButton({
       id: 'settings',
@@ -590,7 +597,7 @@ export class Toolbar {
     });
     this.buttons.set('settings', button);
     row.appendChild(button.getElement());
-    this.container.appendChild(row);
+    this.buttonList.appendChild(row);
 
     this.stylePanel = new StylePanel(
       {
@@ -621,6 +628,51 @@ export class Toolbar {
   }
 
   /**
+   * Attach a popup to the toolbar container rather than to its button row:
+   * the button list scrolls, and a scrolling element clips everything that
+   * sticks out of it sideways, so the popup lives outside it and follows its
+   * row through {@link positionPopups}.
+   */
+  private addPopup(row: HTMLElement, popup: HTMLElement): void {
+    this.container.appendChild(popup);
+    this.popupAnchors.push({ row, popup });
+    this.positionPopups();
+  }
+
+  /**
+   * Align each visible popup with the top of its button row, kept inside the
+   * toolbar while the row is scrolled out of view.
+   */
+  private positionPopups = (): void => {
+    const scrollTop = this.buttonList.scrollTop;
+    const height = this.container.clientHeight;
+    for (const { row, popup } of this.popupAnchors) {
+      if (popup.style.display === 'none') continue;
+      const top = row.offsetTop - scrollTop;
+      const maxTop = Math.max(0, height - popup.offsetHeight);
+      popup.style.top = `${Math.min(Math.max(top, 0), maxTop)}px`;
+    }
+  };
+
+  /**
+   * Cap the toolbar at the map height left over by the other controls in
+   * the same corner, so the button list scrolls instead of running off the
+   * map. Layout sizes (`offset*` / `client*`) are used rather than
+   * `getBoundingClientRect`, which a CSS `transform: scale()` would skew.
+   */
+  private updateMaxHeight = (): void => {
+    const mapHeight = this.map.getContainer().clientHeight;
+    const parent = this.container.parentElement;
+    if (mapHeight === 0 || !parent) return;
+    const above = this.container.offsetTop;
+    const below = this.mountedInControlContainer
+      ? parent.clientHeight - above - this.container.offsetHeight
+      : 0;
+    this.container.style.maxHeight = `${Math.max(0, mapHeight - above - below)}px`;
+    this.positionPopups();
+  };
+
+  /**
    * Create a single control row container.
    */
   private createControlRow(): HTMLDivElement {
@@ -642,6 +694,7 @@ export class Toolbar {
 
     if (controlContainer) {
       controlContainer.appendChild(this.container);
+      this.mountedInControlContainer = true;
     } else {
       // Fallback: append to the map container directly
       mapContainer.appendChild(this.container);
@@ -653,10 +706,10 @@ export class Toolbar {
    */
   private applyContainerStyles(): void {
     const s = this.container.style;
+    // The positioning context for the popups beside the button list.
+    s.position = 'relative';
     s.display = 'flex';
     s.flexDirection = 'column';
-    s.gap = '4px';
-    s.padding = '4px';
     s.backgroundColor = 'rgba(255, 255, 255, 0.9)';
     s.borderRadius = '4px';
     s.boxShadow = '0 1px 4px rgba(0, 0, 0, 0.3)';
@@ -664,5 +717,22 @@ export class Toolbar {
     // MapLibre's control containers have pointer-events: none;
     // controls need pointer-events: auto to receive clicks
     s.pointerEvents = 'auto';
+  }
+
+  /**
+   * Apply CSS styles to the scrolling button list inside the container.
+   */
+  private applyButtonListStyles(): void {
+    const s = this.buttonList.style;
+    s.display = 'flex';
+    s.flexDirection = 'column';
+    s.gap = '4px';
+    s.padding = '4px';
+    // Lets the list shrink below its content height inside the capped container.
+    s.minHeight = '0';
+    s.overflowX = 'hidden';
+    s.overflowY = 'auto';
+    // Scrolling past either end does not carry over to the page.
+    s.overscrollBehavior = 'contain';
   }
 }

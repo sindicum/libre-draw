@@ -39,6 +39,14 @@ describe('RotateInput', () => {
     });
   });
 
+  it('gives the field and the execute button a 44px touch target', () => {
+    const { input } = createInput();
+
+    expect(getHTMLInput(input).style.height).toBe('44px');
+    expect(getExecuteButton(input).style.height).toBe('44px');
+    expect(getExecuteButton(input).style.minWidth).toBe('44px');
+  });
+
   describe('parseAngle via callbacks', () => {
     it('fires onAngleChange for values inside the range', () => {
       const { input, callbacks } = createInput();

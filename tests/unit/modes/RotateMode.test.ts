@@ -252,6 +252,18 @@ describe('RotateMode', () => {
       expect(mode.getSelectedId()).toBeNull();
     });
 
+    it('reaches a line 22px away with touch but not with mouse', () => {
+      harness = createHarness([makeLine()]);
+      mode = new RotateMode(harness.context);
+      mode.activate();
+
+      mode.onPointerDown(pointerEvent(12, 2.2));
+      expect(mode.getSelectedId()).toBeNull();
+
+      mode.onPointerDown(pointerEvent(12, 2.2, { inputType: 'touch' }));
+      expect(mode.getSelectedId()).toBe('ln');
+    });
+
     it('never selects a point', () => {
       harness = createHarness([makePoint()]);
       mode = new RotateMode(harness.context);

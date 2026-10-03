@@ -4,22 +4,13 @@ import type { LibreDrawFeature } from '../types/features';
 import type { Action } from '../types/features';
 import { BatchAction, DeleteAction, UpdateAction } from '../types/features';
 import type { ModeContext } from '../core/ModeContext';
+import { bodyHitThreshold } from '../input/gestures';
 import { cloneFeature } from '../utils/featureSnapshot';
 import { moveLine, movePolygon } from '../utils/geometry';
 import { VertexEditor } from './VertexEditor';
 import { PolygonDragger } from './PolygonDragger';
 import booleanPointInPolygon from '@turf/boolean-point-in-polygon';
 import { point as turfPoint } from '@turf/helpers';
-
-/**
- * Hit threshold in pixels for selecting Point features.
- */
-const POINT_HIT_THRESHOLD_PX = 20;
-
-/**
- * Hit threshold in pixels for selecting LineString features.
- */
-const LINE_HIT_THRESHOLD_PX = 20;
 
 /**
  * Whether the pointer event carries a modifier that adds to / toggles the
@@ -145,6 +136,7 @@ export class SelectMode implements Mode {
     if (feature.geometry.type !== 'LineString') return false;
     const coords = feature.geometry.coordinates;
     const clickScreen = this.context.getScreenPoint(event.lngLat);
+    const threshold = bodyHitThreshold(event.inputType);
 
     for (let i = 0; i < coords.length - 1; i++) {
       const aScreen = this.context.getScreenPoint({
@@ -156,7 +148,7 @@ export class SelectMode implements Mode {
         lat: coords[i + 1][1],
       });
       const dist = this.distanceToSegment(clickScreen, aScreen, bScreen);
-      if (dist <= LINE_HIT_THRESHOLD_PX) return true;
+      if (dist <= threshold) return true;
     }
     return false;
   }
@@ -545,7 +537,7 @@ export class SelectMode implements Mode {
     const clickScreen = this.context.getScreenPoint(event.lngLat);
     const dx = clickScreen.x - featureScreen.x;
     const dy = clickScreen.y - featureScreen.y;
-    return Math.sqrt(dx * dx + dy * dy) <= POINT_HIT_THRESHOLD_PX;
+    return Math.sqrt(dx * dx + dy * dy) <= bodyHitThreshold(event.inputType);
   }
 
   /**

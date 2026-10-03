@@ -455,6 +455,36 @@ describe('SelectMode', () => {
       selectMode.onPointerDown(createTouchEvent(-2.5, 0));
       expect(callbacks.setDragPan).not.toHaveBeenCalledWith(false);
     });
+
+    // 22px from the body: inside the 24px touch reach, outside the 20px mouse reach.
+    it.each([
+      ['Point', { type: 'Point', coordinates: [100, 100] }, [100, 102.2]],
+      [
+        'LineString',
+        {
+          type: 'LineString',
+          coordinates: [
+            [100, 100],
+            [120, 100],
+          ],
+        },
+        [110, 102.2],
+      ],
+    ] as const)('should select a %s 22px away with touch but not with mouse', (_, geometry, at) => {
+      featureMap.set('body', {
+        id: 'body',
+        type: 'Feature',
+        geometry: structuredClone(geometry) as LibreDrawFeature['geometry'],
+        properties: {},
+      });
+      selectMode.activate();
+
+      selectMode.onPointerDown(createPointerEvent(at[0], at[1]));
+      expect(selectMode.getSelectedIds()).toEqual([]);
+
+      selectMode.onPointerDown(createTouchEvent(at[0], at[1]));
+      expect(selectMode.getSelectedIds()).toEqual(['body']);
+    });
   });
 
   // --- Vertex highlight tests ---

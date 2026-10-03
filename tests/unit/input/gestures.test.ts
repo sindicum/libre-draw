@@ -1,10 +1,17 @@
 import { describe, it, expect } from 'vitest';
-import { clickTolerance, pointerTravel } from '../../../src/input/gestures';
+import { bodyHitThreshold, clickTolerance, pointerTravel } from '../../../src/input/gestures';
 
 describe('clickTolerance', () => {
   it('should allow a finger to travel further than a mouse', () => {
     // A deliberate tap always wobbles a few pixels, a click rarely does.
     expect(clickTolerance('touch')).toBeGreaterThan(clickTolerance('mouse'));
+  });
+});
+
+describe('bodyHitThreshold', () => {
+  it('gives a finger the touch target of a vertex handle and a mouse 20px', () => {
+    expect(bodyHitThreshold('touch')).toBe(24);
+    expect(bodyHitThreshold('mouse')).toBe(20);
   });
 });
 

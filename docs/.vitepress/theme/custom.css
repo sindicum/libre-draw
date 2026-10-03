@@ -31,8 +31,6 @@
 .demo-map-fullsize {
   width: 100%;
   height: calc(100dvh - var(--vp-nav-height));
-  /* Tall enough for the full default toolbar, a single column of buttons. */
-  min-height: 860px;
 }
 
 /* The event log floats over the bottom-left corner of the map. */

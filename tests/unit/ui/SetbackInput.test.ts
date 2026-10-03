@@ -99,6 +99,15 @@ describe('SetbackInput', () => {
     });
   });
 
+  it('gives the field and the execute button a 44px touch target', () => {
+    const { input } = createInput();
+    const button = input.getElement().querySelector('button')!;
+
+    expect(getHTMLInput(input).style.height).toBe('44px');
+    expect(button.style.height).toBe('44px');
+    expect(button.style.minWidth).toBe('44px');
+  });
+
   describe('setPosition', () => {
     it('should position to the left when side is left', () => {
       const { input } = createInput();

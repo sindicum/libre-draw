@@ -541,3 +541,45 @@ test('reshape: tapping a polygon and drawing a line into it cuts a notch in its 
   });
   expect(outerLength).toBe(9);
 });
+
+test('toolbar: on a short map the buttons scroll and a popup beside them stays visible', async ({
+  page,
+  hasTouch,
+}) => {
+  const { width } = page.viewportSize()!;
+  await page.setViewportSize({ width, height: 500 });
+  const frame = page.locator('.libre-draw-toolbar');
+  const list = page.locator('.libre-draw-toolbar-buttons');
+  const frameBottom = async () => {
+    const box = await frame.boundingBox();
+    return (box?.y ?? 0) + (box?.height ?? 0);
+  };
+
+  await expect.poll(frameBottom).toBeLessThanOrEqual(500);
+  expect(await list.evaluate((el) => el.scrollHeight > el.clientHeight)).toBe(true);
+  // The scrollbar must not squeeze the 44px buttons into a sideways scroll.
+  expect(await list.evaluate((el) => el.scrollWidth <= el.clientWidth)).toBe(true);
+
+  const setback = page.locator('[data-libre-draw-button="setback"]');
+  await setback.scrollIntoViewIfNeeded();
+  if (hasTouch) {
+    await setback.tap();
+  } else {
+    await setback.click();
+  }
+
+  // The popup sits outside the scrolling list, so nothing clips or covers it.
+  const execute = page.getByRole('button', { name: 'Execute setback' });
+  await expect(execute).toBeVisible();
+  const box = (await execute.boundingBox())!;
+  expect(box.height).toBeGreaterThanOrEqual(44);
+  const hit = await execute.evaluate(
+    (el, [x, y]) => el.contains(document.elementFromPoint(x, y)),
+    [box.x + box.width / 2, box.y + box.height / 2]
+  );
+  expect(hit).toBe(true);
+
+  // A taller map needs no scrolling: the cap follows the map's resize.
+  await page.setViewportSize({ width, height: 1000 });
+  await expect.poll(() => list.evaluate((el) => el.scrollHeight <= el.clientHeight)).toBe(true);
+});
