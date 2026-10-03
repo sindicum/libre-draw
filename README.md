@@ -139,6 +139,7 @@ new LibreDraw(map: maplibregl.Map, options?: LibreDrawOptions)
 | `modechange`      | `{ mode, previousMode }`                              | Active mode changed                                                        |
 | `draftchange`     | `{ vertexCount }`                                     | The in-progress draft gained or lost a point, or was finished or discarded |
 | `historychange`   | `{ canUndo, canRedo }`                                | The undo / redo stacks changed                                             |
+| `editrejected`    | `{ action, reason, featureId? }`                      | An edit on the map or a rotation was refused and nothing changed           |
 
 Every payload also carries `origin: 'api' | 'user'`, so a listener can tell changes made through the API (its own `addFeatures()` / `deleteFeature()` / `undo()` …) from the user's pointer, toolbar, and keyboard input.
 

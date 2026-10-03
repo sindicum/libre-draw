@@ -154,7 +154,7 @@ describe('rotate', () => {
       expect(push).not.toHaveBeenCalled();
     });
 
-    it('rejects a rotation that leaves the coordinate range with the validation message', () => {
+    it('rejects a rotation that leaves the coordinate range with the validation message and an editrejected event', () => {
       // Near the antimeridian at high latitude a 90° turn pushes a corner past 180°.
       const edge: LibreDrawFeature = {
         id: 'edge',
@@ -183,7 +183,47 @@ describe('rotate', () => {
       expect(result.reason).toContain('longitude');
       expect(features.get('edge')).toBe(before);
       expect(push).not.toHaveBeenCalled();
-      expect(emit).not.toHaveBeenCalled();
+      expect(emit).toHaveBeenCalledOnce();
+      expect(emit).toHaveBeenCalledWith('editrejected', {
+        action: 'rotate',
+        reason: 'out-of-range',
+        featureId: 'edge',
+      });
+    });
+
+    it('reports a ring crossing inside the coordinate range with its ring reason', () => {
+      // Valid before the turn; at 45° the outer ring bends across the hole.
+      const holed: LibreDrawFeature = {
+        id: 'holed',
+        type: 'Feature',
+        geometry: {
+          type: 'Polygon',
+          coordinates: [
+            [
+              [0, 0],
+              [60, 0],
+              [0, 60],
+              [0, 0],
+            ],
+            [
+              [2, 20],
+              [2.5, 20],
+              [2.5, 20.5],
+              [2, 20.5],
+              [2, 20],
+            ],
+          ],
+        },
+        properties: {},
+      };
+      const { context, emit } = createContext([holed]);
+
+      expect(rotate(context, 'holed', 45).ok).toBe(false);
+      expect(emit).toHaveBeenCalledWith('editrejected', {
+        action: 'rotate',
+        reason: 'ring-intersection',
+        featureId: 'holed',
+      });
     });
 
     it('checks the id before the angle', () => {

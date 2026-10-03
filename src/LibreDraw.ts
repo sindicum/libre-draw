@@ -869,8 +869,10 @@ export class LibreDraw {
    * @returns `{ ok: true, updated: [feature] }`, or `{ ok: false, reason }`
    *   with `'not-found'`, `'not-rotatable'` (Point), `'no-rotation'`
    *   (0, a multiple of 360, or a non-finite angle), or the validation
-   *   message when the rotated shape leaves the coordinate range (near the
-   *   antimeridian or the poles). Nothing changes on failure.
+   *   message when the rotated shape fails validation (near the antimeridian
+   *   or the poles it can leave the coordinate range), which also emits
+   *   `'editrejected'`.
+   *   Nothing changes on failure.
    *
    * @throws {LibreDrawError} If this instance has been destroyed.
    *
@@ -1547,7 +1549,7 @@ export class LibreDraw {
    * Supported events: `'create'`, `'update'`, `'delete'`, `'split'`,
    * `'splitfailed'`, `'setback'`, `'setbackfailed'`, `'union'`, `'unionfailed'`, `'cut'`,
    * `'cutfailed'`, `'reshape'`, `'reshapefailed'`, `'rotate'`, `'selectionchange'`,
-   * `'modechange'`, `'draftchange'`, `'historychange'`.
+   * `'modechange'`, `'draftchange'`, `'historychange'`, `'editrejected'`.
    *
    * @param type - The event type to listen for.
    * @param listener - The callback to invoke when the event fires.

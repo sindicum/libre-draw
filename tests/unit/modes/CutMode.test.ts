@@ -162,6 +162,23 @@ describe('CutMode', () => {
     expect(rings('a')).toHaveLength(1);
   });
 
+  it('reports a cutter vertex that would cross the cutter, and keeps the draft', () => {
+    clickAt(5, 5);
+    // (2,2) → (6,2) → (6,4) → (4,4), then (4,1): the new edge crosses (2,2)–(6,2).
+    clickAt(2, 2);
+    clickAt(6, 2);
+    clickAt(6, 4);
+    clickAt(4, 4);
+    clickAt(4, 1);
+
+    expect(context.events.emit).toHaveBeenCalledWith('editrejected', {
+      action: 'add-vertex',
+      reason: 'self-intersection',
+    });
+    expect(mode.getDraftVertexCount()).toBe(4);
+    expect(rings('a')).toHaveLength(1);
+  });
+
   it('delegates the draft API while drafting and is inert before', () => {
     expect(mode.finishDrawing()).toBe(false);
     expect(mode.undoLastVertex()).toBe(false);

@@ -368,6 +368,10 @@ describe('DrawPolygonMode', () => {
 
       expect(context.store.add).not.toHaveBeenCalled();
       expect(drawPolygonMode.getDraftVertexCount()).toBe(4);
+      expect(context.events.emit).toHaveBeenCalledWith('editrejected', {
+        action: 'close',
+        reason: 'self-intersection',
+      });
     });
 
     it('should reject a finish on the last vertex that would cause a closing intersection', () => {
@@ -382,6 +386,10 @@ describe('DrawPolygonMode', () => {
 
       expect(context.store.add).not.toHaveBeenCalled();
       expect(drawPolygonMode.getDraftVertexCount()).toBe(4);
+      expect(context.events.emit).toHaveBeenCalledWith('editrejected', {
+        action: 'close',
+        reason: 'self-intersection',
+      });
     });
   });
 
@@ -626,6 +634,10 @@ describe('DrawPolygonMode', () => {
 
       // Preview should NOT have been updated (vertex rejected)
       expect(vi.mocked(context.render.renderPreview).mock.calls.length).toBe(previewCallCount);
+      expect(context.events.emit).toHaveBeenCalledWith('editrejected', {
+        action: 'add-vertex',
+        reason: 'self-intersection',
+      });
     });
 
     it('should allow vertex that does not create intersection', () => {
@@ -641,6 +653,7 @@ describe('DrawPolygonMode', () => {
       clickAt(drawPolygonMode, 0, 10);
 
       expect(vi.mocked(context.render.renderPreview).mock.calls.length).toBe(previewCallCount + 1);
+      expect(context.events.emit).not.toHaveBeenCalledWith('editrejected', expect.anything());
     });
 
     it('should allow valid polygon creation via a click on the last vertex', () => {

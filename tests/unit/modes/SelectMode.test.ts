@@ -850,6 +850,30 @@ describe('SelectMode', () => {
 
       // The store should NOT have been updated (move rejected)
       expect(callbacks.updateFeatureInStore).not.toHaveBeenCalled();
+      expect(callbacks.emitEvent).toHaveBeenCalledWith('editrejected', {
+        action: 'move-vertex',
+        reason: 'self-intersection',
+        featureId: 'f1',
+      });
+    });
+
+    it('reports a refused drag once per drag, and again on the next drag', () => {
+      const rejections = () =>
+        callbacks.emitEvent.mock.calls.filter(([type]) => type === 'editrejected');
+      selectMode.activate();
+      selectMode.onPointerDown(createPointerEvent(5, 5)); // select
+
+      selectMode.onPointerDown(createPointerEvent(0, 0));
+      selectMode.onPointerMove(createPointerEvent(5, 12));
+      selectMode.onPointerMove(createPointerEvent(1, 1));
+      selectMode.onPointerMove(createPointerEvent(6, 12));
+      selectMode.onPointerUp(createPointerEvent(6, 12));
+      expect(rejections()).toHaveLength(1);
+
+      selectMode.onPointerDown(createPointerEvent(1, 1));
+      selectMode.onPointerMove(createPointerEvent(5, 12));
+      selectMode.onPointerUp(createPointerEvent(5, 12));
+      expect(rejections()).toHaveLength(2);
     });
 
     it('should allow vertex drag that does not cause self-intersection', () => {
@@ -865,6 +889,7 @@ describe('SelectMode', () => {
       selectMode.onPointerMove(createPointerEvent(1, 1));
 
       expect(callbacks.updateFeatureInStore).toHaveBeenCalled();
+      expect(callbacks.emitEvent).not.toHaveBeenCalledWith('editrejected', expect.anything());
     });
   });
 
@@ -1518,6 +1543,11 @@ describe('SelectMode with a polygon hole', () => {
 
     expect(rings()[1]).toEqual(hole);
     expect(callbacks.pushToHistory).not.toHaveBeenCalled();
+    expect(callbacks.emitEvent).toHaveBeenCalledWith('editrejected', {
+      action: 'move-vertex',
+      reason: 'ring-intersection',
+      featureId: 'h1',
+    });
   });
 
   it('refuses to drag an outer vertex across the hole', () => {
@@ -1555,11 +1585,43 @@ describe('SelectMode with a polygon hole', () => {
     expect(callbacks.pushToHistory).toHaveBeenCalledTimes(1);
   });
 
+  it('reports hole-outside when deleting an outer vertex would leave a hole outside', () => {
+    // A hole in the (10,10) corner: without that vertex the outer ring is a
+    // triangle whose hypotenuse passes below the hole.
+    const cornerHoled = makeFeature('c1');
+    if (cornerHoled.geometry.type === 'Polygon') {
+      cornerHoled.geometry.coordinates.push([
+        [8, 8],
+        [9, 8],
+        [9, 9],
+        [8, 9],
+        [8, 8],
+      ]);
+    }
+    featureMap.clear();
+    featureMap.set('c1', cornerHoled);
+    selectMode.onPointerDown(createPointerEvent(1, 1)); // select c1
+
+    doubleClick(10, 10);
+
+    expect(featureMap.get('c1')).toEqual(cornerHoled);
+    expect(callbacks.emitEvent).toHaveBeenCalledWith('editrejected', {
+      action: 'delete-vertex',
+      reason: 'hole-outside',
+      featureId: 'c1',
+    });
+  });
+
   it('refuses to delete an outer vertex when the new edge would cut the hole', () => {
     doubleClick(10, 10);
 
     expect(rings()[0]).toHaveLength(5);
     expect(callbacks.pushToHistory).not.toHaveBeenCalled();
+    expect(callbacks.emitEvent).toHaveBeenCalledWith('editrejected', {
+      action: 'delete-vertex',
+      reason: 'ring-intersection',
+      featureId: 'h1',
+    });
   });
 
   it('records the pre-insert shape, so undo drops the vertex inserted into the hole', () => {
@@ -1638,6 +1700,7 @@ describe('SelectMode with a polygon hole', () => {
     expect(context.render.renderSnapIndicator).toHaveBeenCalledWith([10.5, 3]);
     expect(context.render.clearSnapIndicator).toHaveBeenCalled();
     expect(rings()[1][3]).toEqual([9.8, 3]);
+    expect(callbacks.emitEvent).not.toHaveBeenCalledWith('editrejected', expect.anything());
   });
 
   it('moves the hole in a multi-selection drag', () => {
