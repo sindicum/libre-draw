@@ -20,6 +20,9 @@ function exportedNames(): Set<string> {
     strict: true,
     skipLibCheck: true,
     noEmit: true,
+    // Only the export names are read, so the ambient libraries can stay out.
+    types: [],
+    noLib: true,
   });
   const checker = program.getTypeChecker();
   const sourceFile = program.getSourceFile(entry);
@@ -58,10 +61,16 @@ describe('package root exports', () => {
     );
   });
 
-  it('lists every export in docs/api/index.md and exports every name listed there', () => {
-    const exported = exportedNames();
-    const documented = documentedNames();
-    expect([...exported].filter((name) => !documented.has(name))).toEqual([]);
-    expect([...documented].filter((name) => !exported.has(name))).toEqual([]);
-  });
+  // Building the program parses maplibre-gl's type definitions, which takes a few
+  // seconds on a cold CI runner.
+  it(
+    'lists every export in docs/api/index.md and exports every name listed there',
+    { timeout: 30_000 },
+    () => {
+      const exported = exportedNames();
+      const documented = documentedNames();
+      expect([...exported].filter((name) => !documented.has(name))).toEqual([]);
+      expect([...documented].filter((name) => !exported.has(name))).toEqual([]);
+    }
+  );
 });
