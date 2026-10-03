@@ -20,6 +20,7 @@ export const EVENT_NAMES = [
   'modechange',
   'draftchange',
   'historychange',
+  'editrejected',
 ] as const satisfies readonly (keyof LibreDrawEventMap)[];
 
 // A key of LibreDrawEventMap missing from EVENT_NAMES fails the typecheck here.
@@ -101,6 +102,8 @@ function summarize<K extends keyof LibreDrawEventMap>(
       return `vertices=${e.vertexCount}`;
     case 'historychange':
       return `undo=${e.canUndo} redo=${e.canRedo}`;
+    case 'editrejected':
+      return `${e.action}: ${e.reason}${e.featureId ? ` (${e.featureId})` : ''}`;
     default:
       return '';
   }

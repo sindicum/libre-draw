@@ -489,6 +489,41 @@ describe('RotateMode', () => {
       expectRing(ring(harness.features.get('sq')), ring(makeSquare()), 9);
     });
 
+    it('reports a commit that leaves the coordinate range once and keeps the shape', () => {
+      const edge: LibreDrawFeature = {
+        id: 'edge',
+        type: 'Feature',
+        geometry: {
+          type: 'Polygon',
+          coordinates: [
+            [
+              [170, 80],
+              [179, 80],
+              [179, 85],
+              [170, 85],
+              [170, 80],
+            ],
+          ],
+        },
+        properties: {},
+      };
+      const edgeHarness = createHarness([edge]);
+      const edgeMode = new RotateMode(edgeHarness.context);
+      edgeMode.activate();
+      edgeMode.onPointerDown(pointerEvent(175, 82));
+
+      edgeMode.executeFromUi(90);
+
+      const rejections = edgeHarness.mocks.emit.mock.calls.filter(
+        ([type]) => type === 'editrejected'
+      );
+      expect(rejections).toEqual([
+        ['editrejected', { action: 'rotate', reason: 'out-of-range', featureId: 'edge' }],
+      ]);
+      expect(edgeHarness.mocks.push).not.toHaveBeenCalled();
+      expect(ring(edgeHarness.features.get('edge'))).toEqual(ring(edge));
+    });
+
     it('rejects out-of-range and non-finite angles', () => {
       mode.onAngleChange(361);
       mode.onAngleChange(Number.NaN);

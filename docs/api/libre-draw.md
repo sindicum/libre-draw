@@ -525,7 +525,7 @@ Same computation as the [`rotate` mode](/guide/modes#rotate) (screen-space rotat
 | `id`       | `string` | The feature to rotate                         |
 | `angleDeg` | `number` | Relative angle in degrees, positive clockwise |
 
-**Returns:** [`OperationResult`](/api/types#operationresult) — `{ ok: true, updated: [feature] }`, or `{ ok: false, reason }` with `'not-found'`, `'not-rotatable'` (a Point), `'no-rotation'` (0, a multiple of 360, or a non-finite angle; see [`RotateFailReason`](/api/types#rotatefailreason)), or the validation message when the rotated shape would leave the coordinate range (near the antimeridian or the poles). Nothing changes on failure.
+**Returns:** [`OperationResult`](/api/types#operationresult) — `{ ok: true, updated: [feature] }`, or `{ ok: false, reason }` with `'not-found'`, `'not-rotatable'` (a Point), `'no-rotation'` (0, a multiple of 360, or a non-finite angle; see [`RotateFailReason`](/api/types#rotatefailreason)), or the validation message when the rotated shape fails validation (near the antimeridian or the poles it can leave the coordinate range), which also emits [`editrejected`](/api/events#editrejected). Nothing changes on failure.
 
 **Throws:** [`LibreDrawError`](/api/types#libredrawerror) if this instance has been destroyed.
 
@@ -1046,6 +1046,7 @@ draw.on('rotate', (e) => console.log('Rotated:', e.feature.id, e.angle));
 draw.on('selectionchange', (e) => console.log('Selected:', e.selectedIds));
 draw.on('modechange', (e) => console.log(`${e.previousMode} → ${e.mode}`));
 draw.on('draftchange', (e) => console.log('Draft vertices:', e.vertexCount));
+draw.on('editrejected', (e) => console.log('Refused:', e.action, e.reason));
 ```
 
 ---

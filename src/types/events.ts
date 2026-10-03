@@ -319,6 +319,65 @@ export interface HistoryChangeEvent {
 }
 
 /**
+ * The edit an `editrejected` event refused.
+ *
+ * - `add-vertex`: a vertex added while drawing a polygon (or a cut's cutter)
+ * - `close`: closing the polygon being drawn
+ * - `move-vertex`: dragging a vertex of the selected feature
+ * - `delete-vertex`: deleting a vertex of the selected feature
+ * - `rotate`: a rotation, in rotate mode or through `rotate()`
+ *
+ * Later versions may add or remove values, so the type also accepts any
+ * other string: handle values you do not know.
+ */
+export type EditRejectedAction =
+  | 'add-vertex'
+  | 'close'
+  | 'move-vertex'
+  | 'delete-vertex'
+  | 'rotate'
+  | (string & {});
+
+/**
+ * Why an `editrejected` event refused an edit.
+ *
+ * - `self-intersection`: a ring would cross itself
+ * - `ring-intersection`: two rings of the polygon would cross
+ * - `hole-outside`: a hole would lie outside the outer ring
+ * - `hole-nested`: a hole would lie inside another hole
+ * - `out-of-range`: the rotated shape would leave the coordinate range
+ *   (near the antimeridian or the poles)
+ * - `invalid-result`: the rotated shape failed validation for another reason
+ *
+ * Later versions may add or remove values, so the type also accepts any
+ * other string: handle values you do not know.
+ */
+export type EditRejectedReason =
+  | 'self-intersection'
+  | 'ring-intersection'
+  | 'hole-outside'
+  | 'hole-nested'
+  | 'out-of-range'
+  | 'invalid-result'
+  | (string & {});
+
+/**
+ * Event payload for an edit that was refused, leaving the feature or the
+ * draft unchanged.
+ *
+ * A vertex drag reports at most once per drag, however often the pointer
+ * moves through invalid positions.
+ */
+export interface EditRejectedEvent {
+  /** Where the change came from. See {@link EventOrigin}. */
+  origin: EventOrigin;
+  action: EditRejectedAction;
+  reason: EditRejectedReason;
+  /** The edited feature. Absent while drawing, where there is no feature yet. */
+  featureId?: string;
+}
+
+/**
  * Map of all LibreDraw event types to their payloads.
  */
 export interface LibreDrawEventMap {
@@ -340,4 +399,5 @@ export interface LibreDrawEventMap {
   modechange: ModeChangeEvent;
   draftchange: DraftChangeEvent;
   historychange: HistoryChangeEvent;
+  editrejected: EditRejectedEvent;
 }

@@ -1,9 +1,33 @@
 import type { OperationContext } from './OperationContext';
 import type { OperationResult } from '../types/operations';
+import type { EditRejectedReason } from '../types/events';
+import type { LibreDrawFeature, Position } from '../types/features';
 import { UpdateAction } from '../types/features';
 import { isNoRotation, rotateFeature } from '../utils/rotate';
 import { cloneFeature } from '../utils/featureSnapshot';
 import { tryValidateFeature } from '../validation/geojson';
+import { findPolygonRingError } from '../validation/intersection';
+
+/**
+ * Why a rotated shape failed validation. A rotation keeps the shape on the
+ * screen, but back in longitude / latitude it can leave the coordinate
+ * range, or bend a ring across another near the poles.
+ */
+function rejectionReason(rotated: LibreDrawFeature): EditRejectedReason {
+  const { geometry } = rotated;
+  const positions: Position[] =
+    geometry.type === 'Polygon'
+      ? geometry.coordinates.flat()
+      : geometry.type === 'LineString'
+        ? geometry.coordinates
+        : [geometry.coordinates];
+  const inRange = ([lng, lat]: Position) => Math.abs(lng) <= 180 && Math.abs(lat) <= 90;
+  if (!positions.every(inRange)) return 'out-of-range';
+  if (geometry.type === 'Polygon') {
+    return findPolygonRingError(geometry.coordinates) ?? 'invalid-result';
+  }
+  return 'invalid-result';
+}
 
 /**
  * Rotate a Polygon or LineString around its area centroid by `angleDeg`
@@ -16,7 +40,8 @@ import { tryValidateFeature } from '../validation/geojson';
  * is rejected too, so the history never records a no-op. The rotated shape
  * goes through the same validation as `addFeatures` input: near the
  * antimeridian or the poles a valid feature can rotate out of the
- * coordinate range, and that result is refused rather than stored.
+ * coordinate range, and that result is refused rather than stored, with
+ * an `editrejected` event (`action: 'rotate'`).
  *
  * @returns `updated: [rotated]` on success; otherwise `not-found`,
  *   `not-rotatable`, `no-rotation`, or the validation message.
@@ -33,8 +58,14 @@ export function rotate(context: OperationContext, id: string, angleDeg: number):
     return { ok: false, reason: 'no-rotation' };
   }
 
-  const validation = tryValidateFeature(rotateFeature(current, angleDeg));
+  const rotatedShape = rotateFeature(current, angleDeg);
+  const validation = tryValidateFeature(rotatedShape);
   if (!validation.valid) {
+    context.events.emit('editrejected', {
+      action: 'rotate',
+      reason: rejectionReason(rotatedShape),
+      featureId: current.id,
+    });
     return { ok: false, reason: validation.reason };
   }
   const rotated = validation.feature;

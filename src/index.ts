@@ -38,6 +38,9 @@ export type {
   ModeChangeEvent,
   DraftChangeEvent,
   HistoryChangeEvent,
+  EditRejectedEvent,
+  EditRejectedAction,
+  EditRejectedReason,
   EventOrigin,
 } from './types';
 

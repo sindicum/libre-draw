@@ -24,6 +24,7 @@ interface LibreDrawEventMap {
   modechange: ModeChangeEvent;
   draftchange: DraftChangeEvent;
   historychange: HistoryChangeEvent;
+  editrejected: EditRejectedEvent;
 }
 ```
 
@@ -719,6 +720,74 @@ interface HistoryChangeEvent {
 draw.on('historychange', (e) => {
   undoBtn.disabled = !e.canUndo;
   redoBtn.disabled = !e.canRedo;
+});
+```
+
+---
+
+## `editrejected`
+
+Emitted when an edit is refused because the result would not be a valid shape. Nothing changes: the draft keeps its vertices, the dragged vertex stays where it last was valid, and the feature keeps its shape. Use it to tell the user why a click or a drag had no effect.
+
+| `action`          | When                                                                                                                                                                                         | `reason`                                                                        |
+| ----------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------- |
+| `'add-vertex'`    | A vertex added in `draw-polygon` mode, or to the cutter in `cut` mode, would make an edge cross another                                                                                      | `'self-intersection'`                                                           |
+| `'close'`         | Finishing the polygon or the cutter (a click on the first or last vertex, or `finishDrawing()`) would close it across an edge                                                                | `'self-intersection'`                                                           |
+| `'move-vertex'`   | A vertex dragged in `select` mode would leave the polygon invalid. Reported once per drag                                                                                                    | `'self-intersection'`, `'ring-intersection'`, `'hole-outside'`, `'hole-nested'` |
+| `'delete-vertex'` | Deleting a vertex in `select` mode would leave the polygon invalid                                                                                                                           | `'self-intersection'`, `'ring-intersection'`, `'hole-outside'`, `'hole-nested'` |
+| `'rotate'`        | A rotation in `rotate` mode or through [`rotate()`](/api/libre-draw#rotate-id-angledeg) would leave the coordinate range, or bend a ring across another (near the antimeridian or the poles) | `'out-of-range'`, the ring reasons above, `'invalid-result'`                    |
+
+| Reason                | Meaning                                                |
+| --------------------- | ------------------------------------------------------ |
+| `'self-intersection'` | A ring would cross itself                              |
+| `'ring-intersection'` | Two rings of the polygon would cross                   |
+| `'hole-outside'`      | A hole would lie outside the outer ring                |
+| `'hole-nested'`       | A hole would lie inside another hole                   |
+| `'out-of-range'`      | The shape would leave the coordinate range             |
+| `'invalid-result'`    | The rotated shape failed validation for another reason |
+
+Like the [failure reasons](#failure-reasons), `action` and `reason` also accept any other string: handle values you do not know. Vertex counts are not reported: deleting a vertex below the minimum, or finishing a polygon with fewer than three vertices, is simply ignored.
+
+### Payload: `EditRejectedEvent`
+
+```ts
+type EditRejectedAction =
+  | 'add-vertex'
+  | 'close'
+  | 'move-vertex'
+  | 'delete-vertex'
+  | 'rotate'
+  | (string & {});
+
+type EditRejectedReason =
+  | 'self-intersection'
+  | 'ring-intersection'
+  | 'hole-outside'
+  | 'hole-nested'
+  | 'out-of-range'
+  | 'invalid-result'
+  | (string & {});
+
+interface EditRejectedEvent {
+  origin: EventOrigin;
+  action: EditRejectedAction;
+  reason: EditRejectedReason;
+  featureId?: string;
+}
+```
+
+| Property    | Type                           | Description                                                       |
+| ----------- | ------------------------------ | ----------------------------------------------------------------- |
+| `origin`    | [`EventOrigin`](#event-origin) | Who caused the change: `'api'` or `'user'`                        |
+| `action`    | `EditRejectedAction`           | The edit that was refused                                         |
+| `reason`    | `EditRejectedReason`           | Why it was refused                                                |
+| `featureId` | `string \| undefined`          | The edited feature; absent while drawing, before a feature exists |
+
+### Example
+
+```ts
+draw.on('editrejected', (e) => {
+  if (e.reason === 'self-intersection') showHint('Edges cannot cross');
 });
 ```
 

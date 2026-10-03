@@ -15,7 +15,7 @@ import {
   removeVertex,
   removeLineVertex,
 } from '../utils/geometry';
-import { findPolygonRingError } from '../validation/intersection';
+import { findPolygonRingError, type PolygonRingError } from '../validation/intersection';
 import { findSnapTarget } from '../utils/snap';
 
 const HIT_THRESHOLD_MOUSE_PX = 10;
@@ -71,9 +71,9 @@ function buildHandleLayout(feature: LibreDrawFeature): HandleLayout {
   return layout;
 }
 
-/** Whether a polygon's rings are valid together (no crossings, holes inside). */
-function hasValidRings(feature: LibreDrawFeature): boolean {
-  return findPolygonRingError((feature.geometry as PolygonGeometry).coordinates) === null;
+/** Why a polygon's rings are invalid together, or `null` when they are valid. */
+function ringError(feature: LibreDrawFeature): PolygonRingError | null {
+  return findPolygonRingError((feature.geometry as PolygonGeometry).coordinates);
 }
 
 /**
@@ -85,6 +85,8 @@ export class VertexEditor {
   private dragging = false;
   private dragVertex: RingRef | null = null;
   private dragStartFeature: LibreDrawFeature | null = null;
+  // Whether this drag already reported an `editrejected`: one per drag.
+  private dragRejectionReported = false;
   private highlightedVertexIndex = -1;
   private highlightedMidpointIndex = -1;
 
@@ -174,18 +176,27 @@ export class VertexEditor {
 
     // A move that makes a ring cross itself or another ring, or puts a hole
     // outside the outer ring, is refused: the vertex stays where it was.
-    if (!hasValidRings(updatedFeature)) {
+    const error = ringError(updatedFeature);
+    if (error) {
       // If snap caused intersection, try without snap
       if (snappedPos.lng !== event.lngLat.lng || snappedPos.lat !== event.lngLat.lat) {
         const unsnappedPos: Position = [event.lngLat.lng, event.lngLat.lat];
         const unsnappedFeature = moveVertex(feature, index, unsnappedPos, ring);
-        if (hasValidRings(unsnappedFeature)) {
+        if (!ringError(unsnappedFeature)) {
           this.context.render.clearSnapIndicator();
           this.context.store.update(selectedId, unsnappedFeature);
           this.context.render.renderFeatures();
           this.renderHandles(unsnappedFeature);
           return true;
         }
+      }
+      if (!this.dragRejectionReported) {
+        this.dragRejectionReported = true;
+        this.context.events.emit('editrejected', {
+          action: 'move-vertex',
+          reason: error,
+          featureId: selectedId,
+        });
       }
       return true;
     }
@@ -242,7 +253,13 @@ export class VertexEditor {
       ? removeLineVertex(feature, index)
       : removeVertex(feature, index, ring);
     // Removing a vertex can make an edge cut across its ring or another ring.
-    if (!isLine && !hasValidRings(updatedFeature)) {
+    const error = isLine ? null : ringError(updatedFeature);
+    if (error) {
+      this.context.events.emit('editrejected', {
+        action: 'delete-vertex',
+        reason: error,
+        featureId: selectedId,
+      });
       return false;
     }
 
@@ -291,6 +308,7 @@ export class VertexEditor {
     startFeatureSnapshot: LibreDrawFeature = cloneFeature(feature)
   ): void {
     this.dragging = true;
+    this.dragRejectionReported = false;
     this.dragVertex = vertex;
     this.dragStartFeature = startFeatureSnapshot;
     // Show dragged vertex as highlighted, clear midpoint highlight

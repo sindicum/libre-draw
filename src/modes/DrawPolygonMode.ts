@@ -265,14 +265,20 @@ export class DrawPolygonMode implements DraftCapableMode {
 
   /**
    * Place a vertex at the (possibly snapped) position of a click or tap.
-   * Silently ignored when the new edge would cross an existing one.
+   * Refused with an `editrejected` event when the new edge would cross an
+   * existing one.
    */
   private placeVertex(event: NormalizedInputEvent): void {
     const snappedPos = this.applySnap(event.lngLat);
     const newVertex: Position = [snappedPos.lng, snappedPos.lat];
 
-    // Reject vertex if it would cause self-intersection
-    if (wouldNewVertexCauseIntersection(this.vertices, newVertex)) return;
+    if (wouldNewVertexCauseIntersection(this.vertices, newVertex)) {
+      this.context.events.emit('editrejected', {
+        action: 'add-vertex',
+        reason: 'self-intersection',
+      });
+      return;
+    }
 
     this.vertices.push(newVertex);
     const previewCoords = this.buildPreviewCoordinates(newVertex);
@@ -321,7 +327,10 @@ export class DrawPolygonMode implements DraftCapableMode {
    */
   private tryFinalize(): boolean {
     if (this.vertices.length < MIN_VERTICES) return false;
-    if (wouldClosingCauseIntersection(this.vertices)) return false;
+    if (wouldClosingCauseIntersection(this.vertices)) {
+      this.context.events.emit('editrejected', { action: 'close', reason: 'self-intersection' });
+      return false;
+    }
 
     // Close the ring
     const ring: Position[] = [...this.vertices, [...this.vertices[0]] as Position];
