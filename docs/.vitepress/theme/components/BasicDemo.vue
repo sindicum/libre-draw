@@ -73,7 +73,6 @@ onMounted(async () => {
           union: false,
           setback: false,
           rotate: false,
-          settings: false,
           delete: true,
           undo: true,
           redo: true,

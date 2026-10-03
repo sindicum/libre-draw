@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { addHover, paintHover, HOVER_COLOR } from '../../../src/ui/hover';
-import { BRAND_COLOR } from '../../../src/types/style';
+import { BRAND_COLOR } from '../../../src/types/brand';
 
 function pointer(el: HTMLElement, type: 'pointerenter' | 'pointerleave', pointerType: string) {
   el.dispatchEvent(new PointerEvent(type, { pointerType }));

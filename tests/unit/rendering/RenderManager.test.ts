@@ -1,15 +1,14 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import type { Map as MaplibreMap } from 'maplibre-gl';
+import { RenderManager } from '../../../src/rendering/RenderManager';
+import { SourceManager } from '../../../src/rendering/SourceManager';
 import {
-  RenderManager,
-  LAYER_IDS,
+  DEFAULT_LAYERS,
   ROTATION_CENTER_IMAGE_ID,
-} from '../../../src/rendering/RenderManager';
-import { SourceManager, SOURCE_IDS } from '../../../src/rendering/SourceManager';
+  SOURCE_IDS,
+} from '../../../src/rendering/layers';
 import type { LibreDrawFeature } from '../../../src/types/features';
-import type { StyleConfig } from '../../../src/types/style';
-
-type LayerHandler = (event: { features?: Array<{ id?: string | number }> }) => void;
+import type { LibreDrawLayer } from '../../../src/types/layers';
 
 /** Stand-in for a MapLibre GeoJSON source: only `setData` is exercised. */
 class FakeSource {
@@ -23,7 +22,9 @@ class FakeSource {
 /**
  * Minimal map stand-in.
  *
- * `setFeatureState` mirrors MapLibre and throws on a missing id.
+ * `setFeatureState` mirrors MapLibre and throws on a missing id. Like
+ * MapLibre, `addLayer` refuses (without throwing) a layer whose id is
+ * already on the style or whose source is missing.
  */
 class FakeMap {
   readonly featureState = new Map<string | number, Record<string, unknown>>();
@@ -39,7 +40,6 @@ class FakeMap {
   readonly images = new Map<string, unknown>();
   private sources = new Map<string, FakeSource>();
   private layers = new Map<string, unknown>();
-  private layerHandlers = new Map<string, LayerHandler>();
   private canvas = { style: { cursor: '' } };
 
   getSource<T>(id: string): T | undefined {
@@ -58,15 +58,15 @@ class FakeMap {
     return this.layers.get(id);
   }
 
-  addLayer(layer: { id: string }): void {
+  readonly addLayer = vi.fn((layer: { id: string; source?: string }) => {
+    if (this.layers.has(layer.id)) return;
+    if (layer.source && !this.sources.has(layer.source)) return;
     this.layers.set(layer.id, layer);
-  }
+  });
 
   removeLayer(id: string): void {
     this.layers.delete(id);
   }
-
-  readonly setPaintProperty = vi.fn<(layer: string, prop: string, value: unknown) => void>();
 
   hasImage(id: string): boolean {
     return this.images.has(id);
@@ -84,32 +84,20 @@ class FakeMap {
     return this.canvas;
   }
 
-  on(event: string, layerOrHandler: string | LayerHandler, handler?: LayerHandler): void {
-    if (typeof layerOrHandler === 'string' && handler) {
-      this.layerHandlers.set(`${event}:${layerOrHandler}`, handler);
-    }
-  }
-
-  /** Fire a layer-scoped handler registered through `on(event, layer, fn)`. */
-  fire(
-    event: string,
-    layer: string,
-    payload: { features?: Array<{ id?: string | number }> }
-  ): void {
-    this.layerHandlers.get(`${event}:${layer}`)?.(payload);
-  }
-
   sourceData(id: string): GeoJSON.FeatureCollection | undefined {
     return this.sources.get(id)?.data;
   }
 
-  /** The `paint` each layer was added with, keyed by layer id. */
-  layerPaints(): Map<string, Record<string, unknown> | undefined> {
-    const paints = new Map<string, Record<string, unknown> | undefined>();
-    for (const [id, layer] of this.layers) {
-      paints.set(id, (layer as { paint?: Record<string, unknown> }).paint);
-    }
-    return paints;
+  layerIds(): string[] {
+    return [...this.layers.keys()];
+  }
+
+  /** Drop every source, layer, image and feature state, as `map.setStyle()` does. */
+  swapStyle(): void {
+    this.sources.clear();
+    this.layers.clear();
+    this.images.clear();
+    this.featureState.clear();
   }
 }
 
@@ -145,106 +133,175 @@ describe('RenderManager', () => {
     vi.unstubAllGlobals();
   });
 
-  describe('performRender', () => {
-    it('should carry the feature id into the promoted _id property', () => {
-      manager.render([makePoint(ID_A)]);
+  function create(layers?: LibreDrawLayer[]): RenderManager {
+    map = new FakeMap();
+    const created = new RenderManager(
+      map as unknown as MaplibreMap,
+      new SourceManager(map as unknown as MaplibreMap),
+      layers
+    );
+    created.initialize();
+    return created;
+  }
 
-      const features = map.sourceData(SOURCE_IDS.FEATURES)?.features ?? [];
-      expect(features).toHaveLength(1);
-      expect(features[0].properties?._id).toBe(ID_A);
-      expect(features[0].id).toBe(ID_A);
+  describe('layers', () => {
+    it('adds the default layers in order', () => {
+      expect(map.layerIds()).toEqual(DEFAULT_LAYERS.map((layer) => layer.id));
     });
 
-    it('should not add rendering-only flags besides _id and _selected', () => {
-      manager.render([makePoint(ID_A)]);
+    it('replaces the defaults with the given definitions', () => {
+      create([{ id: 'parcels', type: 'fill', source: SOURCE_IDS.FEATURES }]);
+      expect(map.layerIds()).toEqual(['parcels']);
+    });
 
-      const features = map.sourceData(SOURCE_IDS.FEATURES)?.features ?? [];
-      expect(Object.keys(features[0].properties ?? {}).sort()).toEqual(['_id', '_selected']);
+    it('swaps its own layers on setLayers', () => {
+      manager.setLayers([{ id: 'parcels', type: 'fill', source: SOURCE_IDS.FEATURES }]);
+      expect(map.layerIds()).toEqual(['parcels']);
+
+      manager.setLayers([]);
+      expect(map.layerIds()).toEqual([]);
+    });
+
+    it('passes a clashing id to MapLibre and never removes the map layer that had it', () => {
+      map.addLayer({ id: 'parcels' }); // the host's own layer
+      map.addLayer.mockClear();
+      const clash: LibreDrawLayer = { id: 'parcels', type: 'fill', source: SOURCE_IDS.FEATURES };
+      manager.setLayers([clash]);
+      expect(map.addLayer).toHaveBeenCalledWith(clash);
+
+      manager.setLayers([]);
+      manager.destroy();
+
+      expect(map.layerIds()).toEqual(['parcels']);
+    });
+
+    it('leaves the second of two definitions with one id to MapLibre, which refuses it', () => {
+      const first: LibreDrawLayer = { id: 'parcels', type: 'fill', source: SOURCE_IDS.FEATURES };
+      const second: LibreDrawLayer = { id: 'parcels', type: 'line', source: SOURCE_IDS.FEATURES };
+      const duplicated = create([first, second]);
+
+      expect(map.addLayer).toHaveBeenCalledTimes(2);
+      expect(map.getLayer('parcels')).toEqual(first);
+      duplicated.setLayers([]);
+      expect(map.layerIds()).toEqual([]);
+    });
+
+    it('does not retry a definition MapLibre refused', () => {
+      const refused = create([
+        { id: 'parcels', type: 'fill', source: SOURCE_IDS.FEATURES },
+        { id: 'stray', type: 'fill', source: 'not-a-source' },
+      ]);
+      expect(map.layerIds()).toEqual(['parcels']);
+      expect(refused.isReadyForCurrentStyle()).toBe(true);
+
+      map.addLayer.mockClear();
+      refused.initialize();
+      expect(map.addLayer).not.toHaveBeenCalled();
+    });
+
+    it('re-adds the layers after a style swap', () => {
+      map.swapStyle();
+      expect(manager.isReadyForCurrentStyle()).toBe(false);
+
+      manager.initialize();
+      expect(map.layerIds()).toEqual(DEFAULT_LAYERS.map((layer) => layer.id));
     });
   });
 
-  describe('point hover', () => {
-    it('should set hover state using the string feature id', () => {
-      map.fire('mousemove', LAYER_IDS.POINT, { features: [{ id: ID_A }] });
+  describe('feature properties', () => {
+    it('keeps the feature properties and adds libre-draw:id and libre-draw:selected', () => {
+      const feature = makePoint(ID_A);
+      feature.properties = { name: 'well', selected: 'mine' };
+      manager.setSelectedIds([ID_A]);
+      manager.render([feature]);
+
+      const [rendered] = map.sourceData(SOURCE_IDS.FEATURES)?.features ?? [];
+      expect(rendered.id).toBe(ID_A);
+      expect(rendered.properties).toEqual({
+        name: 'well',
+        selected: 'mine',
+        'libre-draw:id': ID_A,
+        'libre-draw:selected': true,
+      });
+    });
+
+    it('marks handles with libre-draw:handle and libre-draw:highlighted', () => {
+      manager.renderVertices(
+        [
+          [0, 0],
+          [1, 0],
+        ],
+        [[0.5, 0]],
+        1,
+        0
+      );
+
+      const properties = (map.sourceData(SOURCE_IDS.EDIT_VERTICES)?.features ?? []).map(
+        (feature) => feature.properties
+      );
+      expect(properties).toEqual([
+        { 'libre-draw:handle': 'vertex', 'libre-draw:highlighted': false },
+        { 'libre-draw:handle': 'vertex', 'libre-draw:highlighted': true },
+        { 'libre-draw:handle': 'midpoint', 'libre-draw:highlighted': true },
+      ]);
+    });
+  });
+
+  describe('setHovered', () => {
+    it('sets hover on the feature by its string id and shows the pointer cursor', () => {
+      manager.setHovered(ID_A);
 
       expect(map.setFeatureState).toHaveBeenCalledWith(
         { source: SOURCE_IDS.FEATURES, id: ID_A },
         { hover: true }
       );
-      expect(map.featureState.get(ID_A)).toEqual({ hover: true });
+      expect(map.getCanvas().style.cursor).toBe('pointer');
     });
 
-    it('should clear the previous feature when hover moves to another point', () => {
-      map.fire('mousemove', LAYER_IDS.POINT, { features: [{ id: ID_A }] });
-      map.fire('mousemove', LAYER_IDS.POINT, { features: [{ id: ID_B }] });
+    it('moves hover from one feature to the next', () => {
+      manager.setHovered(ID_A);
+      manager.setHovered(ID_B);
 
       expect(map.featureState.get(ID_A)).toEqual({ hover: false });
       expect(map.featureState.get(ID_B)).toEqual({ hover: true });
     });
 
-    it('should not re-clear the same feature while the pointer stays on it', () => {
-      map.fire('mousemove', LAYER_IDS.POINT, { features: [{ id: ID_A }] });
+    it('does nothing while the same feature stays hovered', () => {
+      manager.setHovered(ID_A);
       map.setFeatureState.mockClear();
 
-      map.fire('mousemove', LAYER_IDS.POINT, { features: [{ id: ID_A }] });
+      manager.setHovered(ID_A);
+
+      expect(map.setFeatureState).not.toHaveBeenCalled();
+    });
+
+    it('clears hover and the cursor with undefined', () => {
+      manager.setHovered(ID_A);
+      manager.setHovered(undefined);
+
+      expect(map.featureState.get(ID_A)).toEqual({ hover: false });
+      expect(map.getCanvas().style.cursor).toBe('');
+    });
+
+    it('forgets the hovered feature after a style swap instead of clearing a lost state', () => {
+      manager.setHovered(ID_A);
+      map.swapStyle();
+      manager.initialize();
+      map.setFeatureState.mockClear();
+
+      manager.setHovered(ID_B);
 
       expect(map.setFeatureState).toHaveBeenCalledTimes(1);
       expect(map.setFeatureState).toHaveBeenCalledWith(
-        { source: SOURCE_IDS.FEATURES, id: ID_A },
+        { source: SOURCE_IDS.FEATURES, id: ID_B },
         { hover: true }
       );
-    });
-
-    it('should clear hover state on mouseleave', () => {
-      map.fire('mousemove', LAYER_IDS.POINT, { features: [{ id: ID_A }] });
-
-      map.fire('mouseleave', LAYER_IDS.POINT, {});
-
-      expect(map.featureState.get(ID_A)).toEqual({ hover: false });
-    });
-
-    it('should ignore a mousemove that carries no features', () => {
-      map.fire('mousemove', LAYER_IDS.POINT, { features: [] });
-
-      expect(map.setFeatureState).not.toHaveBeenCalled();
-    });
-
-    it('should ignore a feature without an id instead of throwing', () => {
-      // A source rebuilt without promoteId yields undefined ids; hover colour
-      // is lost but the handler must not throw from setFeatureState.
-      expect(() => map.fire('mousemove', LAYER_IDS.POINT, { features: [{}] })).not.toThrow();
-      expect(map.setFeatureState).not.toHaveBeenCalled();
-    });
-
-    it('should keep the previous hover when an id-less feature arrives', () => {
-      map.fire('mousemove', LAYER_IDS.POINT, { features: [{ id: ID_A }] });
-      map.setFeatureState.mockClear();
-
-      map.fire('mousemove', LAYER_IDS.POINT, { features: [{}] });
-
-      expect(map.setFeatureState).not.toHaveBeenCalled();
-      expect(map.featureState.get(ID_A)).toEqual({ hover: true });
-    });
-
-    it('should do nothing on mouseleave when nothing was hovered', () => {
-      map.fire('mouseleave', LAYER_IDS.POINT, {});
-
-      expect(map.setFeatureState).not.toHaveBeenCalled();
     });
   });
 
   describe('rotation center', () => {
-    it('adds a crosshair symbol layer on its own source', () => {
-      const layer = map.getLayer(LAYER_IDS.ROTATION_CENTER) as { type: string; layout: unknown };
-      expect(layer.type).toBe('symbol');
-      expect(layer.layout).toMatchObject({ 'icon-image': ROTATION_CENTER_IMAGE_ID });
-      expect(map.getSource(SOURCE_IDS.ROTATION_CENTER)).toBeDefined();
-      expect(map.hasImage(ROTATION_CENTER_IMAGE_ID)).toBe(true);
-    });
-
     it('registers the crosshair image on initialize and removes it on destroy', () => {
-      manager.initialize();
-      expect(map.images.size).toBe(1);
+      expect(map.hasImage(ROTATION_CENTER_IMAGE_ID)).toBe(true);
 
       manager.destroy();
       expect(map.hasImage(ROTATION_CENTER_IMAGE_ID)).toBe(false);
@@ -258,103 +315,6 @@ describe('RenderManager', () => {
 
       manager.clearRotationCenter();
       expect(source.data.features).toHaveLength(0);
-    });
-  });
-
-  describe('updateStyle', () => {
-    // Every field differs from the default so that a paint property left out
-    // of updateStyle shows up as a mismatch against initialize.
-    const next: StyleConfig = {
-      fill: { color: '#111111', opacity: 0.3, selectedColor: '#222222', selectedOpacity: 0.5 },
-      outline: { color: '#333333', width: 3, selectedColor: '#444444' },
-      preview: { color: '#777777', width: 3, dasharray: [4, 4] },
-      editVertex: {
-        color: '#888888',
-        strokeColor: '#999999',
-        strokeWidth: 3,
-        radius: 6,
-        highlightedColor: '#aaaaaa',
-        highlightedStrokeColor: '#bbbbbb',
-        highlightedRadius: 8,
-      },
-      midpoint: { color: '#cccccc', opacity: 0.7, radius: 5 },
-      point: {
-        color: '#dddddd',
-        radius: 7,
-        selectedColor: '#eeeeee',
-        selectedRadius: 9,
-        hoverColor: '#ff00ff',
-        strokeColor: '#00ffff',
-        strokeWidth: 3,
-      },
-    };
-
-    function paintAfterInitialize(style?: StyleConfig) {
-      const m = new FakeMap();
-      const rm = new RenderManager(
-        m as unknown as MaplibreMap,
-        new SourceManager(m as unknown as MaplibreMap),
-        style
-      );
-      rm.initialize();
-      return m.layerPaints();
-    }
-
-    function recordedUpdates(): Map<string, Record<string, unknown>> {
-      const updated = new Map<string, Record<string, unknown>>();
-      for (const [layer, prop, value] of map.setPaintProperty.mock.calls) {
-        updated.set(layer, { ...updated.get(layer), [prop]: value });
-      }
-      return updated;
-    }
-
-    it('sets every style-derived paint property to what initialize would use', () => {
-      const before = paintAfterInitialize();
-      const expected = paintAfterInitialize(next);
-
-      manager.updateStyle(next);
-      const updated = recordedUpdates();
-
-      expect(expected.size).toBeGreaterThan(0);
-      for (const [layer, paint] of expected) {
-        if (JSON.stringify(paint) === JSON.stringify(before.get(layer))) {
-          // Constant paint, or none: there is nothing for updateStyle to do.
-          expect(updated.has(layer), layer).toBe(false);
-        } else {
-          expect(updated.get(layer), layer).toEqual(paint);
-        }
-      }
-    });
-
-    it('refreshes the highlighted midpoint stroke from editVertex', () => {
-      manager.updateStyle(next);
-      const midpoints = recordedUpdates().get(LAYER_IDS.EDIT_MIDPOINTS);
-
-      expect(midpoints?.['circle-stroke-width']).toEqual([
-        'case',
-        ['boolean', ['get', '_highlighted'], false],
-        3,
-        0,
-      ]);
-      expect(midpoints?.['circle-stroke-color']).toEqual([
-        'case',
-        ['boolean', ['get', '_highlighted'], false],
-        '#bbbbbb',
-        'transparent',
-      ]);
-    });
-
-    it('only stores the style before initialize', () => {
-      const m = new FakeMap();
-      const rm = new RenderManager(
-        m as unknown as MaplibreMap,
-        new SourceManager(m as unknown as MaplibreMap)
-      );
-
-      rm.updateStyle(next);
-
-      expect(m.setPaintProperty).not.toHaveBeenCalled();
-      expect(rm.getStyle()).toEqual(next);
     });
   });
 });

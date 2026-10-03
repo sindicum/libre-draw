@@ -7,7 +7,7 @@
  * "vertex" or "point feature" in this library.
  */
 
-import { BRAND_COLOR } from '../types/style';
+import { BRAND_COLOR } from '../types/brand';
 
 export interface RasterImage {
   width: number;

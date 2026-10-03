@@ -1,6 +1,7 @@
 import { describe, it, expect, beforeEach } from 'vitest';
 import type { Map as MaplibreMap } from 'maplibre-gl';
-import { SourceManager, SOURCE_IDS } from '../../../src/rendering/SourceManager';
+import { SourceManager } from '../../../src/rendering/SourceManager';
+import { SOURCE_IDS } from '../../../src/rendering/layers';
 
 type SourceOptions = { type: 'geojson'; data: GeoJSON.FeatureCollection; promoteId?: string };
 
@@ -56,11 +57,11 @@ describe('SourceManager', () => {
     expect(manager.hasAllSources()).toBe(true);
   });
 
-  it('should promote _id on the features source', () => {
+  it('should promote libre-draw:id on the features source', () => {
     // promoteId keeps the string feature ids that setFeatureState needs.
     manager.initialize();
 
-    expect(map.optionsFor(SOURCE_IDS.FEATURES)?.promoteId).toBe('_id');
+    expect(map.optionsFor(SOURCE_IDS.FEATURES)?.promoteId).toBe('libre-draw:id');
   });
 
   it('should not promote ids on the sources that carry no feature state', () => {
@@ -99,7 +100,7 @@ describe('SourceManager', () => {
 
     manager.initialize();
 
-    expect(map.optionsFor(SOURCE_IDS.FEATURES)?.promoteId).toBe('_id');
+    expect(map.optionsFor(SOURCE_IDS.FEATURES)?.promoteId).toBe('libre-draw:id');
     expect(manager.hasAllSources()).toBe(true);
   });
 

@@ -1,4 +1,4 @@
-import type { PartialStyleConfig } from './style';
+import type { LibreDrawLayer } from './layers';
 import type { Locale, Messages } from './messages';
 
 /**
@@ -34,7 +34,6 @@ export interface ToolbarControls {
   rotate?: boolean;
   cut?: boolean;
   reshape?: boolean;
-  settings?: boolean;
   delete?: boolean;
   undo?: boolean;
   redo?: boolean;
@@ -86,8 +85,13 @@ export interface LibreDrawOptions {
   keyboard?: boolean | KeyboardOptions;
   /** Maximum number of undo/redo history entries. Defaults to 100. */
   historyLimit?: number;
-  /** Partial style overrides for map layer rendering. */
-  style?: PartialStyleConfig;
+  /**
+   * MapLibre layer definitions to draw with instead of `DEFAULT_LAYERS`,
+   * in drawing order. Each reads one of the sources in `SOURCE_IDS`. They
+   * replace the defaults entirely and survive a `map.setStyle()`. Can be
+   * changed later with `setLayers()`.
+   */
+  layers?: LibreDrawLayer[];
   /** Whether to enable snapping, or snap configuration options. Defaults to true. */
   snap?: boolean | SnapConfig;
   /** Language of the toolbar and its popups. Defaults to `'en'`. */

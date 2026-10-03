@@ -70,14 +70,7 @@ export type {
   KeyboardOptions,
   SnapConfig,
   InputMethod,
-  StyleConfig,
-  PartialStyleConfig,
-  PointStyle,
-  FillStyle,
-  OutlineStyle,
-  PreviewStyle,
-  EditVertexStyle,
-  MidpointStyle,
+  LibreDrawLayer,
 } from './types';
 
 // UI strings (i18n)
@@ -89,5 +82,5 @@ export type { ModeName } from './types';
 // Error class
 export { LibreDrawError } from './core/errors';
 
-// Style helpers
-export { DEFAULT_STYLE_CONFIG, mergeStyleConfig } from './types';
+// Layer definitions: the sources they read and the defaults
+export { SOURCE_IDS, DEFAULT_LAYERS } from './rendering/layers';

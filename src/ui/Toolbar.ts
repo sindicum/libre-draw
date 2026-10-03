@@ -1,6 +1,5 @@
 import type { Map as MaplibreMap } from 'maplibre-gl';
 import type { ToolbarOptions, ToolbarControls, InputMethod } from '../types/options';
-import type { PartialStyleConfig } from '../types/style';
 import type { Messages } from '../types/messages';
 import { MESSAGES_EN } from './messages';
 import { ToolbarButton } from './ToolbarButton';
@@ -17,14 +16,12 @@ import { reshapeIcon } from './icons/reshape';
 import { unionIcon } from './icons/union';
 import { setbackIcon } from './icons/setback';
 import { rotateIcon } from './icons/rotate';
-import { settingsIcon } from './icons/settings';
 import { deleteIcon } from './icons/delete';
 import { undoIcon } from './icons/undo';
 import { redoIcon } from './icons/redo';
 import { SetbackInput } from './SetbackInput';
 import { RotateInput } from './RotateInput';
 import { UnionExecute } from './UnionExecute';
-import { StylePanel } from './StylePanel';
 
 /**
  * Default toolbar control visibility.
@@ -43,7 +40,6 @@ const DEFAULT_CONTROLS: Required<ToolbarControls> = {
   union: true,
   setback: true,
   rotate: true,
-  settings: true,
   delete: true,
   undo: true,
   redo: true,
@@ -71,7 +67,6 @@ export interface ToolbarCallbacks {
   onRotateClick(): void;
   onRotateExecute(angle: number): void;
   onRotateAngleChange(angle: number): void;
-  onStyleChange(style: PartialStyleConfig): void;
   onDeleteClick(): void;
   onUndoClick(): void;
   onRedoClick(): void;
@@ -98,9 +93,6 @@ export class Toolbar {
   private rotateHasSelection = false;
   private unionExecute: UnionExecute | null = null;
   private unionSelectionCount = 0;
-  private stylePanel: StylePanel | null = null;
-  private stylePanelVisible = false;
-  private handleOutsideClick: ((e: PointerEvent) => void) | null = null;
   private callbacks: ToolbarCallbacks;
   private options: ToolbarOptions;
   private messages: Messages;
@@ -264,14 +256,6 @@ export class Toolbar {
     if (this.unionExecute) {
       this.unionExecute.destroy();
       this.unionExecute = null;
-    }
-    if (this.handleOutsideClick) {
-      document.removeEventListener('pointerdown', this.handleOutsideClick);
-      this.handleOutsideClick = null;
-    }
-    if (this.stylePanel) {
-      this.stylePanel.destroy();
-      this.stylePanel = null;
     }
     for (const button of this.buttons.values()) {
       button.destroy();
@@ -448,11 +432,6 @@ export class Toolbar {
         this.callbacks.onRedoClick();
       });
     }
-
-    // Settings button is always last in the toolbar
-    if (controls.settings) {
-      this.addSettingsControl();
-    }
   }
 
   /**
@@ -575,56 +554,6 @@ export class Toolbar {
   private updateRotateInputVisibility(): void {
     if (!this.rotateInput) return;
     this.rotateInput.setVisible(this.activeMode === 'rotate' && this.rotateHasSelection);
-  }
-
-  /**
-   * Create settings toggle button + popup style panel.
-   * The panel is attached to the toolbar container (not the button row)
-   * so that its top edge aligns with the toolbar's top edge.
-   */
-  private addSettingsControl(): void {
-    const row = this.createControlRow();
-    const button = new ToolbarButton({
-      id: 'settings',
-      icon: settingsIcon,
-      title: this.messages.toolbarSettings,
-      onClick: () => {
-        this.stylePanelVisible = !this.stylePanelVisible;
-        if (this.stylePanel) {
-          this.stylePanel.setVisible(this.stylePanelVisible);
-        }
-      },
-    });
-    this.buttons.set('settings', button);
-    row.appendChild(button.getElement());
-    this.buttonList.appendChild(row);
-
-    this.stylePanel = new StylePanel(
-      {
-        onStyleChange: (style) => this.callbacks.onStyleChange(style),
-      },
-      this.messages
-    );
-
-    const position = this.options.position || 'top-right';
-    const isRight = position === 'top-right' || position === 'bottom-right';
-    this.stylePanel.setPosition(isRight ? 'left' : 'right');
-
-    // Attach panel to toolbar container so top aligns with toolbar top
-    this.container.appendChild(this.stylePanel.getElement());
-
-    // Close panel when clicking outside of it and the settings button
-    this.handleOutsideClick = (e: PointerEvent): void => {
-      if (!this.stylePanelVisible || !this.stylePanel) return;
-      const target = e.target as Node;
-      const panelEl = this.stylePanel.getElement();
-      const btnEl = button.getElement();
-      if (!panelEl.contains(target) && !btnEl.contains(target)) {
-        this.stylePanelVisible = false;
-        this.stylePanel.setVisible(false);
-      }
-    };
-    document.addEventListener('pointerdown', this.handleOutsideClick);
   }
 
   /**

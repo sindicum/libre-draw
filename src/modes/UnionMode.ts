@@ -60,6 +60,12 @@ export class UnionMode implements Mode {
     this.isDragging = false;
   }
 
+  /** @returns The polygon a click would add to or remove from the selection. */
+  hoverTarget(event: NormalizedInputEvent): string | undefined {
+    if (!this.isActive) return undefined;
+    return this.hitTest([event.lngLat.lng, event.lngLat.lat])?.id;
+  }
+
   onPointerMove(event: NormalizedInputEvent): void {
     if (!this.isActive || !this.pointerDown || this.isDragging) return;
     // Once the pointer has left the click tolerance this is a pan, even if

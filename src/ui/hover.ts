@@ -1,5 +1,5 @@
 /**
- * A pale tint of `BRAND_COLOR` (`types/style`, 20% on white): the hover
+ * A pale tint of `BRAND_COLOR` (`types/brand`, 20% on white): the hover
  * background of every button in the toolbar and its popups.
  */
 export const HOVER_COLOR = '#d4dfee';

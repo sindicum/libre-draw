@@ -37,6 +37,7 @@ export class FakeMap {
   private sources: Map<string, FakeGeoJSONSource> = new Map();
   private layers: Map<string, unknown> = new Map();
   private images: Map<string, unknown> = new Map();
+  private featureStates: Map<string, Record<string, unknown>> = new Map();
   private listeners: Map<string, Set<(...args: unknown[]) => void>> = new Map();
   /**
    * Geographic offset of the view: screen (x, y) shows (x + dx, y + dy).
@@ -116,6 +117,7 @@ export class FakeMap {
     this.sources.clear();
     this.layers.clear();
     this.images.clear();
+    this.featureStates.clear();
     this.emit('styledata');
     this.styleLoaded = true;
     this.emit('styledata');
@@ -126,6 +128,10 @@ export class FakeMap {
     this.styleLoaded = true;
     this.emit('styledata');
     this.emit('load');
+  }
+
+  getCanvas(): HTMLDivElement {
+    return this.canvas;
   }
 
   getCanvasContainer(): HTMLDivElement {
@@ -173,7 +179,9 @@ export class FakeMap {
     return this.layers.get(id);
   }
 
+  /** Like MapLibre, a layer whose id is already on the style is refused. */
   addLayer(layer: { id: string }): void {
+    if (this.layers.has(layer.id)) return;
     this.layers.set(layer.id, layer);
   }
 
@@ -199,6 +207,23 @@ export class FakeMap {
 
   hasLayer(id: string): boolean {
     return this.layers.has(id);
+  }
+
+  setFeatureState(
+    target: { source: string; id: string | number },
+    state: Record<string, unknown>
+  ): void {
+    const key = `${target.source}/${target.id}`;
+    this.featureStates.set(key, { ...this.featureStates.get(key), ...state });
+  }
+
+  getFeatureState(target: { source: string; id: string | number }): Record<string, unknown> {
+    return this.featureStates.get(`${target.source}/${target.id}`) ?? {};
+  }
+
+  /** Ids of the layers on the style, bottom to top. */
+  layerIds(): string[] {
+    return [...this.layers.keys()];
   }
 
   getSourceData(id: string): GeoJSON.FeatureCollection | undefined {

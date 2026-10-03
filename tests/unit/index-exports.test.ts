@@ -54,10 +54,10 @@ describe('package root exports', () => {
   it('exposes the runtime values the API reference lists', () => {
     expect(typeof api.LibreDraw).toBe('function');
     expect(typeof api.LibreDrawError).toBe('function');
-    expect(typeof api.mergeStyleConfig).toBe('function');
-    expect(api.DEFAULT_STYLE_CONFIG.fill).toBeDefined();
+    expect(api.SOURCE_IDS.FEATURES).toBe('libre-draw-features');
+    expect(api.DEFAULT_LAYERS.length).toBeGreaterThan(0);
     expect(Object.keys(api).sort()).toEqual(
-      ['DEFAULT_STYLE_CONFIG', 'LibreDraw', 'LibreDrawError', 'mergeStyleConfig'].sort()
+      ['DEFAULT_LAYERS', 'LibreDraw', 'LibreDrawError', 'SOURCE_IDS'].sort()
     );
   });
 

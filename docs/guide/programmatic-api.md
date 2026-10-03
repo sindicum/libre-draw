@@ -65,7 +65,7 @@ the table leaves that out.
 | `cancelDrawing()`                   | `void`                                                          | never             | No-op outside a drawing mode. In `cut` / `reshape`, discards the draft and keeps the target.                                                                                                                      |
 | `getDraftVertexCount()`             | `number`                                                        | never             |                                                                                                                                                                                                                   |
 | `undoLastVertex()`                  | `boolean`                                                       | never             | `false` outside a drawing mode with a draft (`cut` / `reshape` count once a target is picked), or when the draft is empty.                                                                                        |
-| `setStyle(style)` / `getStyle()`    | `void` / [`StyleConfig`](/api/types#styleconfig)                | never             |                                                                                                                                                                                                                   |
+| `setLayers(layers)`                 | `void`                                                          | never             | MapLibre reports a bad definition with its `error` event; LibreDraw does not check them.                                                                                                                          |
 | `undo()` / `redo()`                 | `boolean`                                                       | never             | `false` when there is nothing to undo / redo.                                                                                                                                                                     |
 | `canUndo()` / `canRedo()`           | `boolean`                                                       | never             | Reads the history without changing it.                                                                                                                                                                            |
 | `on()` / `off()`                    | `void`                                                          | never             |                                                                                                                                                                                                                   |
@@ -109,7 +109,6 @@ through a method and announced by an event, so a custom UI never has to guess:
 | --------------------------------------- | ---------------------------------------------------------- | -------------------------------------------------------- | ---------------------------------------- |
 | Mode buttons                            | `setMode(mode)` (`'idle'` to switch off)                   | `getMode()`                                              | `modechange`                             |
 | Input method toggle                     | `setInputMethod(method)`                                   | `getInputMethod()`                                       | none; only your UI changes it            |
-| Style settings                          | `setStyle(style)`                                          | `getStyle()`                                             | none; only your UI changes it            |
 | Delete                                  | `deleteFeature(id)` per selected id                        | `getSelectedFeatureIds().length > 0`                     | `selectionchange`                        |
 | Undo / Redo                             | `undo()` / `redo()`                                        | `canUndo()` / `canRedo()`                                | `historychange`                          |
 | Union execute (union mode, 2+ selected) | `union(getSelectedFeatureIds())`                           | `getMode()` and `getSelectedFeatureIds()`                | `modechange`, `selectionchange`          |
@@ -222,7 +221,7 @@ authentication), so treat it as a proof of the contract rather than a deployment
 What carries over unchanged:
 
 - **The tool definitions** (`server/tools.ts`): names, descriptions, and argument shapes,
-  one per query or editing method of the public API (mode, style and lifecycle calls
+  one per query or editing method of the public API (mode, layer and lifecycle calls
   stay with the page). They work as MCP tools, and the same names, descriptions, and
   argument shapes can be adapted to the tool definition format of a direct LLM tool-use
   call.

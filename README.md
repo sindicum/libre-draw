@@ -27,6 +27,7 @@ A point, line, and polygon drawing and editing library for [MapLibre GL JS](http
 - **GeoJSON in/out** — Import and export standard GeoJSON FeatureCollections (Point, LineString, Polygon)
 - **Touch-first** — Designed for mobile with proper touch targets (44px+), long-press support, and gesture handling
 - **Center reticle input** — Optionally place points with a crosshair fixed at the map center and "Add point" / "Undo point" / "Finish" buttons, instead of tapping where a finger hides the spot. Switch from the toolbar or the API
+- **MapLibre layer styling** — Style features and editing handles with ordinary MapLibre layer definitions and expressions; start from the exported `DEFAULT_LAYERS`
 - **Self-intersection prevention** — Invalid polygon geometries are rejected during editing, including holes that would cross or leave the outer ring
 - **Framework-agnostic** — Works with vanilla JS, React, Vue, or any framework
 - **TypeScript** — Full type definitions included
@@ -111,8 +112,7 @@ new LibreDraw(map: maplibregl.Map, options?: LibreDrawOptions)
 | `setSetbackDistance(meters)`        | Set the distance the setback mode previews and applies (the value behind the toolbar's field; works with `toolbar: false`)                                                                                    |
 | `getSetbackDistance()`              | Get that distance                                                                                                                                                                                             |
 | `getSetbackEdge()`                  | Get the edge picked in the setback mode (`undefined` until one is picked), to pass to `setback()`                                                                                                             |
-| `setStyle(style)`                   | Change the map style of the features (merged onto the current style)                                                                                                                                          |
-| `getStyle()`                        | Get the current style                                                                                                                                                                                         |
+| `setLayers(layers)`                 | Replace the MapLibre layers LibreDraw draws with (see `DEFAULT_LAYERS` and `SOURCE_IDS`)                                                                                                                      |
 | `on(event, callback)`               | Register an event listener                                                                                                                                                                                    |
 | `off(event, callback)`              | Remove an event listener                                                                                                                                                                                      |
 | `destroy()`                         | Clean up all resources                                                                                                                                                                                        |
@@ -165,7 +165,6 @@ interface LibreDrawOptions {
           union?: boolean;
           setback?: boolean;
           rotate?: boolean;
-          settings?: boolean; // style settings panel
           delete?: boolean;
           undo?: boolean;
           redo?: boolean;
@@ -173,7 +172,7 @@ interface LibreDrawOptions {
       };
   keyboard?: boolean | { undoRedo?: boolean }; // Ctrl/Cmd+Z, Ctrl/Cmd+Shift+Z, Ctrl+Y. Default: true
   historyLimit?: number; // Default: 100
-  style?: PartialStyleConfig; // Overrides for the map style of the features
+  layers?: LayerSpecification[]; // MapLibre layers to draw with instead of DEFAULT_LAYERS
   snap?: boolean | { enabled?: boolean; threshold?: number }; // Default: true
   locale?: 'en' | 'ja'; // UI language. Default: 'en'
   messages?: Partial<Messages>; // Override individual UI strings

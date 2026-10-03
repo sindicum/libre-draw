@@ -8,8 +8,7 @@ import type {
   SnapConfig,
   KeyboardOptions,
   InputMethod,
-  StyleConfig,
-  PartialStyleConfig,
+  LibreDrawLayer,
   Messages,
   EventOrigin,
   AddFeatureResult,
@@ -19,7 +18,6 @@ import type {
   EdgeRef,
   Position,
 } from './types';
-import { mergeStyleConfig } from './types/style';
 import type { Action } from './types/features';
 import {
   DeleteAction,
@@ -61,6 +59,7 @@ import { RotateMode } from './modes/RotateMode';
 import { CutMode } from './modes/CutMode';
 import { ReshapeMode } from './modes/ReshapeMode';
 import type { MapInteractionConfig } from './modes/Mode';
+import type { NormalizedInputEvent } from './types/input';
 import { isDraftCapableMode } from './modes/Mode';
 import { InputHandler } from './input/InputHandler';
 import { ReticleInput } from './input/ReticleInput';
@@ -180,6 +179,15 @@ export class LibreDraw {
    */
   private setbackDistance = DEFAULT_SETBACK_DISTANCE_METERS;
 
+  // The latest mouse move whose hover is not applied yet: hover is worked
+  // out once per frame, not on every move.
+  private pendingHoverEvent: NormalizedInputEvent | null = null;
+
+  private clearHover = (): void => {
+    this.pendingHoverEvent = null;
+    this.renderManager.setHovered(undefined);
+  };
+
   private handleStyleData = (): void => {
     if (this.destroyed || !this.map.isStyleLoaded()) return;
     if (this.renderManager.isReadyForCurrentStyle()) return;
@@ -197,10 +205,10 @@ export class LibreDraw {
    * Initializes all internal modules and sets up map integration.
    * It may be created before the map's style has loaded, and every method
    * works at once: the store, history, events, selection, modes, and
-   * `setStyle()` do not wait for the map, and the toolbar is shown. Until
+   * `setLayers()` do not wait for the map, and the toolbar is shown. Until
    * the style loads nothing is drawn and pointer input on the map is
-   * ignored; on load the sources and layers are added with the style set
-   * so far and every feature in the store is drawn.
+   * ignored; on load the sources and the layers set so far are added and
+   * every feature in the store is drawn.
    *
    * @param map - The MapLibre GL JS map instance to draw on.
    * @param options - Configuration options. Defaults to toolbar enabled,
@@ -283,7 +291,7 @@ export class LibreDraw {
 
     // Rendering
     this.sourceManager = new SourceManager(map);
-    this.renderManager = new RenderManager(map, this.sourceManager, options.style);
+    this.renderManager = new RenderManager(map, this.sourceManager, options.layers);
 
     // The one selection every mode reads and writes. Each change redraws the
     // highlight, emits 'selectionchange', updates the rotate angle input and
@@ -405,6 +413,7 @@ export class LibreDraw {
     // Mode change event
     this.modeManager.setOnModeChange((mode, previousMode) => {
       this.eventBus.emit('modechange', { mode, previousMode });
+      this.renderManager.setHovered(undefined);
       if (this.toolbar) {
         this.toolbar.setActiveMode(mode);
       }
@@ -432,7 +441,8 @@ export class LibreDraw {
             onRedo: () => this.performRedo(),
           }
         : undefined,
-      () => this.isReticleActive()
+      () => this.isReticleActive(),
+      (event) => this.updateHover(event)
     );
 
     // Center reticle: while it drives a drawing mode, map movement and the
@@ -472,6 +482,7 @@ export class LibreDraw {
 
     // Initialize when map is ready
     map.on('styledata', this.handleStyleData);
+    map.on('mouseout', this.clearHover);
     if (map.isStyleLoaded()) {
       this.initialize();
     } else {
@@ -1422,40 +1433,42 @@ export class LibreDraw {
   }
 
   /**
-   * Update the global render style at runtime.
+   * Replace the layers LibreDraw draws with.
    *
-   * Merges the given partial overrides with the current style and
-   * applies changes to all map layers immediately.
+   * The current layers leave the map and the given definitions are added
+   * on top of the map's layers, in array order. Each reads one of the
+   * sources in {@link SOURCE_IDS}; pass {@link DEFAULT_LAYERS} to go back to
+   * the default look. The definitions survive a `map.setStyle()`. LibreDraw
+   * does not check them: MapLibre reports a bad definition with its
+   * `error` event.
    *
-   * @param style - Partial style overrides to apply.
+   * @param layers - The layer definitions. The array is copied.
    *
    * @throws {LibreDrawError} If this instance has been destroyed.
    *
    * @example
    * ```ts
-   * draw.setStyle({ fill: { color: '#ff0000', opacity: 0.5 } });
-   * // Later calls accumulate: outline changes, fill keeps '#ff0000'.
-   * draw.setStyle({ outline: { width: 3 } });
+   * import { DEFAULT_LAYERS, SOURCE_IDS } from '@sindicum/libre-draw';
+   *
+   * // Fill polygons by their own `color` property, in place of the default fill.
+   * draw.setLayers(
+   *   DEFAULT_LAYERS.map((layer) =>
+   *     layer.id === 'libre-draw-fill'
+   *       ? {
+   *           id: 'parcel-fill',
+   *           type: 'fill',
+   *           source: SOURCE_IDS.FEATURES,
+   *           filter: ['==', ['geometry-type'], 'Polygon'],
+   *           paint: { 'fill-color': ['coalesce', ['get', 'color'], '#888'] },
+   *         }
+   *       : layer
+   *   )
+   * );
    * ```
    */
-  setStyle(style: PartialStyleConfig): void {
+  setLayers(layers: LibreDrawLayer[]): void {
     this.assertNotDestroyed();
-    // Merge onto the current style so that partial updates accumulate.
-    const merged = mergeStyleConfig(style, this.renderManager.getStyle());
-    this.renderManager.updateStyle(merged);
-  }
-
-  /**
-   * Get the current global render style.
-   *
-   * @returns A deep copy of the full style configuration currently in use;
-   *   changing it has no effect (pass changes to {@link setStyle}).
-   *
-   * @throws {LibreDrawError} If this instance has been destroyed.
-   */
-  getStyle(): StyleConfig {
-    this.assertNotDestroyed();
-    return this.renderManager.getStyle();
+    this.renderManager.setLayers(layers);
   }
 
   /**
@@ -1626,6 +1639,7 @@ export class LibreDraw {
     this.destroyed = true;
 
     this.map.off('styledata', this.handleStyleData);
+    this.map.off('mouseout', this.clearHover);
     this.eventBus.removeAllListeners();
     this.modeManager.setMode('idle');
     this.restoreMapInteractions();
@@ -1824,9 +1838,6 @@ export class LibreDraw {
         onRotateAngleChange: (angle) => {
           this.rotateMode.onAngleChange(angle);
         },
-        onStyleChange: (style) => {
-          this.setStyle(style);
-        },
         // Toolbar buttons call the internal variants (not the public
         // methods) so their events are stamped origin: 'user'.
         onDeleteClick: () => {
@@ -1870,6 +1881,22 @@ export class LibreDraw {
     setHandlerEnabled(this.map.dragPan, this.mapDragPanEnabled);
     setHandlerEnabled(this.map.doubleClickZoom, this.mapDoubleClickZoomEnabled);
     setHandlerEnabled(this.map.boxZoom, this.mapBoxZoomEnabled);
+  }
+
+  /**
+   * Hover the feature a click at this mouse position would pick in the
+   * active mode, so the highlight never disagrees with the click.
+   */
+  private updateHover(event: NormalizedInputEvent): void {
+    const scheduled = this.pendingHoverEvent !== null;
+    this.pendingHoverEvent = event;
+    if (scheduled) return;
+    requestAnimationFrame(() => {
+      const latest = this.pendingHoverEvent;
+      this.pendingHoverEvent = null;
+      if (!latest || this.destroyed || !this.renderManager.isReadyForCurrentStyle()) return;
+      this.renderManager.setHovered(this.modeManager.getCurrentMode()?.hoverTarget?.(latest));
+    });
   }
 
   /**

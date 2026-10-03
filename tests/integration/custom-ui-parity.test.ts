@@ -1,7 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { LibreDraw } from '../../src/LibreDraw';
 import { LibreDrawError } from '../../src/core/errors';
-import { SOURCE_IDS } from '../../src/rendering/SourceManager';
+import { SOURCE_IDS } from '../../src/rendering/layers';
 import type { HistoryChangeEvent } from '../../src/types/events';
 import { FakeMap } from './helpers/fakeMap';
 
@@ -164,6 +164,7 @@ describe('history state for a custom UI', () => {
     expect(() => draw.getSetbackDistance()).toThrow(LibreDrawError);
     expect(() => draw.setSetbackDistance(5)).toThrow(LibreDrawError);
     expect(() => draw.getSetbackEdge()).toThrow(LibreDrawError);
+    expect(() => draw.setLayers([])).toThrow(LibreDrawError);
   });
 });
 
