@@ -92,6 +92,12 @@ export class ReshapeMode implements DraftCapableMode {
     this.selectTargetAt([event.lngLat.lng, event.lngLat.lat]);
   }
 
+  /** @returns The polygon a click would pick as the target, before the line is drawn. */
+  hoverTarget(event: NormalizedInputEvent): string | undefined {
+    if (!this.isActive || this.drafting) return undefined;
+    return this.hitTest([event.lngLat.lng, event.lngLat.lat])?.id;
+  }
+
   onPointerMove(event: NormalizedInputEvent): void {
     if (this.isActive && this.drafting) this.draft.onPointerMove(event);
   }

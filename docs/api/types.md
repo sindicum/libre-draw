@@ -19,14 +19,7 @@ import type {
   ToolbarOptions,
   ToolbarPosition,
   ToolbarControls,
-  StyleConfig,
-  PartialStyleConfig,
-  FillStyle,
-  OutlineStyle,
-  PreviewStyle,
-  EditVertexStyle,
-  MidpointStyle,
-  PointStyle,
+  LibreDrawLayer,
   ModeName,
   Locale,
   Messages,
@@ -47,7 +40,7 @@ import type {
 } from '@sindicum/libre-draw';
 ```
 
-Event payload types (`CreateEvent`, `LibreDrawEventMap`, `EventOrigin`, the `*FailReason` unions, …) are documented on the [Events](/api/events) page and exported the same way. Runtime values (`LibreDrawError`, `DEFAULT_STYLE_CONFIG`, `mergeStyleConfig`) use a plain `import`.
+Event payload types (`CreateEvent`, `LibreDrawEventMap`, `EventOrigin`, the `*FailReason` unions, …) are documented on the [Events](/api/events) page and exported the same way. Runtime values (`LibreDrawError`, `SOURCE_IDS`, `DEFAULT_LAYERS`) use a plain `import`.
 
 ---
 
@@ -195,7 +188,7 @@ interface LibreDrawOptions {
   toolbar?: boolean | ToolbarOptions;
   keyboard?: boolean | KeyboardOptions;
   historyLimit?: number;
-  style?: PartialStyleConfig;
+  layers?: LibreDrawLayer[];
   snap?: boolean | SnapConfig;
   locale?: Locale;
   messages?: Partial<Messages>;
@@ -203,16 +196,16 @@ interface LibreDrawOptions {
 }
 ```
 
-| Property       | Type                          | Default         | Description                                                                                                 |
-| -------------- | ----------------------------- | --------------- | ----------------------------------------------------------------------------------------------------------- |
-| `toolbar`      | `boolean \| ToolbarOptions`   | `true`          | Whether to show the toolbar, or toolbar configuration. Set to `false` for headless mode.                    |
-| `keyboard`     | `boolean \| KeyboardOptions`  | `true`          | Whether to enable keyboard shortcuts, or shortcut configuration. See [`KeyboardOptions`](#keyboardoptions). |
-| `historyLimit` | `number`                      | `100`           | Maximum number of undo/redo history entries                                                                 |
-| `style`        | `PartialStyleConfig`          | `default style` | Partial overrides for map layer styling (fill / outline / preview / edit handles / midpoints / points).     |
-| `snap`         | `boolean \| SnapConfig`       | `true`          | Whether to enable snapping, or snap configuration ([`SnapConfig`](#snapconfig)). Set to `false` to disable. |
-| `locale`       | [`Locale`](#locale)           | `'en'`          | Language of the toolbar and its popups. Throws `LibreDrawError` for an unknown value.                       |
-| `messages`     | `Partial<Messages>`           | `{}`            | Overrides for individual UI strings, merged onto the selected locale. See [`Messages`](#messages).          |
-| `inputMethod`  | [`InputMethod`](#inputmethod) | `'tap'`         | How the drawing modes take a point. Throws `LibreDrawError` for an unknown value.                           |
+| Property       | Type                                  | Default                             | Description                                                                                                                                |
+| -------------- | ------------------------------------- | ----------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------ |
+| `toolbar`      | `boolean \| ToolbarOptions`           | `true`                              | Whether to show the toolbar, or toolbar configuration. Set to `false` for headless mode.                                                   |
+| `keyboard`     | `boolean \| KeyboardOptions`          | `true`                              | Whether to enable keyboard shortcuts, or shortcut configuration. See [`KeyboardOptions`](#keyboardoptions).                                |
+| `historyLimit` | `number`                              | `100`                               | Maximum number of undo/redo history entries                                                                                                |
+| `layers`       | [`LibreDrawLayer[]`](#libredrawlayer) | [`DEFAULT_LAYERS`](#default-layers) | MapLibre layer definitions to draw with. They replace the defaults entirely and survive `map.setStyle()`. See [Layer Types](#layer-types). |
+| `snap`         | `boolean \| SnapConfig`               | `true`                              | Whether to enable snapping, or snap configuration ([`SnapConfig`](#snapconfig)). Set to `false` to disable.                                |
+| `locale`       | [`Locale`](#locale)                   | `'en'`                              | Language of the toolbar and its popups. Throws `LibreDrawError` for an unknown value.                                                      |
+| `messages`     | `Partial<Messages>`                   | `{}`                                | Overrides for individual UI strings, merged onto the selected locale. See [`Messages`](#messages).                                         |
+| `inputMethod`  | [`InputMethod`](#inputmethod)         | `'tap'`                             | How the drawing modes take a point. Throws `LibreDrawError` for an unknown value.                                                          |
 
 ---
 
@@ -312,7 +305,6 @@ interface ToolbarControls {
   rotate?: boolean;
   cut?: boolean;
   reshape?: boolean;
-  settings?: boolean;
   delete?: boolean;
   undo?: boolean;
   redo?: boolean;
@@ -334,7 +326,6 @@ interface ToolbarControls {
 | `rotate`              | `boolean` | `true`  | Show rotate mode toggle button and angle input     |
 | `cut`                 | `boolean` | `true`  | Show cut mode toggle button                        |
 | `reshape`             | `boolean` | `true`  | Show reshape mode toggle button                    |
-| `settings`            | `boolean` | `true`  | Show style settings button and panel               |
 | `delete`              | `boolean` | `true`  | Show delete button                                 |
 | `undo`                | `boolean` | `true`  | Show undo button                                   |
 | `redo`                | `boolean` | `true`  | Show redo button                                   |
@@ -373,7 +364,6 @@ interface Messages {
   toolbarRotate: string;
   toolbarCut: string;
   toolbarReshape: string;
-  toolbarSettings: string;
   toolbarDelete: string;
   toolbarUndo: string;
   toolbarRedo: string;
@@ -392,27 +382,6 @@ interface Messages {
   reticleAddPoint: string; // visible text and aria-label of the "Add point" button
   reticleUndoVertex: string; // ... of the "Undo point" button
   reticleFinish: string; // ... of the "Finish" button
-  // Style settings panel
-  styleFeatureSection: string;
-  styleSelectedSection: string;
-  styleGuideSection: string;
-  styleOutlineColor: string;
-  styleOutlineWidth: string;
-  styleFillColor: string;
-  styleFillOpacity: string;
-  stylePointColor: string;
-  stylePointRadius: string;
-  stylePointHoverColor: string;
-  styleVertexColor: string;
-  styleVertexRadius: string;
-  styleMidpointColor: string;
-  styleMidpointRadius: string;
-  styleVertexHoverColor: string;
-  styleSelectedOutlineColor: string;
-  styleSelectedFillColor: string;
-  styleSelectedFillOpacity: string;
-  stylePreviewColor: string;
-  stylePreviewWidth: string;
 }
 ```
 
@@ -698,199 +667,90 @@ type ReshapeOperationFailReason = 'not-found' | 'not-polygon' | 'invalid-line' |
 
 ---
 
-## Style Types
+## Layer Types
 
-### `StyleConfig`
+LibreDraw draws through MapLibre layers that read six GeoJSON sources it owns. The look is a list of ordinary MapLibre layer definitions: pass your own as the [`layers`](#libredrawoptions) option or to [`setLayers()`](/api/libre-draw#setlayers-layers), and use MapLibre expressions to style features by their properties or by zoom.
 
-Full render style configuration. Returned by [`getStyle()`](/api/libre-draw#getstyle).
-
-```ts
-interface StyleConfig {
-  fill: FillStyle;
-  outline: OutlineStyle;
-  preview: PreviewStyle;
-  editVertex: EditVertexStyle;
-  midpoint: MidpointStyle;
-  point: PointStyle;
-}
-```
-
-| Property     | Type                                  | Description                             |
-| ------------ | ------------------------------------- | --------------------------------------- |
-| `fill`       | [`FillStyle`](#fillstyle)             | Polygon fill rendering                  |
-| `outline`    | [`OutlineStyle`](#outlinestyle)       | Polygon/line outline rendering          |
-| `preview`    | [`PreviewStyle`](#previewstyle)       | Draw preview / guide line               |
-| `editVertex` | [`EditVertexStyle`](#editvertexstyle) | Edit vertex handles (selected features) |
-| `midpoint`   | [`MidpointStyle`](#midpointstyle)     | Midpoint handles (selected features)    |
-| `point`      | [`PointStyle`](#pointstyle)           | Point geometry features                 |
-
----
-
-### `PartialStyleConfig`
-
-Partial style overrides accepted by the constructor `style` option and [`setStyle()`](/api/libre-draw#setstyle-style). All sections and properties are optional — unset values retain their current or default value.
+### `LibreDrawLayer`
 
 ```ts
-interface PartialStyleConfig {
-  fill?: Partial<FillStyle>;
-  outline?: Partial<OutlineStyle>;
-  preview?: Partial<PreviewStyle>;
-  editVertex?: Partial<EditVertexStyle>;
-  midpoint?: Partial<MidpointStyle>;
-  point?: Partial<PointStyle>;
-}
+type LibreDrawLayer = LayerSpecification; // from maplibre-gl
 ```
 
----
+A MapLibre layer definition whose `source` is one of [`SOURCE_IDS`](#source-ids). LibreDraw adds the definitions as given, on top of the map's layers, in array order. It does not check them: MapLibre reports a bad definition (an unknown source, an id already on the map or used twice, a wrong paint property) with its `error` event and leaves that layer out.
 
-### `FillStyle`
-
-Style for polygon fill rendering.
+### `SOURCE_IDS`
 
 ```ts
-interface FillStyle {
-  color: string;
-  opacity: number;
-  selectedColor: string;
-  selectedOpacity: number;
-}
+const SOURCE_IDS: {
+  FEATURES: 'libre-draw-features';
+  PREVIEW: 'libre-draw-preview';
+  EDGE_HIGHLIGHT: 'libre-draw-edge-highlight';
+  EDIT_VERTICES: 'libre-draw-edit-vertices';
+  SNAP_INDICATOR: 'libre-draw-snap-indicator';
+  ROTATION_CENTER: 'libre-draw-rotation-center';
+};
 ```
 
-| Property          | Type     | Default     | Description                |
-| ----------------- | -------- | ----------- | -------------------------- |
-| `color`           | `string` | `'#285daa'` | Fill color                 |
-| `opacity`         | `number` | `0.2`       | Fill opacity (0–1)         |
-| `selectedColor`   | `string` | `'#fbb03b'` | Fill color when selected   |
-| `selectedOpacity` | `number` | `0.4`       | Fill opacity when selected |
+| Source            | Contents                                            | Properties and state                                                                                                                                                                              |
+| ----------------- | --------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `FEATURES`        | Every feature (Point, LineString, Polygon)          | The feature's own properties under their own names, plus `libre-draw:selected` (`true` while selected) and `libre-draw:id`. The feature-state `hover` is `true` on the feature a click would pick |
+| `PREVIEW`         | The line of the draft being drawn                   | —                                                                                                                                                                                                 |
+| `EDGE_HIGHLIGHT`  | The edge picked in `setback` mode                   | —                                                                                                                                                                                                 |
+| `EDIT_VERTICES`   | Vertex and midpoint handles of the selected feature | `libre-draw:handle` (`'vertex'` or `'midpoint'`), `libre-draw:highlighted` (`true` on the handle under the pointer)                                                                               |
+| `SNAP_INDICATOR`  | The point a vertex would snap to                    | —                                                                                                                                                                                                 |
+| `ROTATION_CENTER` | The pivot of `rotate` mode                          | —                                                                                                                                                                                                 |
 
----
+Property names starting with `libre-draw:` are reserved for LibreDraw: `libre-draw:id` and `libre-draw:selected` replace feature properties of the same name in the rendered data (the stored feature keeps them). `hover` is a feature-state, so read it with `['feature-state', 'hover']`; MapLibre does not allow feature-state in a `filter`. Hover follows the mouse only (touch has no hover) and is set in the modes that pick a feature by clicking: `select`, `rotate`, `union`, and `split` / `setback` / `cut` / `reshape` while picking the target.
 
-### `OutlineStyle`
-
-Style for polygon/line outline rendering.
+### `DEFAULT_LAYERS`
 
 ```ts
-interface OutlineStyle {
-  color: string;
-  width: number;
-  selectedColor: string;
-}
+const DEFAULT_LAYERS: readonly LibreDrawLayer[];
 ```
 
-| Property        | Type     | Default     | Description              |
-| --------------- | -------- | ----------- | ------------------------ |
-| `color`         | `string` | `'#285daa'` | Line color               |
-| `width`         | `number` | `2`         | Line width in pixels     |
-| `selectedColor` | `string` | `'#fbb03b'` | Line color when selected |
+The layers used when the `layers` option is omitted, bottom to top:
 
----
+| Layer id                     | Type     | Source            | Draws                                                    |
+| ---------------------------- | -------- | ----------------- | -------------------------------------------------------- |
+| `libre-draw-fill`            | `fill`   | `FEATURES`        | Polygon fill; brighter while selected                    |
+| `libre-draw-outline`         | `line`   | `FEATURES`        | Polygon outline                                          |
+| `libre-draw-line`            | `line`   | `FEATURES`        | LineStrings; thicker while selected                      |
+| `libre-draw-point`           | `circle` | `FEATURES`        | Points; larger while selected, highlighted while hovered |
+| `libre-draw-preview`         | `line`   | `PREVIEW`         | Dashed draft line                                        |
+| `libre-draw-edge-highlight`  | `line`   | `EDGE_HIGHLIGHT`  | The picked setback edge                                  |
+| `libre-draw-edit-midpoints`  | `circle` | `EDIT_VERTICES`   | Midpoint handles                                         |
+| `libre-draw-snap-indicator`  | `circle` | `SNAP_INDICATOR`  | Snap target                                              |
+| `libre-draw-rotation-center` | `symbol` | `ROTATION_CENTER` | Crosshair at the rotation pivot                          |
+| `libre-draw-edit-vertices`   | `circle` | `EDIT_VERTICES`   | Vertex handles                                           |
 
-### `PreviewStyle`
-
-Style for draw preview and guide lines (split, setback).
+The array and every definition in it are frozen: copy a definition to change it.
 
 ```ts
-interface PreviewStyle {
-  color: string;
-  width: number;
-  dasharray: number[];
-}
+import { LibreDraw, DEFAULT_LAYERS, SOURCE_IDS } from '@sindicum/libre-draw';
+
+// Color polygons by a property, keep every other default layer.
+const draw = new LibreDraw(map, {
+  layers: DEFAULT_LAYERS.map((layer) =>
+    layer.id === 'libre-draw-fill' && layer.type === 'fill'
+      ? {
+          ...layer,
+          paint: {
+            ...layer.paint,
+            'fill-color': [
+              'case',
+              ['boolean', ['get', 'libre-draw:selected'], false],
+              '#fbb03b',
+              ['coalesce', ['get', 'color'], '#285daa'],
+            ],
+          },
+        }
+      : layer
+  ),
+});
 ```
 
-| Property    | Type       | Default     | Description     |
-| ----------- | ---------- | ----------- | --------------- |
-| `color`     | `string`   | `'#285daa'` | Dash line color |
-| `width`     | `number`   | `2`         | Dash line width |
-| `dasharray` | `number[]` | `[2, 2]`    | Dash pattern    |
-
----
-
-### `EditVertexStyle`
-
-Style for edit vertex handles on selected features.
-
-```ts
-interface EditVertexStyle {
-  color: string;
-  strokeColor: string;
-  strokeWidth: number;
-  radius: number;
-  highlightedColor: string;
-  highlightedStrokeColor: string;
-  highlightedRadius: number;
-}
-```
-
-| Property                 | Type     | Default     | Description                  |
-| ------------------------ | -------- | ----------- | ---------------------------- |
-| `color`                  | `string` | `'#ffffff'` | Handle fill color            |
-| `strokeColor`            | `string` | `'#285daa'` | Handle stroke color          |
-| `strokeWidth`            | `number` | `2`         | Handle stroke width          |
-| `radius`                 | `number` | `5`         | Handle radius                |
-| `highlightedColor`       | `string` | `'#ff4444'` | Hover/highlight fill color   |
-| `highlightedStrokeColor` | `string` | `'#cc0000'` | Hover/highlight stroke color |
-| `highlightedRadius`      | `number` | `7`         | Hover/highlight radius       |
-
----
-
-### `MidpointStyle`
-
-Style for midpoint handles on selected features.
-
-```ts
-interface MidpointStyle {
-  color: string;
-  opacity: number;
-  radius: number;
-}
-```
-
-| Property  | Type     | Default     | Description         |
-| --------- | -------- | ----------- | ------------------- |
-| `color`   | `string` | `'#285daa'` | Midpoint fill color |
-| `opacity` | `number` | `0.6`       | Midpoint opacity    |
-| `radius`  | `number` | `4`         | Midpoint radius     |
-
----
-
-### `PointStyle`
-
-Style for Point geometry features.
-
-```ts
-interface PointStyle {
-  color: string;
-  radius: number;
-  selectedColor: string;
-  selectedRadius: number;
-  hoverColor: string;
-  strokeColor: string;
-  strokeWidth: number;
-}
-```
-
-| Property         | Type     | Default     | Description                |
-| ---------------- | -------- | ----------- | -------------------------- |
-| `color`          | `string` | `'#285daa'` | Point fill color           |
-| `radius`         | `number` | `6`         | Point radius in pixels     |
-| `selectedColor`  | `string` | `'#fbb03b'` | Point color when selected  |
-| `selectedRadius` | `number` | `8`         | Point radius when selected |
-| `hoverColor`     | `string` | `'#fbb03b'` | Point color on mouse hover |
-| `strokeColor`    | `string` | `'#285daa'` | Point stroke color         |
-| `strokeWidth`    | `number` | `2`         | Point stroke width         |
-
----
-
-### Style defaults and merging
-
-Runtime exports for working with styles outside a `LibreDraw` instance.
-
-```ts
-const DEFAULT_STYLE_CONFIG: StyleConfig;
-function mergeStyleConfig(overrides?: PartialStyleConfig, base?: StyleConfig): StyleConfig;
-```
-
-`DEFAULT_STYLE_CONFIG` is the built-in style whose values are listed in the tables above. `mergeStyleConfig` returns a new `StyleConfig` with `overrides` applied on top of `base` (default: `DEFAULT_STYLE_CONFIG`); neither argument is mutated. The constructor uses it with the defaults for the `style` option, and [`setStyle()`](/api/libre-draw#setstyle-style) passes the current style as `base` so partial updates accumulate.
+The rotation center layer uses the map image `'libre-draw-rotation-center-crosshair'`, which LibreDraw adds to every style it draws on; a replacement layer may use it too.
 
 ---
 

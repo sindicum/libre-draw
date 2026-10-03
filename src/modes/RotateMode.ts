@@ -172,6 +172,12 @@ export class RotateMode implements Mode {
     }
   }
 
+  /** @returns The feature a click would select, outside a drag. */
+  hoverTarget(event: NormalizedInputEvent): string | undefined {
+    if (!this.isActive || this.drag) return undefined;
+    return this.hitTest(event)?.id;
+  }
+
   onPointerMove(event: NormalizedInputEvent): void {
     if (!this.isActive || !this.drag || !this.baseFeature) return;
 

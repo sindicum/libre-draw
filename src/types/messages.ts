@@ -25,7 +25,6 @@ export interface Messages {
   toolbarRotate: string;
   toolbarCut: string;
   toolbarReshape: string;
-  toolbarSettings: string;
   toolbarDelete: string;
   toolbarUndo: string;
   toolbarRedo: string;
@@ -59,32 +58,4 @@ export interface Messages {
   reticleUndoVertex: string;
   /** Visible text and aria-label of the button that finishes the line or polygon. */
   reticleFinish: string;
-
-  // Style settings panel: section headers
-  styleFeatureSection: string;
-  styleSelectedSection: string;
-  styleGuideSection: string;
-
-  // Style settings panel: feature style fields
-  styleOutlineColor: string;
-  styleOutlineWidth: string;
-  styleFillColor: string;
-  styleFillOpacity: string;
-  stylePointColor: string;
-  stylePointRadius: string;
-  stylePointHoverColor: string;
-
-  // Style settings panel: selected style fields
-  styleVertexColor: string;
-  styleVertexRadius: string;
-  styleMidpointColor: string;
-  styleMidpointRadius: string;
-  styleVertexHoverColor: string;
-  styleSelectedOutlineColor: string;
-  styleSelectedFillColor: string;
-  styleSelectedFillOpacity: string;
-
-  // Style settings panel: guide line fields
-  stylePreviewColor: string;
-  stylePreviewWidth: string;
 }

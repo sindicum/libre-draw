@@ -1,4 +1,4 @@
-import { BRAND_COLOR } from '../types/style';
+import { BRAND_COLOR } from '../types/brand';
 import { HOVER_COLOR } from './hover';
 
 /**

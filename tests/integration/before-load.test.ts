@@ -1,5 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { LibreDraw } from '../../src/LibreDraw';
+import { SOURCE_IDS } from '../../src/rendering/layers';
 import { FakeMap } from './helpers/fakeMap';
 
 const SQUARE = {
@@ -67,13 +68,13 @@ describe('LibreDraw created before the map style has loaded', () => {
     expect(map.getSourceData('libre-draw-features')?.features.map((f) => f.id)).toEqual(['sq']);
   });
 
-  it('applies a style set before the load when the layers are created', () => {
-    draw.setStyle({ fill: { color: '#ff0000' } });
+  it('adds the layers set before the load when the style loads', () => {
+    draw.setLayers([{ id: 'parcels', type: 'fill', source: SOURCE_IDS.FEATURES }]);
+    expect(map.layerIds()).toEqual([]);
 
     map.finishLoading();
 
-    const fill = map.getLayer('libre-draw-fill') as { paint: Record<string, unknown> };
-    expect(JSON.stringify(fill.paint['fill-color'])).toContain('#ff0000');
+    expect(map.layerIds()).toEqual(['parcels']);
   });
 
   it('ignores pointer input until the style loads', () => {

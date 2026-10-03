@@ -1,8 +1,8 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { LibreDraw } from '../../src/LibreDraw';
 import { FakeMap } from './helpers/fakeMap';
-import { SOURCE_IDS } from '../../src/rendering/SourceManager';
-import { LAYER_IDS } from '../../src/rendering/RenderManager';
+import { DEFAULT_LAYERS, SOURCE_IDS } from '../../src/rendering/layers';
+import type { LibreDrawLayer } from '../../src/types/layers';
 import { LibreDrawError } from '../../src/core/errors';
 
 function clickAt(map: FakeMap, x: number, y: number): void {
@@ -73,16 +73,16 @@ describe('LibreDraw lifecycle integration', () => {
 
     draw.addFeatures([makeFeature('f1')]);
     expect(map.hasSource(SOURCE_IDS.FEATURES)).toBe(true);
-    expect(map.hasLayer(LAYER_IDS.FILL)).toBe(true);
+    expect(map.hasLayer('libre-draw-fill')).toBe(true);
 
     map.setStyle('new-style');
 
     expect(map.hasSource(SOURCE_IDS.FEATURES)).toBe(true);
     expect(map.hasSource(SOURCE_IDS.PREVIEW)).toBe(true);
     expect(map.hasSource(SOURCE_IDS.EDIT_VERTICES)).toBe(true);
-    expect(map.hasLayer(LAYER_IDS.FILL)).toBe(true);
-    expect(map.hasLayer(LAYER_IDS.OUTLINE)).toBe(true);
-    expect(map.hasLayer(LAYER_IDS.POINT)).toBe(true);
+    expect(map.hasLayer('libre-draw-fill')).toBe(true);
+    expect(map.hasLayer('libre-draw-outline')).toBe(true);
+    expect(map.hasLayer('libre-draw-point')).toBe(true);
     expect(map.getSourceData(SOURCE_IDS.FEATURES)?.features).toHaveLength(1);
 
     draw.setMode('select');
@@ -294,7 +294,7 @@ describe('LibreDraw lifecycle integration', () => {
     const draw = new LibreDraw(map.asMap(), { toolbar: false });
 
     expect(map.hasLayer('libre-draw-vertices')).toBe(false);
-    expect(map.hasLayer(LAYER_IDS.POINT)).toBe(true);
+    expect(map.hasLayer('libre-draw-point')).toBe(true);
 
     draw.addFeatures([
       {
@@ -389,51 +389,56 @@ describe('LibreDraw lifecycle integration', () => {
     draw.destroy();
   });
 
-  it('should apply custom style options to layer paint definitions', () => {
+  it('draws with the layers option instead of the defaults, on top in array order', () => {
     const map = new FakeMap();
+    map.addLayer({ id: 'basemap' });
     const draw = new LibreDraw(map.asMap(), {
       toolbar: false,
-      style: {
-        fill: {
-          color: '#123456',
-          selectedColor: '#abcdef',
-        },
-        preview: {
-          dasharray: [4, 1],
-          width: 3,
-        },
-        vertex: {
-          strokeWidth: 4,
-        },
-        editVertex: {
-          color: '#00aa00',
-          highlightedColor: '#ff00ff',
-        },
-      },
+      layers: [
+        { id: 'parcels', type: 'fill', source: SOURCE_IDS.FEATURES },
+        { id: 'handles', type: 'circle', source: SOURCE_IDS.EDIT_VERTICES },
+      ],
     });
 
-    const fillLayer = map.getLayer(LAYER_IDS.FILL) as {
-      paint: Record<string, unknown>;
-    };
-    const fillColorExpr = fillLayer.paint['fill-color'] as unknown[];
-    expect(fillColorExpr[2]).toBe('#abcdef');
-    expect(fillColorExpr[3]).toBe('#123456');
+    expect(map.layerIds()).toEqual(['basemap', 'parcels', 'handles']);
 
-    const previewLayer = map.getLayer(LAYER_IDS.PREVIEW) as {
-      paint: Record<string, unknown>;
-    };
-    expect(previewLayer.paint['line-dasharray']).toEqual([4, 1]);
-    expect(previewLayer.paint['line-width']).toBe(3);
+    draw.destroy();
+    expect(map.layerIds()).toEqual(['basemap']);
+  });
 
-    // The deprecated `vertex` section is accepted and ignored.
-    expect(map.hasLayer('libre-draw-vertices')).toBe(false);
+  it('replaces the layers with setLayers() and keeps them through a style swap', () => {
+    const map = new FakeMap();
+    const draw = new LibreDraw(map.asMap(), { toolbar: false });
+    expect(map.layerIds()).toEqual(DEFAULT_LAYERS.map((layer) => layer.id));
 
-    const editVerticesLayer = map.getLayer(LAYER_IDS.EDIT_VERTICES) as {
-      paint: Record<string, unknown>;
-    };
-    const editColorExpr = editVerticesLayer.paint['circle-color'] as unknown[];
-    expect(editColorExpr[2]).toBe('#ff00ff');
-    expect(editColorExpr[3]).toBe('#00aa00');
+    draw.setLayers([{ id: 'parcels', type: 'fill', source: SOURCE_IDS.FEATURES }]);
+    expect(map.layerIds()).toEqual(['parcels']);
+
+    map.setStyle('new-style');
+    expect(map.layerIds()).toEqual(['parcels']);
+    expect(map.hasSource(SOURCE_IDS.FEATURES)).toBe(true);
+
+    draw.setLayers([...DEFAULT_LAYERS]);
+    expect(map.layerIds()).toEqual(DEFAULT_LAYERS.map((layer) => layer.id));
+
+    draw.destroy();
+  });
+
+  it('copies the definitions, so changing the array afterwards changes nothing', () => {
+    const map = new FakeMap();
+    const layers: LibreDrawLayer[] = [
+      { id: 'parcels', type: 'fill', source: SOURCE_IDS.FEATURES, paint: { 'fill-color': '#123' } },
+    ];
+    const draw = new LibreDraw(map.asMap(), { toolbar: false, layers });
+
+    (layers[0] as { paint: Record<string, unknown> }).paint['fill-color'] = '#456';
+    layers.push({ id: 'extra', type: 'line', source: SOURCE_IDS.FEATURES });
+    map.setStyle('new-style');
+
+    expect(map.layerIds()).toEqual(['parcels']);
+    expect(
+      (map.getLayer('parcels') as { paint: Record<string, unknown> }).paint['fill-color']
+    ).toBe('#123');
 
     draw.destroy();
   });
@@ -886,7 +891,6 @@ describe('LibreDraw lifecycle integration', () => {
       const execute = container.querySelector('button[aria-label="Execute setback"]');
       expect(execute).not.toBeNull();
       expect(execute!.textContent).toBe('Apply');
-      expect(container.querySelector('input[aria-label="Line color"]')).not.toBeNull();
 
       draw.destroy();
     });
@@ -905,7 +909,6 @@ describe('LibreDraw lifecycle integration', () => {
       const execute = container.querySelector('button[aria-label="セットバックを実行"]');
       expect(execute).not.toBeNull();
       expect(execute!.textContent).toBe('実行');
-      expect(container.querySelector('input[aria-label="ライン色"]')).not.toBeNull();
 
       draw.destroy();
     });
@@ -957,7 +960,6 @@ describe('LibreDraw lifecycle integration', () => {
         'delete',
         'undo',
         'redo',
-        'settings',
       ]);
       draw.setMode('union');
       expect(draw.getMode()).toBe('union');
@@ -1195,7 +1197,7 @@ describe('LibreDraw lifecycle integration', () => {
     });
   });
   describe('keys typed into toolbar inputs', () => {
-    it('should not delete the selected feature when Backspace is typed into the style panel', () => {
+    it('should not delete the selected feature when Backspace is typed into a toolbar input', () => {
       const map = new FakeMap();
       const draw = new LibreDraw(map.asMap(), { toolbar: true });
       map.finishLoading();
@@ -1209,7 +1211,7 @@ describe('LibreDraw lifecycle integration', () => {
 
       const input = map
         .getContainer()
-        .querySelector<HTMLInputElement>('.libre-draw-style-panel input[type="number"]');
+        .querySelector<HTMLInputElement>('.libre-draw-setback-input input');
       expect(input).not.toBeNull();
       input!.dispatchEvent(backspace());
 
@@ -1221,71 +1223,6 @@ describe('LibreDraw lifecycle integration', () => {
 
       expect(draw.getFeatures()).toHaveLength(0);
       expect(onDelete).toHaveBeenCalledTimes(1);
-
-      draw.destroy();
-    });
-  });
-
-  describe('setStyle accumulation', () => {
-    it('should keep constructor style overrides when setStyle changes another section', () => {
-      const map = new FakeMap();
-      const draw = new LibreDraw(map.asMap(), {
-        toolbar: false,
-        style: { outline: { color: '#ff0000' } },
-      });
-
-      draw.setStyle({ fill: { color: '#00ff00' } });
-
-      expect(draw.getStyle().fill.color).toBe('#00ff00');
-      expect(draw.getStyle().outline.color).toBe('#ff0000');
-
-      draw.destroy();
-    });
-
-    it('should accumulate consecutive partial setStyle calls', () => {
-      const map = new FakeMap();
-      const draw = new LibreDraw(map.asMap(), { toolbar: false });
-
-      draw.setStyle({ fill: { color: '#00ff00' } });
-      draw.setStyle({ outline: { width: 5 } });
-      draw.setStyle({ fill: { opacity: 0.2 } });
-
-      const style = draw.getStyle();
-      expect(style.fill.color).toBe('#00ff00');
-      expect(style.fill.opacity).toBe(0.2);
-      expect(style.outline.width).toBe(5);
-
-      draw.destroy();
-    });
-
-    it('should not share the preview dasharray with the caller', () => {
-      const map = new FakeMap();
-      const draw = new LibreDraw(map.asMap(), { toolbar: false });
-      const dasharray = [7, 2];
-
-      draw.setStyle({ preview: { dasharray } });
-      dasharray[0] = 99;
-
-      expect(draw.getStyle().preview.dasharray).toEqual([7, 2]);
-      expect(draw.getStyle().preview.dasharray).not.toBe(dasharray);
-
-      draw.destroy();
-    });
-
-    it('should return a deep copy from getStyle', () => {
-      const map = new FakeMap();
-      const draw = new LibreDraw(map.asMap(), { toolbar: false });
-      const fillColor = draw.getStyle().fill.color;
-      const dasharray = [...draw.getStyle().preview.dasharray];
-
-      const style = draw.getStyle();
-      style.fill.color = '#123456';
-      style.preview.dasharray.push(9);
-      draw.setStyle({ outline: { width: 5 } });
-
-      // Writing to the returned object changed nothing, not even on the next setStyle.
-      expect(draw.getStyle().fill.color).toBe(fillColor);
-      expect(draw.getStyle().preview.dasharray).toEqual(dasharray);
 
       draw.destroy();
     });

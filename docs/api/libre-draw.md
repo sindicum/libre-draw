@@ -16,14 +16,14 @@ Create a new LibreDraw instance attached to a MapLibre GL JS map.
 
 Initializes all internal modules and sets up map integration.
 
-You can create it before the map's style has loaded (right after `new maplibregl.Map()`) and call any method at once: features, history, events, selection, modes, and [`setStyle()`](#setstyle-style) all work immediately, and the toolbar is shown. Until the style loads, nothing is drawn on the map and pointer input on the map is ignored. When it loads, LibreDraw adds its sources and layers with the style set so far and draws every feature already in the store; after `map.setStyle()` it adds them again the same way.
+You can create it before the map's style has loaded (right after `new maplibregl.Map()`) and call any method at once: features, history, events, selection, modes, and [`setLayers()`](#setlayers-layers) all work immediately, and the toolbar is shown. Until the style loads, nothing is drawn on the map and pointer input on the map is ignored. When it loads, LibreDraw adds its sources and layers with the style set so far and draws every feature already in the store; after `map.setStyle()` it adds them again the same way.
 
 **Parameters:**
 
-| Name      | Type                                              | Required | Description                                                                                                                                                                                                  |
-| --------- | ------------------------------------------------- | -------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| `map`     | `maplibregl.Map`                                  | Yes      | The MapLibre GL JS map instance to draw on                                                                                                                                                                   |
-| `options` | [`LibreDrawOptions`](/api/types#libredrawoptions) | No       | Configuration options. Defaults: toolbar enabled, 100-action history limit, built-in layer style, snapping enabled (10 px), keyboard shortcuts enabled, English UI strings, tap input, 10 m setback distance |
+| Name      | Type                                              | Required | Description                                                                                                                                                                                                                                         |
+| --------- | ------------------------------------------------- | -------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `map`     | `maplibregl.Map`                                  | Yes      | The MapLibre GL JS map instance to draw on                                                                                                                                                                                                          |
+| `options` | [`LibreDrawOptions`](/api/types#libredrawoptions) | No       | Configuration options. Defaults: toolbar enabled, 100-action history limit, the layers in [`DEFAULT_LAYERS`](/api/types#default-layers), snapping enabled (10 px), keyboard shortcuts enabled, English UI strings, tap input, 10 m setback distance |
 
 **Example:**
 
@@ -61,17 +61,12 @@ const draw = new LibreDraw(map, {
       union: true,
       setback: true,
       rotate: true,
-      settings: true,
       delete: true,
       undo: true,
       redo: true,
     },
   },
   historyLimit: 50,
-  style: {
-    fill: { color: '#1f78b4', selectedColor: '#e76f51' },
-    preview: { dasharray: [4, 1] },
-  },
 });
 ```
 
@@ -782,19 +777,19 @@ console.log(draw.getSelectedFeatureIds()); // []
 
 ---
 
-## Style
+## Layers
 
-### `setStyle(style)`
+### `setLayers(layers)`
 
-Update the global render style at runtime.
+Replace the layers LibreDraw draws with.
 
-Merges the given partial overrides with the current style and applies changes to all map layers immediately. This affects how all features (polygons, lines, points) and editing handles are displayed.
+The current layers leave the map and the given MapLibre layer definitions are added on top of the map's layers, in array order. Each reads one of the sources in [`SOURCE_IDS`](/api/types#source-ids); pass [`DEFAULT_LAYERS`](/api/types#default-layers) to go back to the default look. The definitions survive a `map.setStyle()`. Called before the map's style has loaded, they are added when it loads. LibreDraw does not check the definitions: MapLibre reports a bad one with its `error` event.
 
 **Parameters:**
 
-| Name    | Type                                                  | Description                      |
-| ------- | ----------------------------------------------------- | -------------------------------- |
-| `style` | [`PartialStyleConfig`](/api/types#partialstyleconfig) | Partial style overrides to apply |
+| Name     | Type                                            | Description                                |
+| -------- | ----------------------------------------------- | ------------------------------------------ |
+| `layers` | [`LibreDrawLayer[]`](/api/types#libredrawlayer) | The layer definitions. The array is copied |
 
 **Returns:** `void`
 
@@ -803,38 +798,25 @@ Merges the given partial overrides with the current style and applies changes to
 **Example:**
 
 ```ts
-// Change polygon fill color and opacity
-draw.setStyle({
-  fill: { color: '#ff0000', opacity: 0.5 },
-});
+import { DEFAULT_LAYERS, SOURCE_IDS } from '@sindicum/libre-draw';
 
-// Change multiple style categories at once
-draw.setStyle({
-  fill: { color: '#1f78b4', selectedColor: '#e76f51' },
-  outline: { color: '#1f78b4', width: 3 },
-  point: { color: '#e76f51', radius: 8 },
-  preview: { color: '#999999', width: 1 },
-});
-```
-
----
-
-### `getStyle()`
-
-Get the current global render style.
-
-Returns the full style configuration currently in use, including any overrides applied via the constructor `style` option or [`setStyle`](#setstyle-style). The result is a deep copy: changing it has no effect. Pass changes to [`setStyle`](#setstyle-style) instead.
-
-**Returns:** [`StyleConfig`](/api/types#styleconfig)
-
-**Throws:** [`LibreDrawError`](/api/types#libredrawerror) if this instance has been destroyed.
-
-**Example:**
-
-```ts
-const style = draw.getStyle();
-console.log('Fill color:', style.fill.color);
-console.log('Point radius:', style.point.radius);
+// Fill polygons by their own `color` property, in place of the default fill.
+draw.setLayers(
+  DEFAULT_LAYERS.map((layer) =>
+    layer.id === 'libre-draw-fill'
+      ? {
+          id: 'parcel-fill',
+          type: 'fill',
+          source: SOURCE_IDS.FEATURES,
+          filter: ['==', ['geometry-type'], 'Polygon'],
+          paint: {
+            'fill-color': ['coalesce', ['get', 'color'], '#888888'],
+            'fill-opacity': ['case', ['boolean', ['get', 'libre-draw:selected'], false], 0.6, 0.3],
+          },
+        }
+      : layer
+  )
+);
 ```
 
 ---

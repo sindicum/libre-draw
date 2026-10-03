@@ -50,6 +50,13 @@ export interface Mode {
   onKeyDown(key: string, event: KeyboardEvent): void;
 
   /**
+   * The feature a click at this mouse position would pick, which gets the
+   * feature-state `hover`. Modes that never pick a feature by clicking
+   * (the drawing modes) leave it out.
+   */
+  hoverTarget?(event: NormalizedInputEvent): string | undefined;
+
+  /**
    * Called on the active mode after the shared selection changed, whoever
    * changed it (this mode, the public API, a deleted feature). The mode
    * brings its own transient state (handles, previews, bases) in line.

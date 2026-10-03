@@ -86,17 +86,6 @@ export type {
   InputMethod,
 } from './options';
 
-export type {
-  FillStyle,
-  OutlineStyle,
-  PreviewStyle,
-  EditVertexStyle,
-  MidpointStyle,
-  PointStyle,
-  StyleConfig,
-  PartialStyleConfig,
-} from './style';
-
-export { DEFAULT_STYLE_CONFIG, mergeStyleConfig } from './style';
+export type { LibreDrawLayer } from './layers';
 
 export type { InputType, NormalizedInputEvent } from './input';

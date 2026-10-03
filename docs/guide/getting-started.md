@@ -32,7 +32,7 @@ const map = new maplibregl.Map({
 const draw = new LibreDraw(map);
 ```
 
-That's it! A toolbar with draw-point, draw-line, draw-polygon, draw-rectangle, draw-angled-rectangle, the input method toggle, select, split, cut, reshape, union, setback, rotate, delete, undo, redo, and style settings buttons appears on the map. Use draw-point to place points, draw-line to draw lines, draw-polygon to create polygons, draw-rectangle to drop a rectangle with two clicks, or draw-angled-rectangle to draw one at any angle with three clicks.
+That's it! A toolbar with draw-point, draw-line, draw-polygon, draw-rectangle, draw-angled-rectangle, the input method toggle, select, split, cut, reshape, union, setback, rotate, delete, undo, and redo buttons appears on the map. Use draw-point to place points, draw-line to draw lines, draw-polygon to create polygons, draw-rectangle to drop a rectangle with two clicks, or draw-angled-rectangle to draw one at any angle with three clicks.
 
 > **Note:** LibreDraw does not require a separate CSS import. All styles (toolbar, map layers) are applied programmatically via JavaScript. Only `maplibre-gl.css` is needed for the base map.
 
@@ -66,6 +66,36 @@ const draw = new LibreDraw(map, {
   historyLimit: 50, // max undo/redo steps (default: 100)
 });
 ```
+
+## Customizing the Look
+
+LibreDraw draws with ordinary MapLibre layers. Pass your own layer definitions as `layers` (or later with `setLayers()`) to replace the defaults. Start from `DEFAULT_LAYERS` and change what you need:
+
+```ts
+import { LibreDraw, DEFAULT_LAYERS } from '@sindicum/libre-draw';
+
+const draw = new LibreDraw(map, {
+  layers: DEFAULT_LAYERS.map((layer) =>
+    layer.id === 'libre-draw-fill' && layer.type === 'fill'
+      ? {
+          ...layer,
+          paint: {
+            ...layer.paint,
+            // Orange while selected, otherwise the feature's own `color` property
+            'fill-color': [
+              'case',
+              ['boolean', ['get', 'libre-draw:selected'], false],
+              '#fbb03b',
+              ['coalesce', ['get', 'color'], '#285daa'],
+            ],
+          },
+        }
+      : layer
+  ),
+});
+```
+
+Each definition reads one of the six sources in `SOURCE_IDS`. In expressions, a feature's own properties keep their names; `libre-draw:selected` tells whether it is selected, and the feature-state `hover` marks the feature a click would pick. See [Layer Types](/api/types#layer-types) for every source, state, and default layer.
 
 ## Localization
 

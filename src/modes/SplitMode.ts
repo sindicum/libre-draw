@@ -76,6 +76,12 @@ export class SplitMode implements Mode {
     this.executeSplit([event.lngLat.lng, event.lngLat.lat]);
   }
 
+  /** @returns The feature a click would pick as the target, while none is picked. */
+  hoverTarget(event: NormalizedInputEvent): string | undefined {
+    if (!this.isActive || this.state !== 'idle') return undefined;
+    return this.hitTest([event.lngLat.lng, event.lngLat.lat], event.inputType)?.id;
+  }
+
   onPointerMove(event: NormalizedInputEvent): void {
     if (!this.isActive) return;
     if (this.state !== 'second-point' || !this.lineStart) return;

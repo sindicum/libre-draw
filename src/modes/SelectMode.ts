@@ -305,6 +305,20 @@ export class SelectMode implements Mode {
     this.applyClickSelection(hitFeature);
   }
 
+  /** @returns The feature a click would select, outside a drag. */
+  hoverTarget(event: NormalizedInputEvent): string | undefined {
+    if (
+      !this.isActive ||
+      this.vertexEditor.isDragging() ||
+      this.polygonDragger.isDragging() ||
+      this.pointDragState ||
+      this.groupDragState
+    ) {
+      return undefined;
+    }
+    return this.findHitFeature(this.context.store.getAll(), event)?.id;
+  }
+
   onPointerMove(event: NormalizedInputEvent): void {
     if (!this.isActive) return;
 

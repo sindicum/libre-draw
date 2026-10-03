@@ -1,7 +1,7 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { LibreDraw } from '../../src/LibreDraw';
 import { LibreDrawError } from '../../src/core/errors';
-import { SOURCE_IDS } from '../../src/rendering/SourceManager';
+import { SOURCE_IDS } from '../../src/rendering/layers';
 import type { ModeName } from '../../src/types/mode';
 import type { CreateEvent, DraftChangeEvent } from '../../src/types/events';
 import { FakeMap } from './helpers/fakeMap';

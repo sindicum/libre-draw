@@ -6,7 +6,7 @@
 import * as maplibregl from 'maplibre-gl';
 import type { StyleSpecification } from 'maplibre-gl';
 import 'maplibre-gl/dist/maplibre-gl.css';
-import { LibreDraw } from '../../src';
+import { DEFAULT_LAYERS, LibreDraw } from '../../src';
 import type { ModeName } from '../../src';
 import { deriveUiState, parseSetbackDistance } from './state';
 
@@ -77,8 +77,28 @@ $('input-method').addEventListener('click', () => {
   render();
 });
 
+// The look is a list of MapLibre layers: swap the default fill for one in
+// the picked color, keeping the selected color.
 $<HTMLInputElement>('fill-color').addEventListener('input', (event) => {
-  draw.setStyle({ fill: { color: (event.target as HTMLInputElement).value } });
+  const color = (event.target as HTMLInputElement).value;
+  draw.setLayers(
+    DEFAULT_LAYERS.map((layer) =>
+      layer.id === 'libre-draw-fill' && layer.type === 'fill'
+        ? {
+            ...layer,
+            paint: {
+              ...layer.paint,
+              'fill-color': [
+                'case',
+                ['boolean', ['get', 'libre-draw:selected'], false],
+                '#fbb03b',
+                color,
+              ],
+            },
+          }
+        : layer
+    )
+  );
 });
 
 // The toolbar deletes the whole selection as one undo step; the public API

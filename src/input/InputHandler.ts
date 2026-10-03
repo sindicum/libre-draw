@@ -46,12 +46,15 @@ export class InputHandler {
    * @param isPointerSuppressed - Checked on every pointer event; while it
    *   returns `true`, mouse and touch events are not dispatched to the mode
    *   (the center reticle feeds it instead). Keyboard input is unaffected.
+   * @param onMouseMove - Called after each mouse move reaches the mode,
+   *   suppressed or not (touch has no hover).
    */
   constructor(
     map: MaplibreMap,
     getActiveMode: GetActiveModeCallback,
     shortcuts?: KeyboardShortcutCallbacks,
-    isPointerSuppressed: () => boolean = () => false
+    isPointerSuppressed: () => boolean = () => false,
+    onMouseMove?: (event: NormalizedInputEvent) => void
   ) {
     this.getActiveMode = getActiveMode;
     // Pointer events go to the active mode unless the reticle feeds it.
@@ -90,6 +93,7 @@ export class InputHandler {
       onPointerMove: (event: NormalizedInputEvent) => {
         if (this.isTouchEcho()) return;
         this.getPointerMode()?.onPointerMove(event);
+        onMouseMove?.(event);
       },
       onPointerUp: (event: NormalizedInputEvent) => {
         if (this.isTouchEcho()) return;

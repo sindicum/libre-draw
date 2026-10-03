@@ -79,6 +79,12 @@ export class SetbackMode implements Mode {
     }
   }
 
+  /** @returns The polygon a click would pick as the target, while none is picked. */
+  hoverTarget(event: NormalizedInputEvent): string | undefined {
+    if (!this.isActive || this.state !== 'idle') return undefined;
+    return this.hitTest([event.lngLat.lng, event.lngLat.lat])?.id;
+  }
+
   onPointerMove(event: NormalizedInputEvent): void {
     if (!this.isActive) return;
 

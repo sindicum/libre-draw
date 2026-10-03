@@ -17,7 +17,6 @@ export const MESSAGES_EN: Messages = {
   toolbarRotate: 'Rotate feature',
   toolbarCut: 'Cut out an area',
   toolbarReshape: 'Reshape a boundary',
-  toolbarSettings: 'Style settings',
   toolbarDelete: 'Delete selected',
   toolbarUndo: 'Undo',
   toolbarRedo: 'Redo',
@@ -36,30 +35,6 @@ export const MESSAGES_EN: Messages = {
   reticleAddPoint: 'Add point',
   reticleUndoVertex: 'Undo point',
   reticleFinish: 'Finish',
-
-  styleFeatureSection: 'Feature style',
-  styleSelectedSection: 'Selected style',
-  styleGuideSection: 'Guide lines',
-
-  styleOutlineColor: 'Line color',
-  styleOutlineWidth: 'Line width',
-  styleFillColor: 'Polygon color',
-  styleFillOpacity: 'Polygon opacity',
-  stylePointColor: 'Point color',
-  stylePointRadius: 'Point size',
-  stylePointHoverColor: 'Point hover color',
-
-  styleVertexColor: 'Vertex color',
-  styleVertexRadius: 'Vertex size',
-  styleMidpointColor: 'Midpoint color',
-  styleMidpointRadius: 'Midpoint size',
-  styleVertexHoverColor: 'Hover color',
-  styleSelectedOutlineColor: 'Line color',
-  styleSelectedFillColor: 'Polygon color',
-  styleSelectedFillOpacity: 'Polygon opacity',
-
-  stylePreviewColor: 'Dash color',
-  stylePreviewWidth: 'Dash width',
 };
 
 /**
@@ -79,7 +54,6 @@ export const MESSAGES_JA: Messages = {
   toolbarRotate: '地物を回転',
   toolbarCut: '領域を切り抜く',
   toolbarReshape: '境界を引き直す',
-  toolbarSettings: 'スタイル設定',
   toolbarDelete: '選択を削除',
   toolbarUndo: '元に戻す',
   toolbarRedo: 'やり直す',
@@ -98,30 +72,6 @@ export const MESSAGES_JA: Messages = {
   reticleAddPoint: '点を追加',
   reticleUndoVertex: '1 つ戻す',
   reticleFinish: '完了',
-
-  styleFeatureSection: '地物スタイル',
-  styleSelectedSection: '選択時スタイル',
-  styleGuideSection: 'ガイドライン',
-
-  styleOutlineColor: 'ライン色',
-  styleOutlineWidth: 'ライン太さ',
-  styleFillColor: 'ポリゴン色',
-  styleFillOpacity: 'ポリゴン透明度',
-  stylePointColor: '点の色',
-  stylePointRadius: '点の大きさ',
-  stylePointHoverColor: '点のhover色',
-
-  styleVertexColor: '頂点の色',
-  styleVertexRadius: '頂点の大きさ',
-  styleMidpointColor: '中間点の色',
-  styleMidpointRadius: '中間点の大きさ',
-  styleVertexHoverColor: 'hover色',
-  styleSelectedOutlineColor: 'ライン色',
-  styleSelectedFillColor: 'ポリゴン色',
-  styleSelectedFillOpacity: 'ポリゴン透明度',
-
-  stylePreviewColor: '破線の色',
-  stylePreviewWidth: '破線の太さ',
 };
 
 const BUILTIN_MESSAGES: Record<Locale, Messages> = {

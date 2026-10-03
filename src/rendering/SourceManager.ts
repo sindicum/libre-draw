@@ -1,16 +1,5 @@
 import type { Map as MaplibreMap, GeoJSONSource } from 'maplibre-gl';
-
-/**
- * The GeoJSON source IDs used by LibreDraw.
- */
-export const SOURCE_IDS = {
-  FEATURES: 'libre-draw-features',
-  PREVIEW: 'libre-draw-preview',
-  EDGE_HIGHLIGHT: 'libre-draw-edge-highlight',
-  EDIT_VERTICES: 'libre-draw-edit-vertices',
-  SNAP_INDICATOR: 'libre-draw-snap-indicator',
-  ROTATION_CENTER: 'libre-draw-rotation-center',
-} as const;
+import { SOURCE_IDS } from './layers';
 
 /**
  * An empty GeoJSON FeatureCollection.
@@ -59,9 +48,9 @@ export class SourceManager {
       this.map.addSource(SOURCE_IDS.FEATURES, {
         type: 'geojson',
         // Feature ids are string UUIDs, which a GeoJSON source drops from
-        // the top-level id. Promoting the `_id` property (written by
-        // RenderManager) keeps the UUID usable as the feature state key.
-        promoteId: '_id',
+        // the top-level id. Promoting the `libre-draw:id` property (written
+        // by RenderManager) keeps the UUID usable as the feature state key.
+        promoteId: 'libre-draw:id',
         data: EMPTY_FC,
       });
     }

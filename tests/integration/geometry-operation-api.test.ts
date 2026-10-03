@@ -1,7 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { LibreDraw } from '../../src/LibreDraw';
 import { LibreDrawError } from '../../src/core/errors';
-import { SOURCE_IDS } from '../../src/rendering/SourceManager';
+import { SOURCE_IDS } from '../../src/rendering/layers';
 import type {
   SetbackEvent,
   SplitEvent,

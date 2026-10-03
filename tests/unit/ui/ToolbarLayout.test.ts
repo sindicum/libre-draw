@@ -66,7 +66,7 @@ describe('Toolbar layout', () => {
     expect(list.parentElement).toBe(frame);
     expect(list.style.overflowY).toBe('auto');
     expect(frame.style.overflowY).toBe('');
-    expect(list.querySelectorAll('button[data-libre-draw-button]')).toHaveLength(17);
+    expect(list.querySelectorAll('button[data-libre-draw-button]')).toHaveLength(16);
 
     toolbar.setActiveMode('setback');
     const [setbackPopup] = visiblePopups(frame, list);

@@ -1,37 +1,17 @@
 import type { Map as MaplibreMap } from 'maplibre-gl';
 import type { LibreDrawFeature, Position } from '../types/features';
-import type { PartialStyleConfig, StyleConfig } from '../types/style';
-import { mergeStyleConfig } from '../types/style';
-import { SourceManager, SOURCE_IDS } from './SourceManager';
+import type { LibreDrawLayer } from '../types/layers';
+import { SourceManager } from './SourceManager';
+import { DEFAULT_LAYERS, ROTATION_CENTER_IMAGE_ID, SOURCE_IDS } from './layers';
 import { createCrosshairImage, CROSSHAIR_PIXEL_RATIO } from './crosshairImage';
-
-/**
- * Layer IDs used by LibreDraw for rendering.
- */
-export const LAYER_IDS = {
-  FILL: 'libre-draw-fill',
-  OUTLINE: 'libre-draw-outline',
-  LINE: 'libre-draw-line',
-  POINT: 'libre-draw-point',
-  PREVIEW: 'libre-draw-preview',
-  EDGE_HIGHLIGHT: 'libre-draw-edge-highlight',
-  EDIT_VERTICES: 'libre-draw-edit-vertices',
-  EDIT_MIDPOINTS: 'libre-draw-edit-midpoints',
-  SNAP_INDICATOR: 'libre-draw-snap-indicator',
-  ROTATION_CENTER: 'libre-draw-rotation-center',
-} as const;
-
-/** Map image id of the crosshair used by the rotation center layer. */
-export const ROTATION_CENTER_IMAGE_ID = 'libre-draw-rotation-center-crosshair';
 
 /**
  * Manages the rendering layers for LibreDraw.
  *
- * Creates and manages MapLibre layers for:
- * - Fill / Outline / Line / Point: feature rendering by geometry type
- * - Preview: in-progress drawing preview
- * - Edit vertices / midpoints, edge highlight, snap indicator, rotation center:
- *   interaction feedback
+ * Adds the layer definitions (the defaults, or the ones given through the
+ * `layers` option / `setLayers()`) on top of the map's layers, writes the
+ * sources they read, and keeps the feature-state `hover` on the feature
+ * a click would pick.
  *
  * Uses requestAnimationFrame for batch updates to avoid
  * redundant re-renders within a single frame.
@@ -43,270 +23,95 @@ export class RenderManager {
   private pendingRender = false;
   private pendingFeatures: LibreDrawFeature[] | null = null;
   private initialized = false;
-  private style: StyleConfig;
+  private layers: LibreDrawLayer[];
+  // Ids of the layers this instance added to the current style. A
+  // definition MapLibre refused (a bad definition, an id already on the
+  // map) is not here, so it is not retried on every `styledata`, and a map
+  // layer that already had the id is never removed.
+  private addedLayerIds: string[] = [];
+  private hoveredId: string | null = null;
 
-  constructor(map: MaplibreMap, sourceManager: SourceManager, style?: PartialStyleConfig) {
+  constructor(
+    map: MaplibreMap,
+    sourceManager: SourceManager,
+    layers: readonly LibreDrawLayer[] = DEFAULT_LAYERS
+  ) {
     this.map = map;
     this.sourceManager = sourceManager;
-    this.style = mergeStyleConfig(style);
+    this.layers = structuredClone([...layers]);
   }
 
   /**
-   * Whether render layers and sources are ready on the current style.
+   * Whether the sources and the layers this instance added are on the
+   * current style. A style swap drops both.
    */
   isReadyForCurrentStyle(): boolean {
-    return this.sourceManager.hasAllSources() && this.hasAllLayers();
+    return (
+      this.initialized &&
+      this.sourceManager.hasAllSources() &&
+      this.addedLayerIds.every((id) => this.map.getLayer(id))
+    );
   }
 
   /**
-   * Initialize rendering layers on the map.
+   * Add the sources, the rotation center image, and the layers to the
+   * current style.
    */
   initialize(): void {
-    if (this.initialized && this.isReadyForCurrentStyle()) return;
+    if (this.isReadyForCurrentStyle()) return;
 
     this.sourceManager.initialize();
-    if (this.hasAllLayers()) {
-      this.initialized = true;
-      return;
-    }
-
-    // Feature fill layer (Polygon only — LineString must not be filled)
-    if (!this.map.getLayer(LAYER_IDS.FILL)) {
-      this.map.addLayer({
-        id: LAYER_IDS.FILL,
-        type: 'fill',
-        source: SOURCE_IDS.FEATURES,
-        filter: ['==', ['geometry-type'], 'Polygon'],
-        paint: {
-          'fill-color': [
-            'case',
-            ['boolean', ['get', '_selected'], false],
-            this.style.fill.selectedColor,
-            this.style.fill.color,
-          ],
-          'fill-opacity': [
-            'case',
-            ['boolean', ['get', '_selected'], false],
-            this.style.fill.selectedOpacity,
-            this.style.fill.opacity,
-          ],
-        },
-      });
-    }
-
-    // Feature outline layer (Polygon only)
-    if (!this.map.getLayer(LAYER_IDS.OUTLINE)) {
-      this.map.addLayer({
-        id: LAYER_IDS.OUTLINE,
-        type: 'line',
-        source: SOURCE_IDS.FEATURES,
-        filter: ['==', ['geometry-type'], 'Polygon'],
-        paint: {
-          'line-color': [
-            'case',
-            ['boolean', ['get', '_selected'], false],
-            this.style.outline.selectedColor,
-            this.style.outline.color,
-          ],
-          'line-width': this.style.outline.width,
-        },
-      });
-    }
-
-    // LineString feature layer
-    if (!this.map.getLayer(LAYER_IDS.LINE)) {
-      this.map.addLayer({
-        id: LAYER_IDS.LINE,
-        type: 'line',
-        source: SOURCE_IDS.FEATURES,
-        filter: ['==', ['geometry-type'], 'LineString'],
-        paint: {
-          'line-color': [
-            'case',
-            ['boolean', ['get', '_selected'], false],
-            this.style.outline.selectedColor,
-            this.style.outline.color,
-          ],
-          'line-width': [
-            'case',
-            ['boolean', ['get', '_selected'], false],
-            this.style.outline.width + 1,
-            this.style.outline.width,
-          ],
-        },
-      });
-    }
-
-    // Point feature layer (circle markers for Point geometry)
-    if (!this.map.getLayer(LAYER_IDS.POINT)) {
-      this.map.addLayer({
-        id: LAYER_IDS.POINT,
-        type: 'circle',
-        source: SOURCE_IDS.FEATURES,
-        filter: ['==', ['geometry-type'], 'Point'],
-        paint: {
-          'circle-radius': [
-            'case',
-            ['boolean', ['get', '_selected'], false],
-            this.style.point.selectedRadius,
-            this.style.point.radius,
-          ],
-          'circle-color': [
-            'case',
-            ['boolean', ['get', '_selected'], false],
-            this.style.point.selectedColor,
-            [
-              'case',
-              ['boolean', ['feature-state', 'hover'], false],
-              this.style.point.hoverColor,
-              this.style.point.color,
-            ],
-          ],
-          'circle-stroke-color': this.style.point.strokeColor,
-          'circle-stroke-width': this.style.point.strokeWidth,
-        },
-      });
-      this.setupPointHover();
-    }
-
-    // Preview layer (dashed outline for in-progress drawing)
-    if (!this.map.getLayer(LAYER_IDS.PREVIEW)) {
-      this.map.addLayer({
-        id: LAYER_IDS.PREVIEW,
-        type: 'line',
-        source: SOURCE_IDS.PREVIEW,
-        paint: {
-          'line-color': this.style.preview.color,
-          'line-width': this.style.preview.width,
-          'line-dasharray': this.style.preview.dasharray,
-        },
-      });
-    }
-
-    // Edge highlight layer (solid thicker line for selected edge in setback mode)
-    if (!this.map.getLayer(LAYER_IDS.EDGE_HIGHLIGHT)) {
-      this.map.addLayer({
-        id: LAYER_IDS.EDGE_HIGHLIGHT,
-        type: 'line',
-        source: SOURCE_IDS.EDGE_HIGHLIGHT,
-        paint: {
-          'line-color': this.style.outline.selectedColor,
-          'line-width': this.style.outline.width + 2,
-        },
-      });
-    }
-
-    // Edit midpoints layer (semi-transparent small circles at edge midpoints)
-    // Highlighted midpoints grow larger and become opaque to indicate interactivity
-    if (!this.map.getLayer(LAYER_IDS.EDIT_MIDPOINTS)) {
-      this.map.addLayer({
-        id: LAYER_IDS.EDIT_MIDPOINTS,
-        type: 'circle',
-        source: SOURCE_IDS.EDIT_VERTICES,
-        filter: ['==', ['get', '_type'], 'midpoint'],
-        paint: {
-          'circle-radius': [
-            'case',
-            ['boolean', ['get', '_highlighted'], false],
-            this.style.editVertex.highlightedRadius,
-            this.style.midpoint.radius,
-          ],
-          'circle-color': [
-            'case',
-            ['boolean', ['get', '_highlighted'], false],
-            this.style.editVertex.highlightedColor,
-            this.style.midpoint.color,
-          ],
-          'circle-opacity': [
-            'case',
-            ['boolean', ['get', '_highlighted'], false],
-            1,
-            this.style.midpoint.opacity,
-          ],
-          'circle-stroke-width': [
-            'case',
-            ['boolean', ['get', '_highlighted'], false],
-            this.style.editVertex.strokeWidth,
-            0,
-          ],
-          'circle-stroke-color': [
-            'case',
-            ['boolean', ['get', '_highlighted'], false],
-            this.style.editVertex.highlightedStrokeColor,
-            'transparent',
-          ],
-        },
-      });
-    }
-
-    // Snap indicator layer (orange circle at snap target location)
-    if (!this.map.getLayer(LAYER_IDS.SNAP_INDICATOR)) {
-      this.map.addLayer({
-        id: LAYER_IDS.SNAP_INDICATOR,
-        type: 'circle',
-        source: SOURCE_IDS.SNAP_INDICATOR,
-        paint: {
-          'circle-radius': 6,
-          'circle-color': 'rgba(255, 140, 0, 0.7)',
-          'circle-stroke-color': '#ffffff',
-          'circle-stroke-width': 2,
-        },
-      });
-    }
-
-    // Rotation center layer: the crosshair at the pivot of rotate mode. A
-    // style swap drops map images.
+    // A style swap drops map images and feature states.
     if (!this.map.hasImage(ROTATION_CENTER_IMAGE_ID)) {
       this.map.addImage(ROTATION_CENTER_IMAGE_ID, createCrosshairImage(), {
         pixelRatio: CROSSHAIR_PIXEL_RATIO,
       });
     }
-    if (!this.map.getLayer(LAYER_IDS.ROTATION_CENTER)) {
-      this.map.addLayer({
-        id: LAYER_IDS.ROTATION_CENTER,
-        type: 'symbol',
-        source: SOURCE_IDS.ROTATION_CENTER,
-        layout: {
-          'icon-image': ROTATION_CENTER_IMAGE_ID,
-          // The pivot must always show, even over dense features or map labels.
-          'icon-allow-overlap': true,
-          'icon-ignore-placement': true,
-        },
-      });
+    if (this.hoveredId !== null) {
+      this.hoveredId = null;
+      this.map.getCanvas().style.cursor = '';
     }
-
-    // Edit vertices layer. Uses data-driven styling to highlight the nearest vertex
-    if (!this.map.getLayer(LAYER_IDS.EDIT_VERTICES)) {
-      this.map.addLayer({
-        id: LAYER_IDS.EDIT_VERTICES,
-        type: 'circle',
-        source: SOURCE_IDS.EDIT_VERTICES,
-        filter: ['==', ['get', '_type'], 'vertex'],
-        paint: {
-          'circle-radius': [
-            'case',
-            ['boolean', ['get', '_highlighted'], false],
-            this.style.editVertex.highlightedRadius,
-            this.style.editVertex.radius,
-          ],
-          'circle-color': [
-            'case',
-            ['boolean', ['get', '_highlighted'], false],
-            this.style.editVertex.highlightedColor,
-            this.style.editVertex.color,
-          ],
-          'circle-stroke-color': [
-            'case',
-            ['boolean', ['get', '_highlighted'], false],
-            this.style.editVertex.highlightedStrokeColor,
-            this.style.editVertex.strokeColor,
-          ],
-          'circle-stroke-width': this.style.editVertex.strokeWidth,
-        },
-      });
-    }
-
+    this.addLayers();
     this.initialized = true;
+  }
+
+  /**
+   * Replace the layer definitions. The previous layers leave the map; the
+   * new ones are added at once when the style is ready, otherwise when it
+   * loads.
+   * @param layers - The new definitions, drawn in array order.
+   */
+  setLayers(layers: readonly LibreDrawLayer[]): void {
+    this.removeLayers();
+    this.layers = structuredClone([...layers]);
+    if (this.initialized && this.sourceManager.hasAllSources()) {
+      this.addLayers();
+    }
+  }
+
+  /**
+   * Put the feature-state `hover` on one feature, taking it off the
+   * previous one.
+   * @param id - The feature to hover, or `undefined` for none.
+   */
+  setHovered(id: string | undefined): void {
+    const next = id ?? null;
+    if (next === this.hoveredId) return;
+    if (!this.sourceManager.hasAllSources()) {
+      this.hoveredId = null;
+      return;
+    }
+    if (this.hoveredId !== null) {
+      this.map.setFeatureState(
+        { source: SOURCE_IDS.FEATURES, id: this.hoveredId },
+        { hover: false }
+      );
+    }
+    this.hoveredId = next;
+    if (next !== null) {
+      this.map.setFeatureState({ source: SOURCE_IDS.FEATURES, id: next }, { hover: true });
+    }
+    this.map.getCanvas().style.cursor = next !== null ? 'pointer' : '';
   }
 
   /**
@@ -414,8 +219,8 @@ export class RenderManager {
       features.push({
         type: 'Feature',
         properties: {
-          _type: 'vertex',
-          _highlighted: i === highlightIndex,
+          'libre-draw:handle': 'vertex',
+          'libre-draw:highlighted': i === highlightIndex,
         },
         geometry: { type: 'Point', coordinates: [v[0], v[1]] },
       });
@@ -426,8 +231,8 @@ export class RenderManager {
       features.push({
         type: 'Feature',
         properties: {
-          _type: 'midpoint',
-          _highlighted: i === midpointHighlightIndex,
+          'libre-draw:handle': 'midpoint',
+          'libre-draw:highlighted': i === midpointHighlightIndex,
         },
         geometry: { type: 'Point', coordinates: [m[0], m[1]] },
       });
@@ -509,181 +314,15 @@ export class RenderManager {
   }
 
   /**
-   * Get a deep copy of the current style configuration. Merging nothing
-   * onto the current style copies every section and the dash array, so a
-   * caller writing to the result cannot reach the style in use.
-   */
-  getStyle(): StyleConfig {
-    return mergeStyleConfig(undefined, this.style);
-  }
-
-  /**
-   * Update the global render style at runtime using setPaintProperty.
-   * @param style - The new full style configuration.
-   */
-  updateStyle(style: StyleConfig): void {
-    this.style = style;
-    if (!this.initialized) return;
-
-    const m = this.map;
-    // Typed from the map's own signature so the helper follows whichever
-    // maplibre-gl major the project compiles against (v5 takes strings,
-    // v6 keys the property name and value together).
-    type PaintArgs = Parameters<MaplibreMap['setPaintProperty']>;
-    const set = (layer: string, prop: PaintArgs[1], value: PaintArgs[2]): void => {
-      if (m.getLayer(layer)) {
-        m.setPaintProperty(layer, prop, value);
-      }
-    };
-
-    // FILL
-    set(LAYER_IDS.FILL, 'fill-color', [
-      'case',
-      ['boolean', ['get', '_selected'], false],
-      style.fill.selectedColor,
-      style.fill.color,
-    ]);
-    set(LAYER_IDS.FILL, 'fill-opacity', [
-      'case',
-      ['boolean', ['get', '_selected'], false],
-      style.fill.selectedOpacity,
-      style.fill.opacity,
-    ]);
-
-    // OUTLINE
-    set(LAYER_IDS.OUTLINE, 'line-color', [
-      'case',
-      ['boolean', ['get', '_selected'], false],
-      style.outline.selectedColor,
-      style.outline.color,
-    ]);
-    set(LAYER_IDS.OUTLINE, 'line-width', style.outline.width);
-
-    // LINE
-    set(LAYER_IDS.LINE, 'line-color', [
-      'case',
-      ['boolean', ['get', '_selected'], false],
-      style.outline.selectedColor,
-      style.outline.color,
-    ]);
-    set(LAYER_IDS.LINE, 'line-width', [
-      'case',
-      ['boolean', ['get', '_selected'], false],
-      style.outline.width + 1,
-      style.outline.width,
-    ]);
-
-    // POINT
-    set(LAYER_IDS.POINT, 'circle-radius', [
-      'case',
-      ['boolean', ['get', '_selected'], false],
-      style.point.selectedRadius,
-      style.point.radius,
-    ]);
-    set(LAYER_IDS.POINT, 'circle-color', [
-      'case',
-      ['boolean', ['get', '_selected'], false],
-      style.point.selectedColor,
-      [
-        'case',
-        ['boolean', ['feature-state', 'hover'], false],
-        style.point.hoverColor,
-        style.point.color,
-      ],
-    ]);
-    set(LAYER_IDS.POINT, 'circle-stroke-color', style.point.strokeColor);
-    set(LAYER_IDS.POINT, 'circle-stroke-width', style.point.strokeWidth);
-
-    // PREVIEW
-    set(LAYER_IDS.PREVIEW, 'line-color', style.preview.color);
-    set(LAYER_IDS.PREVIEW, 'line-width', style.preview.width);
-    set(LAYER_IDS.PREVIEW, 'line-dasharray', style.preview.dasharray);
-
-    // EDGE_HIGHLIGHT
-    set(LAYER_IDS.EDGE_HIGHLIGHT, 'line-color', style.outline.selectedColor);
-    set(LAYER_IDS.EDGE_HIGHLIGHT, 'line-width', style.outline.width + 2);
-
-    // EDIT_VERTICES
-    set(LAYER_IDS.EDIT_VERTICES, 'circle-radius', [
-      'case',
-      ['boolean', ['get', '_highlighted'], false],
-      style.editVertex.highlightedRadius,
-      style.editVertex.radius,
-    ]);
-    set(LAYER_IDS.EDIT_VERTICES, 'circle-color', [
-      'case',
-      ['boolean', ['get', '_highlighted'], false],
-      style.editVertex.highlightedColor,
-      style.editVertex.color,
-    ]);
-    set(LAYER_IDS.EDIT_VERTICES, 'circle-stroke-color', [
-      'case',
-      ['boolean', ['get', '_highlighted'], false],
-      style.editVertex.highlightedStrokeColor,
-      style.editVertex.strokeColor,
-    ]);
-    set(LAYER_IDS.EDIT_VERTICES, 'circle-stroke-width', style.editVertex.strokeWidth);
-
-    // EDIT_MIDPOINTS
-    set(LAYER_IDS.EDIT_MIDPOINTS, 'circle-radius', [
-      'case',
-      ['boolean', ['get', '_highlighted'], false],
-      style.editVertex.highlightedRadius,
-      style.midpoint.radius,
-    ]);
-    set(LAYER_IDS.EDIT_MIDPOINTS, 'circle-color', [
-      'case',
-      ['boolean', ['get', '_highlighted'], false],
-      style.editVertex.highlightedColor,
-      style.midpoint.color,
-    ]);
-    set(LAYER_IDS.EDIT_MIDPOINTS, 'circle-opacity', [
-      'case',
-      ['boolean', ['get', '_highlighted'], false],
-      1,
-      style.midpoint.opacity,
-    ]);
-    set(LAYER_IDS.EDIT_MIDPOINTS, 'circle-stroke-width', [
-      'case',
-      ['boolean', ['get', '_highlighted'], false],
-      style.editVertex.strokeWidth,
-      0,
-    ]);
-    set(LAYER_IDS.EDIT_MIDPOINTS, 'circle-stroke-color', [
-      'case',
-      ['boolean', ['get', '_highlighted'], false],
-      style.editVertex.highlightedStrokeColor,
-      'transparent',
-    ]);
-  }
-
-  /**
    * Remove all layers and sources from the map.
    */
   destroy(): void {
-    const layerIds = [
-      LAYER_IDS.EDIT_VERTICES,
-      LAYER_IDS.EDIT_MIDPOINTS,
-      LAYER_IDS.SNAP_INDICATOR,
-      LAYER_IDS.ROTATION_CENTER,
-      LAYER_IDS.EDGE_HIGHLIGHT,
-      LAYER_IDS.PREVIEW,
-      LAYER_IDS.POINT,
-      LAYER_IDS.LINE,
-      LAYER_IDS.OUTLINE,
-      LAYER_IDS.FILL,
-    ];
-
-    for (const id of layerIds) {
-      if (this.map.getLayer(id)) {
-        this.map.removeLayer(id);
-      }
-    }
-
+    this.removeLayers();
     if (this.map.hasImage(ROTATION_CENTER_IMAGE_ID)) {
       this.map.removeImage(ROTATION_CENTER_IMAGE_ID);
     }
     this.sourceManager.destroy();
+    this.hoveredId = null;
     this.initialized = false;
   }
 
@@ -700,8 +339,8 @@ export class RenderManager {
       properties: {
         ...feature.properties,
         // The source promotes this to the feature id (see SourceManager).
-        _id: feature.id,
-        _selected: this.selectedIds.has(feature.id),
+        'libre-draw:id': feature.id,
+        'libre-draw:selected': this.selectedIds.has(feature.id),
       },
       geometry: feature.geometry,
     }));
@@ -716,53 +355,25 @@ export class RenderManager {
   }
 
   /**
-   * Register mouse handlers for Point feature hover color.
+   * Add every definition on top, in order. Layers this instance added
+   * before are taken off first so the order holds. A definition is passed
+   * to MapLibre even when its id is already on the map, so MapLibre reports
+   * the clash with its `error` event like any other bad definition.
    */
-  private setupPointHover(): void {
-    // Ids are the string UUIDs promoted from `_id` by the source.
-    let hoveredId: string | number | null = null;
-
-    this.map.on('mouseenter', LAYER_IDS.POINT, () => {
-      this.map.getCanvas().style.cursor = 'pointer';
-    });
-
-    this.map.on('mousemove', LAYER_IDS.POINT, (e) => {
-      if (!e.features || e.features.length === 0) return;
-      const id = e.features[0].id;
-      // `setFeatureState` needs an id; a feature without one gets no hover colour.
-      if (id === undefined || id === null) return;
-
-      if (hoveredId !== null && hoveredId !== id) {
-        this.map.setFeatureState({ source: SOURCE_IDS.FEATURES, id: hoveredId }, { hover: false });
-      }
-      hoveredId = id;
-      this.map.setFeatureState({ source: SOURCE_IDS.FEATURES, id: hoveredId }, { hover: true });
-    });
-
-    this.map.on('mouseleave', LAYER_IDS.POINT, () => {
-      this.map.getCanvas().style.cursor = '';
-      if (hoveredId !== null) {
-        this.map.setFeatureState({ source: SOURCE_IDS.FEATURES, id: hoveredId }, { hover: false });
-        hoveredId = null;
-      }
-    });
+  private addLayers(): void {
+    this.removeLayers();
+    for (const layer of this.layers) {
+      const existed = this.map.getLayer(layer.id) !== undefined;
+      this.map.addLayer(layer);
+      if (!existed && this.map.getLayer(layer.id)) this.addedLayerIds.push(layer.id);
+    }
   }
 
-  /**
-   * Whether all draw layers exist on the current style.
-   */
-  private hasAllLayers(): boolean {
-    return Boolean(
-      this.map.getLayer(LAYER_IDS.FILL) &&
-      this.map.getLayer(LAYER_IDS.OUTLINE) &&
-      this.map.getLayer(LAYER_IDS.POINT) &&
-      this.map.getLayer(LAYER_IDS.LINE) &&
-      this.map.getLayer(LAYER_IDS.PREVIEW) &&
-      this.map.getLayer(LAYER_IDS.EDGE_HIGHLIGHT) &&
-      this.map.getLayer(LAYER_IDS.EDIT_MIDPOINTS) &&
-      this.map.getLayer(LAYER_IDS.EDIT_VERTICES) &&
-      this.map.getLayer(LAYER_IDS.SNAP_INDICATOR) &&
-      this.map.getLayer(LAYER_IDS.ROTATION_CENTER)
-    );
+  /** Remove the layers this instance added. */
+  private removeLayers(): void {
+    for (const id of this.addedLayerIds) {
+      if (this.map.getLayer(id)) this.map.removeLayer(id);
+    }
+    this.addedLayerIds = [];
   }
 }
