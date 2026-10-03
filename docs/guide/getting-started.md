@@ -2,7 +2,7 @@
 
 ## Installation
 
-Install LibreDraw alongside MapLibre GL JS:
+Install LibreDraw alongside MapLibre GL JS v5 or v6 (`>=5.0.0 <7.0.0`, a peer dependency):
 
 ```bash
 npm install @sindicum/libre-draw maplibre-gl
@@ -11,9 +11,14 @@ npm install @sindicum/libre-draw maplibre-gl
 ## Basic Usage
 
 ```ts
-import maplibregl from 'maplibre-gl';
+import * as maplibregl from 'maplibre-gl';
 import 'maplibre-gl/dist/maplibre-gl.css';
+import workerUrl from 'maplibre-gl/dist/maplibre-gl-worker.mjs?worker&url';
 import { LibreDraw } from '@sindicum/libre-draw';
+
+// MapLibre GL JS v6 loads its worker from a URL you give it once
+// (on v5 the worker is inside the bundle: drop this call and the import above)
+maplibregl.setWorkerUrl(workerUrl);
 
 // Create a MapLibre map
 const map = new maplibregl.Map({
@@ -30,6 +35,8 @@ const draw = new LibreDraw(map);
 That's it! A toolbar with draw-point, draw-line, draw-polygon, draw-rectangle, draw-angled-rectangle, the input method toggle, select, split, cut, reshape, union, setback, rotate, delete, undo, redo, and style settings buttons appears on the map. Use draw-point to place points, draw-line to draw lines, draw-polygon to create polygons, draw-rectangle to drop a rectangle with two clicks, or draw-angled-rectangle to draw one at any angle with three clicks.
 
 > **Note:** LibreDraw does not require a separate CSS import. All styles (toolbar, map layers) are applied programmatically via JavaScript. Only `maplibre-gl.css` is needed for the base map.
+
+> **Note:** The `?worker&url` import is Vite's way of getting the worker URL on MapLibre v6. Other bundlers have their own; see [MapLibre's installation guide](https://maplibre.org/maplibre-gl-js/docs/#installation). MapLibre v6 requires WebGL2; v5 does not need the worker setup.
 
 ### Try it
 

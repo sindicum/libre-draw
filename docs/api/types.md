@@ -23,17 +23,11 @@ import type {
   PartialStyleConfig,
   FillStyle,
   OutlineStyle,
-  VertexStyle,
   PreviewStyle,
   EditVertexStyle,
   MidpointStyle,
   PointStyle,
   ModeName,
-  Action,
-  ActionType,
-  FeatureStoreInterface,
-  NormalizedInputEvent,
-  InputType,
   Locale,
   Messages,
   OperationResult,
@@ -53,7 +47,7 @@ import type {
 } from '@sindicum/libre-draw';
 ```
 
-Event payload types (`CreateEvent`, `LibreDrawEventMap`, `EventOrigin`, the `*FailReason` unions, …) are documented on the [Events](/api/events) page and exported the same way. Runtime values (`LibreDrawError`, `DEFAULT_STYLE_CONFIG`, `mergeStyleConfig`, the `*Action` classes) use a plain `import`.
+Event payload types (`CreateEvent`, `LibreDrawEventMap`, `EventOrigin`, the `*FailReason` unions, …) are documented on the [Events](/api/events) page and exported the same way. Runtime values (`LibreDrawError`, `DEFAULT_STYLE_CONFIG`, `mergeStyleConfig`) use a plain `import`.
 
 ---
 
@@ -473,106 +467,6 @@ type ModeName =
 
 ---
 
-## Action Types
-
-### `ActionType`
-
-The type of history action.
-
-```ts
-type ActionType = 'create' | 'update' | 'delete' | 'split' | 'setback' | 'union' | 'cut' | 'batch';
-```
-
-`'batch'` is used by [`BatchAction`](#batchaction), which groups several actions into one history step (for example, one [`addFeatures()`](/api/libre-draw#addfeatures-features) call).
-
----
-
-### `Action`
-
-A reversible action that can be applied and reverted on a FeatureStore.
-
-```ts
-interface Action {
-  type: ActionType;
-  apply(store: FeatureStoreInterface): void;
-  revert(store: FeatureStoreInterface): void;
-}
-```
-
-| Property | Type                        | Description                      |
-| -------- | --------------------------- | -------------------------------- |
-| `type`   | [`ActionType`](#actiontype) | The kind of action               |
-| `apply`  | `(store) => void`           | Apply the action to the store    |
-| `revert` | `(store) => void`           | Revert the action from the store |
-
----
-
-### `BatchAction`
-
-An [`Action`](#action) that groups multiple child actions into a single undo/redo step. `apply` runs the children in order; `revert` runs them in reverse order. Exported so that history-aware integrations can recognise batched steps.
-
-```ts
-class BatchAction implements Action {
-  readonly type: 'batch';
-  readonly actions: readonly Action[];
-  constructor(actions: readonly Action[]);
-}
-```
-
----
-
-### Action classes
-
-The other multi-feature steps are exported as classes too, so a history-aware integration can inspect what an undo or redo will touch. Their fields mirror the corresponding event payloads.
-
-```ts
-class SplitAction implements Action {
-  readonly type: 'split';
-  readonly originalFeature: LibreDrawFeature;
-  readonly featureA: LibreDrawFeature;
-  readonly featureB: LibreDrawFeature;
-}
-
-class SetbackAction implements Action {
-  readonly type: 'setback';
-  readonly originalFeature: LibreDrawFeature;
-  readonly resultFeature: LibreDrawFeature;
-  readonly edgeIndex: number;
-  readonly distance: number;
-}
-
-class UnionAction implements Action {
-  readonly type: 'union';
-  readonly originalFeatures: LibreDrawFeature[];
-  readonly resultFeature: LibreDrawFeature;
-}
-
-class CutAction implements Action {
-  readonly type: 'cut';
-  readonly originalFeature: LibreDrawFeature;
-  readonly resultFeatures: LibreDrawFeature[];
-  /** One piece that replaces the original under its id (a hole or a notch). */
-  readonly keepsId: boolean;
-}
-```
-
----
-
-### `FeatureStoreInterface`
-
-Minimal interface for the FeatureStore used by actions. This avoids circular imports between types and core modules.
-
-```ts
-interface FeatureStoreInterface {
-  add(feature: LibreDrawFeature): void;
-  update(id: string, feature: LibreDrawFeature): void;
-  remove(id: string): void;
-  getById(id: string): LibreDrawFeature | undefined;
-}
-```
-
----
-
 ## Operation Result Types
 
 Structured outcomes returned by the public API. None of them is thrown; narrow on the discriminant (`ok` / `valid`) to read the rest. `LibreDraw` throws only for misuse of the instance (a call after `destroy()`, an unknown mode name, an unsupported locale or input method); see [Programmatic API](/guide/programmatic-api#return-values-and-exceptions) for the full table.
@@ -804,40 +698,6 @@ type ReshapeOperationFailReason = 'not-found' | 'not-polygon' | 'invalid-line' |
 
 ---
 
-## Input Types
-
-### `InputType`
-
-The type of input device that generated an event.
-
-```ts
-type InputType = 'mouse' | 'touch';
-```
-
----
-
-### `NormalizedInputEvent`
-
-A normalized input event shared across mouse and touch handlers.
-
-```ts
-interface NormalizedInputEvent {
-  lngLat: { lng: number; lat: number };
-  point: { x: number; y: number };
-  originalEvent: MouseEvent | TouchEvent;
-  inputType: InputType;
-}
-```
-
-| Property        | Type                           | Description                                       |
-| --------------- | ------------------------------ | ------------------------------------------------- |
-| `lngLat`        | `{ lng: number; lat: number }` | The geographic coordinate at the event location   |
-| `point`         | `{ x: number; y: number }`     | The screen pixel coordinate at the event location |
-| `originalEvent` | `MouseEvent \| TouchEvent`     | The original DOM event                            |
-| `inputType`     | [`InputType`](#inputtype)      | The input device type that generated this event   |
-
----
-
 ## Style Types
 
 ### `StyleConfig`
@@ -848,8 +708,6 @@ Full render style configuration. Returned by [`getStyle()`](/api/libre-draw#gets
 interface StyleConfig {
   fill: FillStyle;
   outline: OutlineStyle;
-  /** @deprecated Has no effect; will be removed in v1.0. */
-  vertex: VertexStyle;
   preview: PreviewStyle;
   editVertex: EditVertexStyle;
   midpoint: MidpointStyle;
@@ -861,7 +719,6 @@ interface StyleConfig {
 | ------------ | ------------------------------------- | --------------------------------------- |
 | `fill`       | [`FillStyle`](#fillstyle)             | Polygon fill rendering                  |
 | `outline`    | [`OutlineStyle`](#outlinestyle)       | Polygon/line outline rendering          |
-| `vertex`     | [`VertexStyle`](#vertexstyle)         | **Deprecated.** Has no effect           |
 | `preview`    | [`PreviewStyle`](#previewstyle)       | Draw preview / guide line               |
 | `editVertex` | [`EditVertexStyle`](#editvertexstyle) | Edit vertex handles (selected features) |
 | `midpoint`   | [`MidpointStyle`](#midpointstyle)     | Midpoint handles (selected features)    |
@@ -877,8 +734,6 @@ Partial style overrides accepted by the constructor `style` option and [`setStyl
 interface PartialStyleConfig {
   fill?: Partial<FillStyle>;
   outline?: Partial<OutlineStyle>;
-  /** @deprecated Has no effect; will be removed in v1.0. */
-  vertex?: Partial<VertexStyle>;
   preview?: Partial<PreviewStyle>;
   editVertex?: Partial<EditVertexStyle>;
   midpoint?: Partial<MidpointStyle>;
@@ -927,30 +782,6 @@ interface OutlineStyle {
 | `color`         | `string` | `'#285daa'` | Line color               |
 | `width`         | `number` | `2`         | Line width in pixels     |
 | `selectedColor` | `string` | `'#fbb03b'` | Line color when selected |
-
----
-
-### `VertexStyle`
-
-::: warning Deprecated
-`vertex` has no effect. The layer it styled was removed in v0.9.1 (it had rendered nothing since v0.5.2). The option is still accepted so existing code keeps compiling, and will be removed in v1.0. Draft and edit vertex markers are styled by [`EditVertexStyle`](#editvertexstyle).
-:::
-
-```ts
-interface VertexStyle {
-  color: string;
-  strokeColor: string;
-  strokeWidth: number;
-  radius: number;
-}
-```
-
-| Property      | Type     | Default     | Description             |
-| ------------- | -------- | ----------- | ----------------------- |
-| `color`       | `string` | `'#ffffff'` | Vertex fill color       |
-| `strokeColor` | `string` | `'#285daa'` | Vertex stroke color     |
-| `strokeWidth` | `number` | `2`         | Vertex stroke width     |
-| `radius`      | `number` | `4`         | Vertex radius in pixels |
 
 ---
 

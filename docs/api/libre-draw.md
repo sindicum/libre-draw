@@ -28,9 +28,10 @@ You can create it before the map's style has loaded (right after `new maplibregl
 **Example:**
 
 ```ts
-import maplibregl from 'maplibre-gl';
+import * as maplibregl from 'maplibre-gl';
 import { LibreDraw } from '@sindicum/libre-draw';
 
+// On MapLibre v6 also call setWorkerUrl() once; see Getting Started
 const map = new maplibregl.Map({
   container: 'map',
   style: 'https://demotiles.maplibre.org/style.json',

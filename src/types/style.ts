@@ -18,19 +18,6 @@ export interface OutlineStyle {
 }
 
 /**
- * Style for feature vertex markers.
- *
- * @deprecated Has no effect; accepted for compatibility and removed in v1.0.
- * Draft and edit vertices are styled by {@link EditVertexStyle}.
- */
-export interface VertexStyle {
-  color: string;
-  strokeColor: string;
-  strokeWidth: number;
-  radius: number;
-}
-
-/**
  * Style for draw preview line.
  */
 export interface PreviewStyle {
@@ -80,8 +67,6 @@ export interface PointStyle {
 export interface StyleConfig {
   fill: FillStyle;
   outline: OutlineStyle;
-  /** @deprecated Has no effect. See {@link VertexStyle}. */
-  vertex: VertexStyle;
   preview: PreviewStyle;
   editVertex: EditVertexStyle;
   midpoint: MidpointStyle;
@@ -94,8 +79,6 @@ export interface StyleConfig {
 export interface PartialStyleConfig {
   fill?: Partial<FillStyle>;
   outline?: Partial<OutlineStyle>;
-  /** @deprecated Has no effect. See {@link VertexStyle}. */
-  vertex?: Partial<VertexStyle>;
   preview?: Partial<PreviewStyle>;
   editVertex?: Partial<EditVertexStyle>;
   midpoint?: Partial<MidpointStyle>;
@@ -122,12 +105,6 @@ export const DEFAULT_STYLE_CONFIG: StyleConfig = {
     color: BRAND_COLOR,
     width: 2,
     selectedColor: '#fbb03b',
-  },
-  vertex: {
-    color: '#ffffff',
-    strokeColor: BRAND_COLOR,
-    strokeWidth: 2,
-    radius: 4,
   },
   preview: {
     color: BRAND_COLOR,
@@ -182,10 +159,6 @@ export function mergeStyleConfig(
     outline: {
       ...base.outline,
       ...overrides?.outline,
-    },
-    vertex: {
-      ...base.vertex,
-      ...overrides?.vertex,
     },
     preview: {
       ...base.preview,

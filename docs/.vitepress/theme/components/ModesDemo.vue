@@ -97,6 +97,9 @@ onMounted(async () => {
 
     const maplibregl = await import('maplibre-gl');
     await import('maplibre-gl/dist/maplibre-gl.css');
+    const { default: workerUrl } =
+      await import('maplibre-gl/dist/maplibre-gl-worker.mjs?worker&url');
+    maplibregl.setWorkerUrl(workerUrl);
     const { LibreDraw } = await import('@sindicum/libre-draw');
 
     const map = new maplibregl.Map({

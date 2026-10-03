@@ -267,7 +267,6 @@ describe('RenderManager', () => {
     const next: StyleConfig = {
       fill: { color: '#111111', opacity: 0.3, selectedColor: '#222222', selectedOpacity: 0.5 },
       outline: { color: '#333333', width: 3, selectedColor: '#444444' },
-      vertex: { color: '#555555', strokeColor: '#666666', strokeWidth: 3, radius: 5 },
       preview: { color: '#777777', width: 3, dasharray: [4, 4] },
       editVertex: {
         color: '#888888',

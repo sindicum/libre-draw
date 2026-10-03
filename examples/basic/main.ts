@@ -1,4 +1,4 @@
-import maplibregl from 'maplibre-gl';
+import * as maplibregl from 'maplibre-gl';
 import type { StyleSpecification } from 'maplibre-gl';
 import 'maplibre-gl/dist/maplibre-gl.css';
 import { LibreDraw } from '../../src';
@@ -33,6 +33,16 @@ const emptyStyle: StyleSpecification = {
   sources: {},
   layers: [{ id: 'background', type: 'background', paint: { 'background-color': '#e9edf1' } }],
 };
+
+// MapLibre 6 ships its worker as a separate module that a bundler has to
+// hand over once. The glob matches nothing on MapLibre 5, whose worker is
+// inside the bundle, so this page runs the E2E suite against both majors.
+const workerUrls = import.meta.glob('../../node_modules/maplibre-gl/dist/maplibre-gl-worker.mjs', {
+  query: '?worker&url',
+  import: 'default',
+  eager: true,
+}) as Record<string, string>;
+for (const workerUrl of Object.values(workerUrls)) maplibregl.setWorkerUrl(workerUrl);
 
 const map = new maplibregl.Map({
   container: 'map',

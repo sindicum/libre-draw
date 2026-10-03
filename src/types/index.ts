@@ -85,7 +85,6 @@ export type {
 export type {
   FillStyle,
   OutlineStyle,
-  VertexStyle,
   PreviewStyle,
   EditVertexStyle,
   MidpointStyle,

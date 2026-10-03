@@ -39,9 +39,15 @@ npm install @sindicum/libre-draw maplibre-gl
 ```
 
 ```typescript
-import maplibregl from 'maplibre-gl';
+import * as maplibregl from 'maplibre-gl';
 import 'maplibre-gl/dist/maplibre-gl.css';
+import workerUrl from 'maplibre-gl/dist/maplibre-gl-worker.mjs?worker&url';
 import { LibreDraw } from '@sindicum/libre-draw';
+
+// MapLibre GL JS v6 loads its worker from a URL you give it once (this is the Vite form;
+// see https://maplibre.org/maplibre-gl-js/docs/#installation for other bundlers).
+// On MapLibre v5 the worker is inside the bundle: drop this call and the import above.
+maplibregl.setWorkerUrl(workerUrl);
 
 const map = new maplibregl.Map({
   container: 'map',
@@ -217,8 +223,8 @@ git config blame.ignoreRevsFile .git-blame-ignore-revs
 
 ## Requirements
 
-- MapLibre GL JS >= 3.0.0, v3.x and v4.x supported (peer dependency)
-- Modern browser with WebGL support
+- MapLibre GL JS v5 or v6 (peer dependency, `>=5.0.0 <7.0.0`)
+- Modern browser with WebGL support (WebGL2 with MapLibre v6)
 
 ## License
 

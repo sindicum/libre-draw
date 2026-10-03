@@ -53,6 +53,14 @@ jobs:
       - name: Audit production dependencies
         run: npm audit --omit=dev --audit-level=high
 
+      - name: Typecheck, test and build against the lowest supported maplibre-gl
+        run: |
+          npm install -D maplibre-gl@5.0.0 --no-save
+          npm run typecheck
+          npm test
+          npm run build
+          npm ci
+
       - name: Coverage
         run: npm run test:coverage
 
@@ -85,6 +93,11 @@ jobs:
 
       - name: E2E (real browser)
         run: npm run test:e2e
+
+      - name: E2E against the lowest supported maplibre-gl
+        run: |
+          npm install -D maplibre-gl@5.0.0 --no-save
+          npm run test:e2e
 
       - name: Upload Playwright report
         if: failure()
