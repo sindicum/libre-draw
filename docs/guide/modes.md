@@ -479,8 +479,11 @@ In setback mode, you select an edge and apply inward offset by distance.
 | Enter / execute button | Apply setback         |
 | Escape key             | Cancel and reset      |
 
+The distance is the toolbar's input field or, with or without the toolbar, [`setSetbackDistance()`](/api/libre-draw#setsetbackdistance-meters); the two share one value. The picked edge is readable with [`getSetbackEdge()`](/api/libre-draw#getsetbackedge), so a UI of your own can apply it with `setback()`.
+
 ```ts
 draw.setMode('setback');
+draw.setSetbackDistance(25);
 draw.on('setback', (e) => console.log(e.edgeIndex, e.distance));
 draw.on('setbackfailed', (e) => console.warn(e.reason));
 ```

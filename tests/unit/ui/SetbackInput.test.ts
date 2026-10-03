@@ -123,21 +123,22 @@ describe('SetbackInput', () => {
     });
   });
 
-  describe('getDistance', () => {
-    it('should return default distance for invalid input', () => {
+  describe('setDistance', () => {
+    it('shows the given distance in the field', () => {
       const { input } = createInput();
-      const htmlInput = getHTMLInput(input);
 
-      htmlInput.value = '';
-      expect(input.getDistance()).toBe(10);
+      input.setDistance(25);
+
+      expect(getHTMLInput(input).value).toBe('25');
     });
 
-    it('should return parsed distance for valid input', () => {
-      const { input } = createInput();
-      const htmlInput = getHTMLInput(input);
+    it('does not run the callbacks', () => {
+      const { input, callbacks } = createInput();
 
-      htmlInput.value = '25';
-      expect(input.getDistance()).toBe(25);
+      input.setDistance(25);
+
+      expect(callbacks.onDistanceChange).not.toHaveBeenCalled();
+      expect(callbacks.onSubmit).not.toHaveBeenCalled();
     });
   });
 

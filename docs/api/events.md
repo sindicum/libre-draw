@@ -23,6 +23,7 @@ interface LibreDrawEventMap {
   selectionchange: SelectionChangeEvent;
   modechange: ModeChangeEvent;
   draftchange: DraftChangeEvent;
+  historychange: HistoryChangeEvent;
 }
 ```
 
@@ -656,6 +657,45 @@ draw.on('draftchange', (e) => {
   // Enable a finish button once the polygon has enough vertices
   finishBtn.disabled = e.vertexCount < 3;
   vertexCountLabel.textContent = `Vertices: ${e.vertexCount}`;
+});
+```
+
+---
+
+## `historychange`
+
+Emitted whenever the undo / redo stacks change. The payload carries what [`canUndo()`](/api/libre-draw#canundo) and [`canRedo()`](/api/libre-draw#canredo) return after the change, so a custom UI can set its undo and redo buttons from the event alone; the built-in toolbar's buttons are updated at the same point.
+
+Fires when:
+
+1. An action is recorded: a drawing is finished, an edit is committed on the map, or [`addFeatures()`](/api/libre-draw#addfeatures-features), [`deleteFeature()`](/api/libre-draw#deletefeature-id), or one of the editing methods (`updateFeature`, `rotate`, `split`, `setback`, `union`, `cut`, `reshape`) succeeds. The redo stack is cleared at the same time
+2. [`undo()`](/api/libre-draw#undo) or [`redo()`](/api/libre-draw#redo) moves an action across the stacks (the button, the shortcut, or the method)
+3. [`setFeatures()`](/api/libre-draw#setfeatures-geojson) resets the history
+
+It does not fire when nothing changed: `undo()` with nothing to undo, an `addFeatures()` call whose entries were all rejected, or a failed operation.
+
+### Payload: `HistoryChangeEvent`
+
+```ts
+interface HistoryChangeEvent {
+  origin: EventOrigin;
+  canUndo: boolean;
+  canRedo: boolean;
+}
+```
+
+| Property  | Type                           | Description                                |
+| --------- | ------------------------------ | ------------------------------------------ |
+| `origin`  | [`EventOrigin`](#event-origin) | Who caused the change: `'api'` or `'user'` |
+| `canUndo` | `boolean`                      | Whether there is an action to undo         |
+| `canRedo` | `boolean`                      | Whether there is an undone action to redo  |
+
+### Example
+
+```ts
+draw.on('historychange', (e) => {
+  undoBtn.disabled = !e.canUndo;
+  redoBtn.disabled = !e.canRedo;
 });
 ```
 

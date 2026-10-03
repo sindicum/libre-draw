@@ -48,6 +48,7 @@ export type {
   SelectionChangeEvent,
   ModeChangeEvent,
   DraftChangeEvent,
+  HistoryChangeEvent,
   EventOrigin,
   EventInput,
   LibreDrawEventMap,

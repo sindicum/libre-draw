@@ -60,8 +60,13 @@ export class SetbackInput {
     return this.container;
   }
 
-  getDistance(): number {
-    return this.parseDistance() ?? DEFAULT_DISTANCE_METERS;
+  /**
+   * Show a distance set elsewhere. Does not run the callbacks: the caller
+   * already holds the value, and echoing it back would loop.
+   * @param meters - Distance in meters.
+   */
+  setDistance(meters: number): void {
+    this.input.value = String(meters);
   }
 
   setVisible(visible: boolean): void {
