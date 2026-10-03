@@ -238,6 +238,44 @@ test('select: Shift + click selects two polygons and Delete removes both in one 
   expect(await featureCount(page)).toBe(2);
 });
 
+test('select: a long press adds a polygon to the selection and the delete button removes both', async ({
+  page,
+  hasTouch,
+}) => {
+  test.skip(!hasTouch, 'long press is a touch gesture');
+  const pointer = new Pointer(page, hasTouch);
+  await addPolygonFromScreen(page, [
+    [60, 100],
+    [180, 100],
+    [180, 220],
+    [60, 220],
+  ]);
+  await addPolygonFromScreen(page, [
+    [240, 100],
+    [360, 100],
+    [360, 220],
+    [240, 220],
+  ]);
+  await recordEvents(page, ['selectionchange', 'delete']);
+  await setMode(page, 'select');
+  const lastSelection = async () => {
+    const events = await getEvents<{ selectedIds: string[] }>(page, 'selectionchange');
+    return events.at(-1)?.selectedIds.length ?? 0;
+  };
+
+  await pointer.tap(120, 160);
+  await expect.poll(lastSelection).toBe(1);
+  await pointer.longPress(300, 160);
+  await expect.poll(lastSelection).toBe(2);
+
+  await page.locator('[data-libre-draw-button="delete"]').tap();
+
+  await expect.poll(async () => (await getEvents(page, 'delete')).length).toBe(2);
+  expect(await featureCount(page)).toBe(0);
+  await page.evaluate(() => (window as unknown as { draw: { undo(): boolean } }).draw.undo());
+  expect(await featureCount(page)).toBe(2);
+});
+
 test('select: Shift + click that lands a few pixels off does not zoom the map', async ({
   page,
   hasTouch,
