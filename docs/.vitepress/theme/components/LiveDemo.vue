@@ -3,6 +3,10 @@
     <div :class="['demo-container', 'vp-raw', { 'demo-fullscreen': fullsize }]">
       <div v-if="error" class="demo-error">{{ error }}</div>
       <div ref="mapContainer" :class="fullsize ? 'demo-map-fullsize' : 'demo-map'"></div>
+      <label class="demo-basemap">
+        <input type="checkbox" :checked="showAerial" @change="toggleAerial" />
+        Aerial photo <span class="demo-basemap-note">(Japan only, zoom 14+)</span>
+      </label>
       <div class="demo-log" ref="logContainer">
         <p v-if="logs.length === 0" class="demo-log-empty">
           Place a point or draw a polygon to see events here...
@@ -45,9 +49,17 @@ const mapContainer = ref<HTMLDivElement | null>(null);
 const logContainer = ref<HTMLDivElement | null>(null);
 const logs = ref<LogEntry[]>([]);
 const error = ref<string | null>(null);
+const showAerial = ref(false);
 
 let drawInstance: any = null;
 let mapInstance: any = null;
+
+function toggleAerial(event: Event) {
+  showAerial.value = (event.target as HTMLInputElement).checked;
+  if (!mapInstance) return;
+  // OSM stays underneath, so it shows where the aerial photo has no tiles.
+  mapInstance.setLayoutProperty('gsi-photo', 'visibility', showAerial.value ? 'visible' : 'none');
+}
 
 function addLog(type: string, message: string) {
   logs.value.push({ type, message });
@@ -84,12 +96,30 @@ onMounted(async () => {
             tileSize: 256,
             attribution: '&copy; OpenStreetMap contributors',
           },
+          'gsi-photo': {
+            type: 'raster',
+            tiles: ['https://cyberjapandata.gsi.go.jp/xyz/seamlessphoto/{z}/{x}/{y}.jpg'],
+            tileSize: 256,
+            minzoom: 14,
+            maxzoom: 18,
+            attribution:
+              '<a href="https://maps.gsi.go.jp/development/ichiran.html" target="_blank">GSI Tiles</a>',
+          },
         },
         layers: [
           {
             id: 'osm',
             type: 'raster',
             source: 'osm',
+          },
+          {
+            id: 'gsi-photo',
+            type: 'raster',
+            source: 'gsi-photo',
+            // Below z14 seamlessphoto serves satellite mosaics that need extra
+            // credits, so only the aerial photos (z14+) are shown.
+            minzoom: 14,
+            layout: { visibility: 'none' },
           },
         ],
       },
