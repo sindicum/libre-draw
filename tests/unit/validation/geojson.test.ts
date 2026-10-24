@@ -351,13 +351,14 @@ describe('tryValidateFeature', () => {
     const result = tryValidateFeature(invalid);
 
     expect(thrown).not.toBe('');
-    expect(result).toEqual({ valid: false, reason: thrown });
+    expect(result).toEqual({ valid: false, reason: 'invalid-feature', message: thrown });
   });
 
   it('should reject non-objects without throwing', () => {
     expect(tryValidateFeature(null)).toEqual({
       valid: false,
-      reason: 'Feature must be a non-null object.',
+      reason: 'invalid-feature',
+      message: 'Feature must be a non-null object.',
     });
     expect(tryValidateFeature('feature').valid).toBe(false);
   });
@@ -403,21 +404,28 @@ describe('tryValidateGeoJSON', () => {
     }
 
     expect(thrown).toMatch(/^Invalid feature at index 1: /);
-    expect(tryValidateGeoJSON(fc)).toEqual({ valid: false, reason: thrown });
+    expect(tryValidateGeoJSON(fc)).toEqual({
+      valid: false,
+      reason: 'invalid-geojson',
+      message: thrown,
+    });
   });
 
   it('should reject a value that is not a FeatureCollection without throwing', () => {
     expect(tryValidateGeoJSON(null)).toEqual({
       valid: false,
-      reason: 'GeoJSON must be a non-null object.',
+      reason: 'invalid-geojson',
+      message: 'GeoJSON must be a non-null object.',
     });
     expect(tryValidateGeoJSON({ type: 'Feature' })).toEqual({
       valid: false,
-      reason: 'GeoJSON.type must be "FeatureCollection", got "Feature".',
+      reason: 'invalid-geojson',
+      message: 'GeoJSON.type must be "FeatureCollection", got "Feature".',
     });
     expect(tryValidateGeoJSON({ type: 'FeatureCollection', features: 'x' })).toEqual({
       valid: false,
-      reason: 'GeoJSON.features must be an array.',
+      reason: 'invalid-geojson',
+      message: 'GeoJSON.features must be an array.',
     });
   });
 
@@ -486,7 +494,7 @@ describe('validateFeature with holes', () => {
   it('reports the message through tryValidateFeature', () => {
     const result = tryValidateFeature(holed(square(20, 20, 2)));
     expect(result.valid).toBe(false);
-    if (!result.valid) expect(result.reason).toMatch('outside the outer ring');
+    if (!result.valid) expect(result.message).toMatch('outside the outer ring');
   });
 });
 
@@ -555,14 +563,16 @@ describe('ring validity', () => {
   it('reports a null position as a rejection instead of throwing', () => {
     expect(tryValidateFeature(polygon([null, [0, 0], [10, 0], [10, 10]]))).toEqual({
       valid: false,
-      reason: 'Each position in a ring must be an array of at least 2 numbers.',
+      reason: 'invalid-feature',
+      message: 'Each position in a ring must be an array of at least 2 numbers.',
     });
   });
 
   it('reports a non-array and a non-numeric position as rejections', () => {
     expect(tryValidateFeature(polygon([[0, 0], 'x', [10, 10], [0, 0]]))).toEqual({
       valid: false,
-      reason: 'Each position in a ring must be an array of at least 2 numbers.',
+      reason: 'invalid-feature',
+      message: 'Each position in a ring must be an array of at least 2 numbers.',
     });
     expect(
       tryValidateFeature(
@@ -575,7 +585,8 @@ describe('ring validity', () => {
       )
     ).toEqual({
       valid: false,
-      reason: 'Invalid coordinate: expected [number, number], got [string, number]',
+      reason: 'invalid-feature',
+      message: 'Invalid coordinate: expected [number, number], got [string, number]',
     });
   });
 

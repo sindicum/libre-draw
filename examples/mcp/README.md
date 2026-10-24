@@ -35,11 +35,12 @@ LibreDraw, in the browser.
 Failures are never exceptions. A geometric failure comes back as
 `{ ok: false, reason: 'invalid-intersection-count' }` and so on, an unknown id in
 `select_feature` as `{ ok: false, reason: 'not-found' }`, an invalid feature in
-`add_features` as `{ valid: false, reason }` in its entry of the array; and while no page
-is connected every tool returns `{ ok: false, reason: 'no-client' }` right away instead
-of waiting. LibreDraw itself only throws for misuse of the instance (see
+`add_features` as `{ valid: false, reason: 'invalid-feature', message }` in its entry of
+the array (`reason` is always a code; a validation failure puts the readable detail in
+`message`); and while no page is connected every tool returns
+`{ ok: false, reason: 'no-client' }` right away instead of waiting. LibreDraw itself only throws for misuse of the instance (see
 [Programmatic API](https://sindicum.github.io/libre-draw/guide/programmatic-api)), which the page's
-dispatch turns into `{ ok: false, reason: <message> }` as a safety net.
+dispatch turns into `{ ok: false, reason: 'dispatch-error', message }` as a safety net.
 
 ## Setup
 

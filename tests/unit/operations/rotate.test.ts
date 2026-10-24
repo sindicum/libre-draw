@@ -154,7 +154,7 @@ describe('rotate', () => {
       expect(push).not.toHaveBeenCalled();
     });
 
-    it('rejects a rotation that leaves the coordinate range with the validation message and an editrejected event', () => {
+    it('rejects a rotation that leaves the coordinate range with out-of-range, the validation message and an editrejected event', () => {
       // Near the antimeridian at high latitude a 90° turn pushes a corner past 180°.
       const edge: LibreDrawFeature = {
         id: 'edge',
@@ -180,7 +180,8 @@ describe('rotate', () => {
 
       expect(result.ok).toBe(false);
       if (result.ok) throw new Error('expected failure');
-      expect(result.reason).toContain('longitude');
+      expect(result.reason).toBe('out-of-range');
+      expect(result.message).toContain('longitude');
       expect(features.get('edge')).toBe(before);
       expect(push).not.toHaveBeenCalled();
       expect(emit).toHaveBeenCalledOnce();
@@ -218,7 +219,12 @@ describe('rotate', () => {
       };
       const { context, emit } = createContext([holed]);
 
-      expect(rotate(context, 'holed', 45).ok).toBe(false);
+      const result = rotate(context, 'holed', 45);
+      expect(result).toEqual({
+        ok: false,
+        reason: 'ring-intersection',
+        message: expect.any(String),
+      });
       expect(emit).toHaveBeenCalledWith('editrejected', {
         action: 'rotate',
         reason: 'ring-intersection',

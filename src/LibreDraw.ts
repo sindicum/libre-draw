@@ -600,10 +600,11 @@ export class LibreDraw {
    * @param geojson - A GeoJSON FeatureCollection containing Point,
    *   LineString, or Polygon features.
    * @returns `{ ok: true, created, deleted }` with the new features in
-   *   `created` and the previous ones in `deleted`, or `{ ok: false, reason }`
-   *   when the input is not a FeatureCollection or one of its features
-   *   fails validation (`Invalid feature at index i: …`). Nothing changes
-   *   on failure.
+   *   `created` and the previous ones in `deleted`, or
+   *   `{ ok: false, reason: 'invalid-geojson', message }` when the input is
+   *   not a FeatureCollection or one of its features fails validation
+   *   (`message` reads `Invalid feature at index i: …`). Nothing changes on
+   *   failure.
    *
    * @throws {LibreDrawError} If this instance has been destroyed.
    *
@@ -627,7 +628,7 @@ export class LibreDraw {
     this.assertNotDestroyed();
     const validated = tryValidateGeoJSON(geojson);
     if (!validated.valid) {
-      return { ok: false, reason: validated.reason };
+      return { ok: false, reason: validated.reason, message: validated.message };
     }
     // getAll() already returns clones, so the result cannot alias the store.
     const previous = this.featureStore.getAll();
@@ -677,7 +678,7 @@ export class LibreDraw {
    *   properties: { name: 'Zone A' }
    * }]);
    * results.forEach((r, i) => {
-   *   if (!r.valid) console.warn(`feature ${i} rejected: ${r.reason}`);
+   *   if (!r.valid) console.warn(`feature ${i} rejected (${r.reason}): ${r.message}`);
    * });
    * draw.undo(); // removes every feature added above
    * ```
@@ -695,7 +696,12 @@ export class LibreDraw {
     features.forEach((input, index) => {
       const validation = tryValidateFeature(input);
       if (!validation.valid) {
-        results.push({ valid: false, id: readInputId(input), reason: validation.reason });
+        results.push({
+          valid: false,
+          id: readInputId(input),
+          reason: validation.reason,
+          message: validation.message,
+        });
         return;
       }
       const { feature } = validation;
@@ -703,7 +709,8 @@ export class LibreDraw {
         results.push({
           valid: false,
           id: feature.id,
-          reason: `Feature already exists: ${feature.id}`,
+          reason: 'duplicate-id',
+          message: `Feature already exists: ${feature.id}`,
         });
         return;
       }
@@ -742,8 +749,8 @@ export class LibreDraw {
    *
    * @param feature - The object to validate.
    * @returns `{ valid: true, feature }` with a normalized copy, or
-   *   `{ valid: false, reason }` with the same message `addFeatures` would
-   *   report for it.
+   *   `{ valid: false, reason: 'invalid-feature', message }` with the same
+   *   message `addFeatures` would report for it.
    *
    * @throws {LibreDrawError} If this instance has been destroyed.
    *
@@ -751,7 +758,7 @@ export class LibreDraw {
    * ```ts
    * const result = draw.validateFeature(candidate);
    * if (!result.valid) {
-   *   showError(result.reason);
+   *   showError(result.message);
    * }
    * ```
    */
@@ -848,8 +855,9 @@ export class LibreDraw {
    * @param id - The feature to change.
    * @param patch - `{ geometry?, properties? }`; see {@link UpdateFeaturePatch}.
    * @returns `{ ok: true, updated: [feature] }`, or `{ ok: false, reason }`
-   *   with `'not-found'`, `'geometry-type-mismatch'`, `'empty-patch'`, or the
-   *   validation message. Nothing changes on failure.
+   *   with `'not-found'`, `'geometry-type-mismatch'`, `'empty-patch'`, or
+   *   `'invalid-feature'` (the validation message is in `message`). Nothing
+   *   changes on failure.
    *
    * @throws {LibreDrawError} If this instance has been destroyed.
    *
@@ -879,10 +887,10 @@ export class LibreDraw {
    * @param angleDeg - Relative angle in degrees, positive clockwise.
    * @returns `{ ok: true, updated: [feature] }`, or `{ ok: false, reason }`
    *   with `'not-found'`, `'not-rotatable'` (Point), `'no-rotation'`
-   *   (0, a multiple of 360, or a non-finite angle), or the validation
-   *   message when the rotated shape fails validation (near the antimeridian
-   *   or the poles it can leave the coordinate range), which also emits
-   *   `'editrejected'`.
+   *   (0, a multiple of 360, or a non-finite angle), or, when the rotated
+   *   shape fails validation (near the antimeridian or the poles it can
+   *   leave the coordinate range), the same code as the `'editrejected'`
+   *   event it also emits, with the validation message in `message`.
    *   Nothing changes on failure.
    *
    * @throws {LibreDrawError} If this instance has been destroyed.

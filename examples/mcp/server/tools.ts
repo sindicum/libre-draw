@@ -25,7 +25,7 @@ export const TOOLS = {
   },
   add_features: {
     description:
-      'Add GeoJSON features as one undo step. Returns one { valid, id, reason? } per feature; invalid features are reported there and the valid ones are still added.',
+      'Add GeoJSON features as one undo step. Returns one { valid, id, reason?, message? } per feature; invalid features are reported there (reason is a code, message the detail), and the valid ones are still added.',
     inputSchema: z.object({ features: z.array(feature) }),
   },
   update_feature: {

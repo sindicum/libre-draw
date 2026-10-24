@@ -44,9 +44,8 @@ function validateCoordinate(position: Position): void {
 }
 
 /**
- * The rejection text for each ring problem. It becomes the `reason` of a
- * rejected `validateFeature` / `addFeatures` / `updateFeature` call, which
- * reports validation failures as messages rather than codes.
+ * The rejection text for each ring problem. It becomes the `message` of a
+ * rejected `validateFeature` / `addFeatures` / `updateFeature` call.
  */
 const RING_ERROR_MESSAGES: Record<PolygonRingError, string> = {
   'self-intersection': 'Ring has self-intersections. Polygon edges must not cross each other.',
@@ -292,17 +291,17 @@ export function validateFeature(feature: unknown): LibreDrawFeature {
  * Validate a single GeoJSON-like object without throwing.
  *
  * Wraps {@link validateFeature}: a `LibreDrawError` becomes
- * `{ valid: false, reason }` carrying the same message as the throwing
- * path. Any other exception is a bug and propagates.
+ * `{ valid: false, reason: 'invalid-feature', message }` carrying the same
+ * message as the throwing path. Any other exception is a bug and propagates.
  * @param feature - The object to validate.
- * @returns The normalized feature, or the rejection reason.
+ * @returns The normalized feature, or the failure code and message.
  */
 export function tryValidateFeature(feature: unknown): FeatureValidationResult {
   try {
     return { valid: true, feature: validateFeature(feature) };
   } catch (err) {
     if (err instanceof LibreDrawError) {
-      return { valid: false, reason: err.message };
+      return { valid: false, reason: 'invalid-feature', message: err.message };
     }
     throw err;
   }
@@ -361,23 +360,24 @@ export function validateGeoJSON(geojson: unknown): {
  */
 export type GeoJSONValidationResult =
   | { valid: true; features: LibreDrawFeature[] }
-  | { valid: false; reason: string };
+  | { valid: false; reason: 'invalid-geojson'; message: string };
 
 /**
  * Validate a FeatureCollection without throwing.
  *
  * Wraps {@link validateGeoJSON}: a `LibreDrawError` becomes
- * `{ valid: false, reason }` with the same message (including the
- * `Invalid feature at index i:` prefix), and any other exception propagates.
+ * `{ valid: false, reason: 'invalid-geojson', message }` with the same
+ * message (including the `Invalid feature at index i:` prefix), and any
+ * other exception propagates.
  * @param geojson - The value to validate.
- * @returns The normalized features, or the rejection reason.
+ * @returns The normalized features, or the failure code and message.
  */
 export function tryValidateGeoJSON(geojson: unknown): GeoJSONValidationResult {
   try {
     return { valid: true, features: validateGeoJSON(geojson).features };
   } catch (err) {
     if (err instanceof LibreDrawError) {
-      return { valid: false, reason: err.message };
+      return { valid: false, reason: 'invalid-geojson', message: err.message };
     }
     throw err;
   }

@@ -225,6 +225,9 @@ describe('polygons with holes', () => {
       },
     });
     expect(result.ok).toBe(false);
-    if (!result.ok) expect(result.reason).toMatch('Polygon rings intersect');
+    if (!result.ok) {
+      expect(result.reason).toBe('invalid-feature');
+      expect(result.message).toMatch('Polygon rings intersect');
+    }
   });
 });

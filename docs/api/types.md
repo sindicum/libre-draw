@@ -455,20 +455,24 @@ interface OperationSuccess {
 interface OperationFailure {
   ok: false;
   reason: string;
+  message?: string;
 }
 
 type OperationResult = OperationSuccess | OperationFailure;
 ```
 
-| Property  | Type                                      | Description                                                                                              |
-| --------- | ----------------------------------------- | -------------------------------------------------------------------------------------------------------- |
-| `ok`      | `boolean`                                 | `true` when the store changed, `false` when the operation was rejected and nothing changed               |
-| `created` | [`LibreDrawFeature[]`](#libredrawfeature) | Features added by the operation (empty when none)                                                        |
-| `updated` | [`LibreDrawFeature[]`](#libredrawfeature) | Features whose geometry or properties changed, as they are after the change (empty when none)            |
-| `deleted` | [`LibreDrawFeature[]`](#libredrawfeature) | Features removed by the operation (empty when none)                                                      |
-| `reason`  | `string`                                  | Why the operation was rejected: an operation's failure code (e.g. `'has-holes'`) or a validation message |
+| Property  | Type                                      | Description                                                                                                                            |
+| --------- | ----------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------- |
+| `ok`      | `boolean`                                 | `true` when the store changed, `false` when the operation was rejected and nothing changed                                             |
+| `created` | [`LibreDrawFeature[]`](#libredrawfeature) | Features added by the operation (empty when none)                                                                                      |
+| `updated` | [`LibreDrawFeature[]`](#libredrawfeature) | Features whose geometry or properties changed, as they are after the change (empty when none)                                          |
+| `deleted` | [`LibreDrawFeature[]`](#libredrawfeature) | Features removed by the operation (empty when none)                                                                                    |
+| `reason`  | `string`                                  | Why the operation was rejected, always as a failure code (e.g. `'has-holes'`, `'invalid-feature'`)                                     |
+| `message` | `string`                                  | The validation message, for people to read. Present for `'invalid-geojson'`, `'invalid-feature'`, and a rotation refused by validation |
 
 All three arrays are always present on success, so a caller can read "what appeared, what changed, what disappeared" without knowing which operation ran. The features in them are deep copies.
+
+Compare `reason` to decide what to do and show `message` to people; the wording of `message` is not part of the API.
 
 ```ts
 const result = draw.rotate(id, 90);
@@ -486,14 +490,17 @@ if (result.ok) {
 One entry per input feature of [`addFeatures()`](/api/libre-draw#addfeatures-features), in input order.
 
 ```ts
-type AddFeatureResult = { valid: true; id: string } | { valid: false; id?: string; reason: string };
+type AddFeatureResult =
+  | { valid: true; id: string }
+  | { valid: false; id?: string; reason: string; message: string };
 ```
 
-| Property | Type      | Description                                                                                                          |
-| -------- | --------- | -------------------------------------------------------------------------------------------------------------------- |
-| `valid`  | `boolean` | Whether the feature was added                                                                                        |
-| `id`     | `string`  | Valid: the id the feature has in the store (generated when the input had none). Invalid: the input id, if it had one |
-| `reason` | `string`  | Invalid only: the rejection message (the same wording `validateFeature` reports)                                     |
+| Property  | Type      | Description                                                                                                                                           |
+| --------- | --------- | ----------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `valid`   | `boolean` | Whether the feature was added                                                                                                                         |
+| `id`      | `string`  | Valid: the id the feature has in the store (generated when the input had none). Invalid: the input id, if it had one                                  |
+| `reason`  | `string`  | Invalid only: the failure code — `'invalid-feature'` (failed validation) or `'duplicate-id'` (the id is already in the store or earlier in the input) |
+| `message` | `string`  | Invalid only: the rejection message (for `'invalid-feature'`, the same wording `validateFeature` reports)                                             |
 
 ---
 
@@ -504,14 +511,15 @@ Returned by [`validateFeature()`](/api/libre-draw#validatefeature-feature).
 ```ts
 type FeatureValidationResult =
   | { valid: true; feature: LibreDrawFeature }
-  | { valid: false; reason: string };
+  | { valid: false; reason: string; message: string };
 ```
 
 | Property  | Type                                    | Description                                                                |
 | --------- | --------------------------------------- | -------------------------------------------------------------------------- |
 | `valid`   | `boolean`                               | Whether the object would be accepted by `addFeatures()`                    |
 | `feature` | [`LibreDrawFeature`](#libredrawfeature) | Valid only: a normalized copy (ids and properties as they would be stored) |
-| `reason`  | `string`                                | Invalid only: the rejection message                                        |
+| `reason`  | `string`                                | Invalid only: the failure code `'invalid-feature'`                         |
+| `message` | `string`                                | Invalid only: the rejection message                                        |
 
 ---
 
@@ -535,33 +543,50 @@ interface UpdateFeaturePatch {
 
 ### `UpdateFeatureFailReason`
 
-Failure codes of [`updateFeature()`](/api/libre-draw#updatefeature-id-patch). A geometry that fails validation reports the validation message instead of a code.
+Failure codes of [`updateFeature()`](/api/libre-draw#updatefeature-id-patch).
 
 ```ts
-type UpdateFeatureFailReason = 'not-found' | 'geometry-type-mismatch' | 'empty-patch';
+type UpdateFeatureFailReason =
+  | 'not-found'
+  | 'geometry-type-mismatch'
+  | 'empty-patch'
+  | 'invalid-feature';
 ```
 
-| Value                      | Meaning                                       |
-| -------------------------- | --------------------------------------------- |
-| `'not-found'`              | No feature has that id                        |
-| `'geometry-type-mismatch'` | The patch would change the geometry type      |
-| `'empty-patch'`            | Neither `geometry` nor `properties` was given |
+| Value                      | Meaning                                                                       |
+| -------------------------- | ----------------------------------------------------------------------------- |
+| `'not-found'`              | No feature has that id                                                        |
+| `'geometry-type-mismatch'` | The patch would change the geometry type                                      |
+| `'empty-patch'`            | Neither `geometry` nor `properties` was given                                 |
+| `'invalid-feature'`        | The updated feature failed validation; the validation message is in `message` |
 
 ---
 
 ### `RotateFailReason`
 
-Failure codes of [`rotate()`](/api/libre-draw#rotate-id-angledeg). A rotated shape that fails validation (it would leave the coordinate range near the antimeridian or the poles) reports the validation message instead of a code.
+Failure codes of [`rotate()`](/api/libre-draw#rotate-id-angledeg). A rotated shape that fails validation is reported with the same code as the [`editrejected`](/api/events#editrejected) event it also emits, and the validation message is in `message`.
 
 ```ts
-type RotateFailReason = 'not-found' | 'not-rotatable' | 'no-rotation';
+type RotateFailReason =
+  | 'not-found'
+  | 'not-rotatable'
+  | 'no-rotation'
+  | 'out-of-range'
+  | 'self-intersection'
+  | 'ring-intersection'
+  | 'hole-outside'
+  | 'hole-nested'
+  | 'invalid-result';
 ```
 
-| Value             | Meaning                                                                   |
-| ----------------- | ------------------------------------------------------------------------- |
-| `'not-found'`     | No feature has that id                                                    |
-| `'not-rotatable'` | The feature is a Point                                                    |
-| `'no-rotation'`   | The angle is 0, a multiple of 360, or not finite, so nothing would change |
+| Value                                                                              | Meaning                                                                                 |
+| ---------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------- |
+| `'not-found'`                                                                      | No feature has that id                                                                  |
+| `'not-rotatable'`                                                                  | The feature is a Point                                                                  |
+| `'no-rotation'`                                                                    | The angle is 0, a multiple of 360, or not finite, so nothing would change               |
+| `'out-of-range'`                                                                   | The rotated shape would leave the coordinate range (near the antimeridian or the poles) |
+| `'self-intersection'` / `'ring-intersection'` / `'hole-outside'` / `'hole-nested'` | The rotated polygon's rings would become invalid                                        |
+| `'invalid-result'`                                                                 | The rotated shape failed validation for another reason                                  |
 
 ---
 

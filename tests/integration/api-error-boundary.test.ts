@@ -18,7 +18,8 @@ vi.mock('../../src/validation/geojson', async (importOriginal) => {
       return validation.calls === validation.rejectCall
         ? {
             valid: false,
-            reason: 'Invalid longitude: 180.00000000000003. Must be between -180 and 180.',
+            reason: 'invalid-feature',
+            message: 'Invalid longitude: 180.00000000000003. Must be between -180 and 180.',
           }
         : actual.tryValidateFeature(feature);
     },
@@ -180,7 +181,8 @@ describe('exception / result boundary', () => {
 
       expect(result).toEqual({
         ok: false,
-        reason:
+        reason: 'invalid-geojson',
+        message:
           'Invalid feature at index 1: Ring is not closed. The first and last positions must be identical.',
       });
       expect(draw.getFeatures().map((f) => f.id)).toEqual(['keep']);
@@ -193,11 +195,13 @@ describe('exception / result boundary', () => {
       const draw = new LibreDraw(new FakeMap().asMap(), { toolbar: false });
       expect(draw.setFeatures(42)).toEqual({
         ok: false,
-        reason: 'GeoJSON must be a non-null object.',
+        reason: 'invalid-geojson',
+        message: 'GeoJSON must be a non-null object.',
       });
       expect(draw.setFeatures({ type: 'Feature' })).toEqual({
         ok: false,
-        reason: 'GeoJSON.type must be "FeatureCollection", got "Feature".',
+        reason: 'invalid-geojson',
+        message: 'GeoJSON.type must be "FeatureCollection", got "Feature".',
       });
     });
   });
