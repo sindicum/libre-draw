@@ -1,7 +1,12 @@
-import type { LibreDrawFeature, Position } from '../types/features';
+import type { CoordinateRounder, LibreDrawFeature, Position } from '../types/features';
 import type { FeatureValidationResult } from '../types/operations';
 import { LibreDrawError } from '../core/errors';
-import { findRingRelationError, hasRingSelfIntersection, isCollinearRing } from './intersection';
+import {
+  findPolygonRingError,
+  findRingRelationError,
+  hasRingSelfIntersection,
+  isCollinearRing,
+} from './intersection';
 import type { PolygonRingError } from './intersection';
 import { deepCloneValue } from '../utils/featureSnapshot';
 
@@ -287,18 +292,45 @@ export function validateFeature(feature: unknown): LibreDrawFeature {
   );
 }
 
+/** Prefix of the message when a feature is valid but its rounded shape is not. */
+const ROUNDED_PREFIX = 'Invalid after rounding the coordinates: ';
+
+/**
+ * Validate a feature and, with a rounder, round the validated copy and
+ * validate the rounded shape too. Input that is invalid before rounding is
+ * rejected even if rounding would repair it.
+ */
+function validateRoundedFeature(feature: unknown, round?: CoordinateRounder): LibreDrawFeature {
+  const validated = validateFeature(feature);
+  if (!round) return validated;
+  try {
+    return validateFeature(round.feature(validated));
+  } catch (err) {
+    if (err instanceof LibreDrawError) {
+      throw new LibreDrawError(`${ROUNDED_PREFIX}${err.message}`);
+    }
+    throw err;
+  }
+}
+
 /**
  * Validate a single GeoJSON-like object without throwing.
  *
  * Wraps {@link validateFeature}: a `LibreDrawError` becomes
  * `{ valid: false, reason: 'invalid-feature', message }` carrying the same
  * message as the throwing path. Any other exception is a bug and propagates.
+ * With `round`, the feature is also rounded and the rounded shape must pass
+ * the same validation; the returned feature is the rounded one.
  * @param feature - The object to validate.
+ * @param round - Rounds the validated copy before it is validated again.
  * @returns The normalized feature, or the failure code and message.
  */
-export function tryValidateFeature(feature: unknown): FeatureValidationResult {
+export function tryValidateFeature(
+  feature: unknown,
+  round?: CoordinateRounder
+): FeatureValidationResult {
   try {
-    return { valid: true, feature: validateFeature(feature) };
+    return { valid: true, feature: validateRoundedFeature(feature, round) };
   } catch (err) {
     if (err instanceof LibreDrawError) {
       return { valid: false, reason: 'invalid-feature', message: err.message };
@@ -310,12 +342,17 @@ export function tryValidateFeature(feature: unknown): FeatureValidationResult {
 /**
  * Validate that an unknown value is a valid GeoJSON FeatureCollection
  * whose features all pass {@link validateFeature} (Point, LineString, or
- * Polygon).
+ * Polygon). With `round`, each feature is rounded and validated again as in
+ * {@link tryValidateFeature}.
  * @param geojson - The value to validate.
+ * @param round - Rounds each validated feature before it is validated again.
  * @returns The validated FeatureCollection.
  * @throws LibreDrawError if the value is invalid.
  */
-export function validateGeoJSON(geojson: unknown): {
+export function validateGeoJSON(
+  geojson: unknown,
+  round?: CoordinateRounder
+): {
   type: 'FeatureCollection';
   features: LibreDrawFeature[];
 } {
@@ -340,7 +377,7 @@ export function validateGeoJSON(geojson: unknown): {
 
   for (let i = 0; i < fc.features.length; i++) {
     try {
-      validatedFeatures.push(validateFeature(fc.features[i]));
+      validatedFeatures.push(validateRoundedFeature(fc.features[i], round));
     } catch (err) {
       if (err instanceof LibreDrawError) {
         throw new LibreDrawError(`Invalid feature at index ${i}: ${err.message}`);
@@ -370,15 +407,64 @@ export type GeoJSONValidationResult =
  * message (including the `Invalid feature at index i:` prefix), and any
  * other exception propagates.
  * @param geojson - The value to validate.
+ * @param round - Rounds each validated feature before it is validated again.
  * @returns The normalized features, or the failure code and message.
  */
-export function tryValidateGeoJSON(geojson: unknown): GeoJSONValidationResult {
+export function tryValidateGeoJSON(
+  geojson: unknown,
+  round?: CoordinateRounder
+): GeoJSONValidationResult {
   try {
-    return { valid: true, features: validateGeoJSON(geojson).features };
+    return { valid: true, features: validateGeoJSON(geojson, round).features };
   } catch (err) {
     if (err instanceof LibreDrawError) {
       return { valid: false, reason: 'invalid-geojson', message: err.message };
     }
     throw err;
   }
+}
+
+/**
+ * Why a shape built by an edit failed validation, as reported by
+ * `editrejected` and the `rotate()` result.
+ */
+export type RejectedShapeReason = 'out-of-range' | PolygonRingError | 'invalid-result';
+
+/**
+ * Classify a shape that failed validation. An edit keeps the shape on the
+ * screen, but back in longitude / latitude it can leave the coordinate
+ * range, bend a ring across another near the poles, or (after rounding)
+ * collapse onto a line.
+ */
+export function rejectedShapeReason(shape: LibreDrawFeature): RejectedShapeReason {
+  const { geometry } = shape;
+  const positions: Position[] =
+    geometry.type === 'Polygon'
+      ? geometry.coordinates.flat()
+      : geometry.type === 'LineString'
+        ? geometry.coordinates
+        : [geometry.coordinates];
+  const inRange = ([lng, lat]: Position) => Math.abs(lng) <= 180 && Math.abs(lat) <= 90;
+  if (!positions.every(inRange)) return 'out-of-range';
+  if (geometry.type === 'Polygon') {
+    return findPolygonRingError(geometry.coordinates) ?? 'invalid-result';
+  }
+  return 'invalid-result';
+}
+
+/**
+ * Why rounding made a valid shape invalid, or `undefined` when it did not
+ * (the rounded shape is valid, or the shape was invalid before rounding).
+ * Edits on the map use this to refuse a commit that only rounding breaks,
+ * such as a polygon smaller than the precision collapsing onto a line.
+ */
+export function roundingRejection(
+  shape: LibreDrawFeature,
+  round: CoordinateRounder
+): { reason: RejectedShapeReason; message: string } | undefined {
+  if (!tryValidateFeature(shape).valid) return undefined;
+  const rounded = round.feature(shape);
+  const validation = tryValidateFeature(rounded);
+  if (validation.valid) return undefined;
+  return { reason: rejectedShapeReason(rounded), message: validation.message };
 }

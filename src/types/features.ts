@@ -6,6 +6,15 @@ import { cloneFeature } from '../utils/featureSnapshot';
 export type Position = [number, number];
 
 /**
+ * Rounds coordinates to the instance's `coordinatePrecision`. Both
+ * functions return new values and leave their argument untouched.
+ */
+export interface CoordinateRounder {
+  position(position: Position): Position;
+  feature(feature: LibreDrawFeature): LibreDrawFeature;
+}
+
+/**
  * GeoJSON Point geometry.
  */
 export interface PointGeometry {

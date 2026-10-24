@@ -2,7 +2,8 @@ import { describe, expect, it, vi } from 'vitest';
 import { updateFeature } from '../../../src/operations/updateFeature';
 import type { OperationContext } from '../../../src/operations/OperationContext';
 import { UpdateAction } from '../../../src/types/features';
-import type { LibreDrawFeature } from '../../../src/types/features';
+import type { CoordinateRounder, LibreDrawFeature } from '../../../src/types/features';
+import { createCoordinateRounder } from '../../../src/utils/precision';
 import { validateFeature } from '../../../src/validation/geojson';
 
 function makeSquare(id = 'sq'): LibreDrawFeature {
@@ -40,7 +41,10 @@ function makeLine(id = 'ln'): LibreDrawFeature {
   };
 }
 
-function createContext(initial: LibreDrawFeature[]) {
+function createContext(
+  initial: LibreDrawFeature[],
+  round: CoordinateRounder = createCoordinateRounder(false)
+) {
   const features = new Map<string, LibreDrawFeature>();
   for (const f of initial) features.set(f.id, f);
   const update = vi.fn((id: string, f: LibreDrawFeature) => {
@@ -64,6 +68,7 @@ function createContext(initial: LibreDrawFeature[]) {
     },
     history: { push },
     events: { emit },
+    round,
   };
   return { context, features, update, push, emit };
 }

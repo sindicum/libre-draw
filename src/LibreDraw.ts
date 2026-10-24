@@ -18,7 +18,7 @@ import type {
   EdgeRef,
   Position,
 } from './types';
-import type { Action } from './types/features';
+import type { Action, CoordinateRounder } from './types/features';
 import {
   DeleteAction,
   CreateAction,
@@ -69,6 +69,11 @@ import { Toolbar } from './ui/Toolbar';
 import { ReticleOverlay } from './ui/ReticleOverlay';
 import { getBuiltinMessages, isBuiltinLocale, resolveMessages } from './ui/messages';
 import { cloneFeature } from './utils/featureSnapshot';
+import {
+  MAX_COORDINATE_PRECISION,
+  createCoordinateRounder,
+  isCoordinatePrecision,
+} from './utils/precision';
 
 function setHandlerEnabled(handler: { enable(): void; disable(): void }, enabled: boolean): void {
   if (enabled) {
@@ -145,6 +150,8 @@ export class LibreDraw {
   private reticleInput: ReticleInput;
   private reticleOverlay: ReticleOverlay;
   private inputMethod: InputMethod;
+  /** Rounds every stored coordinate to `coordinatePrecision`. */
+  private round: CoordinateRounder;
   /** Dependencies handed to modes; also the OperationContext for operations. */
   private modeContext: ModeContext;
   private selection: SelectionManager;
@@ -289,6 +296,14 @@ export class LibreDraw {
     }
     this.inputMethod = inputMethod;
 
+    const precision = options.coordinatePrecision === undefined ? 8 : options.coordinatePrecision;
+    if (!isCoordinatePrecision(precision)) {
+      throw new LibreDrawError(
+        `Unsupported coordinate precision: ${String(precision)}. Use an integer from 0 to ${MAX_COORDINATE_PRECISION} or false.`
+      );
+    }
+    this.round = createCoordinateRounder(precision);
+
     // Rendering
     this.sourceManager = new SourceManager(map);
     this.renderManager = new RenderManager(map, this.sourceManager, options.layers);
@@ -378,6 +393,7 @@ export class LibreDraw {
           north: bounds.getNorth(),
         };
       },
+      round: this.round,
     };
 
     this.modeContext = modeContext;
@@ -626,7 +642,7 @@ export class LibreDraw {
    */
   setFeatures(geojson: unknown): OperationResult {
     this.assertNotDestroyed();
-    const validated = tryValidateGeoJSON(geojson);
+    const validated = tryValidateGeoJSON(geojson, this.round);
     if (!validated.valid) {
       return { ok: false, reason: validated.reason, message: validated.message };
     }
@@ -694,7 +710,7 @@ export class LibreDraw {
     // store or earlier in the array are rejected up front.
     const seenIds = new Set<string>();
     features.forEach((input, index) => {
-      const validation = tryValidateFeature(input);
+      const validation = tryValidateFeature(input, this.round);
       if (!validation.valid) {
         results.push({
           valid: false,
@@ -764,7 +780,7 @@ export class LibreDraw {
    */
   validateFeature(feature: unknown): FeatureValidationResult {
     this.assertNotDestroyed();
-    return tryValidateFeature(feature);
+    return tryValidateFeature(feature, this.round);
   }
 
   /**

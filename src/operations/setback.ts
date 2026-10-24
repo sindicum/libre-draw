@@ -1,6 +1,11 @@
 import type { OperationContext } from './OperationContext';
 import type { EdgeRef, OperationResult } from '../types/operations';
-import type { LibreDrawFeature, PolygonGeometry, Position } from '../types/features';
+import type {
+  CoordinateRounder,
+  LibreDrawFeature,
+  PolygonGeometry,
+  Position,
+} from '../types/features';
 import { SetbackAction } from '../types/features';
 import { cloneFeature } from '../utils/featureSnapshot';
 import { getVertices } from '../utils/geometry';
@@ -61,7 +66,13 @@ export function setback(
     return { ok: false, reason: 'invalid-distance' };
   }
 
-  const remaining = computeSetbackResult(current, vertices, edgeIndex, distanceMeters);
+  const remaining = computeSetbackResult(
+    current,
+    vertices,
+    edgeIndex,
+    distanceMeters,
+    context.round
+  );
   if (!remaining) {
     context.events.emit('setbackfailed', { reason: 'invalid-result', featureId: current.id });
     return { ok: false, reason: 'invalid-result' };
@@ -88,14 +99,15 @@ export function setback(
 /**
  * Split the polygon along the extended offset line and keep the part that
  * does not contain the original edge. `undefined` when the offset line
- * cannot be built, the split fails, or the kept part is not a valid
- * polygon.
+ * cannot be built, the split fails, or the kept part, once rounded, is not
+ * a valid polygon.
  */
 function computeSetbackResult(
   feature: LibreDrawFeature,
   vertices: Position[],
   edgeIndex: number,
-  distanceMeters: number
+  distanceMeters: number,
+  round: CoordinateRounder
 ): LibreDrawFeature | undefined {
   let extendedStart: Position;
   let extendedEnd: Position;
@@ -119,6 +131,6 @@ function computeSetbackResult(
   const isASetbackBand = ringA.some(
     (v) => Math.abs(v[0] - edgeStart[0]) < EPSILON && Math.abs(v[1] - edgeStart[1]) < EPSILON
   );
-  const validation = tryValidateFeature(isASetbackBand ? featureB : featureA);
+  const validation = tryValidateFeature(isASetbackBand ? featureB : featureA, round);
   return validation.valid ? validation.feature : undefined;
 }

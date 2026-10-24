@@ -67,6 +67,28 @@ const draw = new LibreDraw(map, {
 });
 ```
 
+## Coordinate Precision
+
+Every longitude and latitude LibreDraw stores is rounded to `coordinatePrecision` decimal places, 8 by default. That is about 1.1 mm, one digit finer than RTK positioning (2–3 cm).
+
+| Places | Resolution (latitude) |
+| ------ | --------------------- |
+| 5      | about 1.1 m           |
+| 6      | about 11 cm           |
+| 7      | about 1.1 cm          |
+| 8      | about 1.1 mm          |
+
+```ts
+const draw = new LibreDraw(map, { coordinatePrecision: 6 });
+// coordinatePrecision: false keeps coordinates as given
+```
+
+- Everything that is stored is rounded: drawn and edited shapes, the results of `rotate()`, `split()`, `setback()`, `union()`, `cut()` and `reshape()`, and the input of `setFeatures()`, `addFeatures()` and `updateFeature()`. `getFeatures()`, `toGeoJSON()` and event payloads return the rounded values, so the coordinates you read back can differ from the ones you passed beyond the chosen places.
+- `validateFeature()` checks the rounded shape and returns it, so it agrees with `addFeatures()`.
+- A shape smaller than the precision can collapse when rounded. It is refused like any invalid shape: the API returns `invalid-feature` (or `invalid-geojson` from `setFeatures()`), and an edit on the map reports [`editrejected`](/api/events#editrejected).
+- Drafts, drags and the rotate preview are not rounded until they are committed. A dragged feature moves by a rounded distance, so its shape does not change.
+- The precision is fixed when the instance is created.
+
 ## Customizing the Look
 
 LibreDraw draws with ordinary MapLibre layers. Pass your own layer definitions as `layers` (or later with `setLayers()`) to replace the defaults. Start from `DEFAULT_LAYERS` and change what you need:

@@ -47,8 +47,8 @@ export function split(
     return { ok: false, reason: splitResult.reason };
   }
 
-  const validatedA = tryValidateFeature(splitResult.features[0]);
-  const validatedB = tryValidateFeature(splitResult.features[1]);
+  const validatedA = tryValidateFeature(splitResult.features[0], context.round);
+  const validatedB = tryValidateFeature(splitResult.features[1], context.round);
   if (!validatedA.valid || !validatedB.valid) {
     context.events.emit('splitfailed', { reason: 'invalid-result', featureId: current.id });
     return { ok: false, reason: 'invalid-result' };

@@ -322,7 +322,7 @@ export interface HistoryChangeEvent {
  * The edit an `editrejected` event refused.
  *
  * - `add-vertex`: a vertex added while drawing a polygon (or a cut's cutter)
- * - `close`: closing the polygon being drawn
+ * - `close`: closing the polygon or rectangle being drawn
  * - `move-vertex`: dragging a vertex of the selected feature
  * - `delete-vertex`: deleting a vertex of the selected feature
  * - `rotate`: a rotation, in rotate mode or through `rotate()`
@@ -347,7 +347,8 @@ export type EditRejectedAction =
  * - `hole-nested`: a hole would lie inside another hole
  * - `out-of-range`: the rotated shape would leave the coordinate range
  *   (near the antimeridian or the poles)
- * - `invalid-result`: the rotated shape failed validation for another reason
+ * - `invalid-result`: the shape failed validation for another reason, such as
+ *   rounding to `coordinatePrecision` flattening it
  *
  * Later versions may add or remove values, so the type also accepts any
  * other string: handle values you do not know.

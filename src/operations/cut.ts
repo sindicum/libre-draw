@@ -45,7 +45,7 @@ export function cut(context: OperationContext, id: string, cutter: Position[]): 
 
   const pieces: LibreDrawFeature[] = [];
   for (const piece of cutResult.features) {
-    const validated = tryValidateFeature(piece);
+    const validated = tryValidateFeature(piece, context.round);
     if (!validated.valid) {
       context.events.emit('cutfailed', { reason: 'invalid-result', featureId: current.id });
       return { ok: false, reason: 'invalid-result' };

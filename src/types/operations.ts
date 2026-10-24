@@ -124,7 +124,8 @@ export type UpdateFeatureFailReason =
  *   (near the antimeridian or the poles)
  * - `self-intersection` / `ring-intersection` / `hole-outside` /
  *   `hole-nested`: the rotated polygon's rings would become invalid
- * - `invalid-result`: the rotated shape failed validation for another reason
+ * - `invalid-result`: the rotated shape failed validation for another reason,
+ *   such as rounding to `coordinatePrecision` flattening it
  */
 export type RotateFailReason =
   | 'not-found'

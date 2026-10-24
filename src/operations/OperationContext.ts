@@ -1,9 +1,10 @@
 import type { EventInput, LibreDrawEventMap } from '../types/events';
-import type { Action, LibreDrawFeature } from '../types/features';
+import type { Action, CoordinateRounder, LibreDrawFeature } from '../types/features';
 
 /**
  * The smallest set of dependencies an editing operation needs: read and
- * write the store, record one history step, and emit events.
+ * write the store, record one history step, emit events, and round
+ * coordinates to the instance's precision.
  *
  * Rendering is deliberately absent. An operation changes the store and
  * reports what it did; the caller (facade or mode) redraws and re-syncs
@@ -23,4 +24,6 @@ export interface OperationContext {
   events: {
     emit<K extends keyof LibreDrawEventMap>(type: K, payload: EventInput<K>): void;
   };
+  /** Rounds a shape before it is validated and stored. */
+  round: CoordinateRounder;
 }

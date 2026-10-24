@@ -90,7 +90,12 @@ const draw = new LibreDraw(map, { locale: 'ja', messages: { setbackExecute: '適
 const draw = new LibreDraw(map, { inputMethod: 'reticle' });
 ```
 
-**Throws:** [`LibreDrawError`](/api/types#libredrawerror) if `options.locale` is not `'en'` or `'ja'`, or if `options.inputMethod` is not `'tap'` or `'reticle'`.
+```ts
+// Store coordinates to 6 decimal places (about 11 cm) instead of 8
+const draw = new LibreDraw(map, { coordinatePrecision: 6 });
+```
+
+**Throws:** [`LibreDrawError`](/api/types#libredrawerror) if `options.locale` is not `'en'` or `'ja'`, if `options.inputMethod` is not `'tap'` or `'reticle'`, or if `options.coordinatePrecision` is not an integer from `0` to `15` or `false`.
 
 ---
 

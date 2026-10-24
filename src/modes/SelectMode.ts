@@ -1,6 +1,6 @@
 import type { MapInteractionConfig, Mode } from './Mode';
 import type { NormalizedInputEvent } from '../types/input';
-import type { LibreDrawFeature } from '../types/features';
+import type { LibreDrawFeature, Position } from '../types/features';
 import type { Action } from '../types/features';
 import { BatchAction, DeleteAction, UpdateAction } from '../types/features';
 import type { ModeContext } from '../core/ModeContext';
@@ -67,6 +67,14 @@ function translateFeature(feature: LibreDrawFeature, dLng: number, dLat: number)
   }
   if (feature.geometry.type === 'LineString') return moveLine(feature, dLng, dLat);
   return movePolygon(feature, dLng, dLat);
+}
+
+/** The first position of any feature, which every translation moves by the same delta. */
+function firstPosition(feature: LibreDrawFeature): Position {
+  const { geometry } = feature;
+  if (geometry.type === 'Point') return geometry.coordinates;
+  if (geometry.type === 'LineString') return geometry.coordinates[0];
+  return geometry.coordinates[0][0];
 }
 
 /**
@@ -401,16 +409,22 @@ export class SelectMode implements Mode {
 
     // Handle point drag end
     if (this.pointDragState) {
-      this.commitDragUpdate(this.pointDragState.featureId, this.pointDragState.startFeature);
+      const { featureId, startFeature } = this.pointDragState;
+      const current = this.context.store.getById(featureId);
+      if (current) this.context.store.update(featureId, this.context.round.feature(current));
+      this.commitDragUpdate(featureId, startFeature);
       this.pointDragState = null;
       this.context.setDragPan(true);
+      this.context.render.renderFeatures();
       return;
     }
 
     if (this.groupDragState) {
+      this.settleTranslation(this.groupDragState.startFeatures);
       this.commitGroupDrag(this.groupDragState.startFeatures);
       this.groupDragState = null;
       this.context.setDragPan(true);
+      this.context.render.renderFeatures();
       return;
     }
 
@@ -426,14 +440,44 @@ export class SelectMode implements Mode {
     }
 
     if (vertexDragging) {
+      this.vertexEditor.roundDraggedShape(selectedId);
       this.commitDragUpdate(selectedId, this.vertexEditor.getDragStartFeature());
       this.vertexEditor.endDrag();
+      this.context.render.renderFeatures();
+      this.syncHandles();
       return;
     }
 
     if (polygonDragging) {
-      this.commitDragUpdate(selectedId, this.polygonDragger.getDragStartFeature());
+      const start = this.polygonDragger.getDragStartFeature();
+      if (start) this.settleTranslation([start]);
+      this.commitDragUpdate(selectedId, start);
       this.polygonDragger.endDrag();
+      this.context.render.renderFeatures();
+      this.syncHandles();
+    }
+  }
+
+  /**
+   * Put the dragged features at their start shapes moved by the dragged
+   * delta rounded to the precision. A rounded shape moved along the
+   * coordinate grid keeps its exact form, so rounding cannot make it
+   * invalid.
+   */
+  private settleTranslation(startFeatures: LibreDrawFeature[]): void {
+    const store = this.context.store;
+    const start = startFeatures[0];
+    const current = start && store.getById(start.id);
+    if (!current) return;
+    const [startLng, startLat] = firstPosition(start);
+    const [currentLng, currentLat] = firstPosition(current);
+    const [dLng, dLat] = this.context.round.position([
+      currentLng - startLng,
+      currentLat - startLat,
+    ]);
+    for (const feature of startFeatures) {
+      if (!store.getById(feature.id)) continue;
+      store.update(feature.id, this.context.round.feature(translateFeature(feature, dLng, dLat)));
     }
   }
 

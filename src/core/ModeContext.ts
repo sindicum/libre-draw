@@ -1,5 +1,5 @@
 import type { EventInput, LibreDrawEventMap } from '../types/events';
-import type { Action, LibreDrawFeature, Position } from '../types/features';
+import type { Action, CoordinateRounder, LibreDrawFeature, Position } from '../types/features';
 import type { SnapConfig } from '../types/options';
 import type { ViewportBounds } from '../utils/snap';
 import type { SelectionManager } from './SelectionManager';
@@ -50,4 +50,9 @@ export interface ModeContext {
   getSetbackDistance(): number;
   getSnapConfig(): SnapConfig;
   getViewportBounds(): ViewportBounds;
+  /**
+   * Rounds coordinates to the instance's precision. Modes round a shape
+   * when they commit it, never while it is a draft or a drag preview.
+   */
+  round: CoordinateRounder;
 }

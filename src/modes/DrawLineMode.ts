@@ -338,7 +338,7 @@ export class DrawLineMode implements DraftCapableMode {
       properties: {},
     };
 
-    const stored = this.context.store.add(feature);
+    const stored = this.context.store.add(this.context.round.feature(feature));
     const action = new CreateAction(stored);
     this.context.history.push(action);
     this.context.events.emit('create', { feature: cloneFeature(stored) });

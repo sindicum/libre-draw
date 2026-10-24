@@ -44,7 +44,7 @@ export function reshape(context: OperationContext, id: string, line: Position[])
     return { ok: false, reason: result.reason };
   }
 
-  const validation = tryValidateFeature(result.feature);
+  const validation = tryValidateFeature(result.feature, context.round);
   if (!validation.valid) {
     context.events.emit('reshapefailed', { reason: 'invalid-result', featureId: current.id });
     return { ok: false, reason: 'invalid-result' };

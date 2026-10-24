@@ -4,6 +4,7 @@ import type { ModeContext } from '../../../src/core/ModeContext';
 import type { NormalizedInputEvent } from '../../../src/types/input';
 import type { LibreDrawFeature } from '../../../src/types/features';
 import { CreateAction } from '../../../src/types/features';
+import { createCoordinateRounder } from '../../../src/utils/precision';
 
 function createMockContext(): ModeContext {
   return {
@@ -41,6 +42,7 @@ function createMockContext(): ModeContext {
     setDragPan: vi.fn(),
     getSetbackDistance: () => 10,
     getSnapConfig: () => ({ enabled: false, threshold: 10 }),
+    round: createCoordinateRounder(false),
     getViewportBounds: () => ({
       west: -180,
       south: -90,

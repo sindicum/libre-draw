@@ -16,6 +16,7 @@ import {
   removeLineVertex,
 } from '../utils/geometry';
 import { findPolygonRingError, type PolygonRingError } from '../validation/intersection';
+import { roundingRejection } from '../validation/geojson';
 import { findSnapTarget } from '../utils/snap';
 
 const HIT_THRESHOLD_MOUSE_PX = 10;
@@ -287,6 +288,33 @@ export class VertexEditor {
       this.highlightedVertexIndex >= 0 ? this.highlightedVertexIndex : undefined,
       this.highlightedMidpointIndex >= 0 ? this.highlightedMidpointIndex : undefined
     );
+  }
+
+  /**
+   * Round the dragged shape in the store for the commit. When rounding alone
+   * makes it invalid, the shape at drag start goes back into the store and
+   * the refusal is reported (still at most once per drag), so the commit
+   * finds nothing changed.
+   */
+  roundDraggedShape(selectedId: string): void {
+    const current = this.context.store.getById(selectedId);
+    if (!current) return;
+    const rejection = roundingRejection(current, this.context.round);
+    if (!rejection) {
+      this.context.store.update(selectedId, this.context.round.feature(current));
+      return;
+    }
+    if (this.dragStartFeature) {
+      this.context.store.update(selectedId, cloneFeature(this.dragStartFeature));
+    }
+    if (!this.dragRejectionReported) {
+      this.dragRejectionReported = true;
+      this.context.events.emit('editrejected', {
+        action: 'move-vertex',
+        reason: rejection.reason,
+        featureId: selectedId,
+      });
+    }
   }
 
   endDrag(): void {

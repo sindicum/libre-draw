@@ -99,6 +99,15 @@ export interface LibreDrawOptions {
   /** Overrides for individual UI strings, merged onto the selected locale. */
   messages?: Partial<Messages>;
   /**
+   * Number of decimal places every stored longitude / latitude is rounded
+   * to: an integer from 0 to 15, or `false` to keep coordinates as they
+   * are. Defaults to 8 (about 1.1 mm). Drawn, edited, and API input
+   * features are all rounded before validation, and a shape that rounding
+   * makes invalid is refused. Drafts, drag previews, and rotate previews
+   * are rounded only when they are committed. Cannot be changed later.
+   */
+  coordinatePrecision?: number | false;
+  /**
    * How the drawing modes take a point. Defaults to `'tap'`.
    * Can be changed later with `setInputMethod()`.
    */

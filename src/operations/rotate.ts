@@ -1,34 +1,9 @@
 import type { OperationContext } from './OperationContext';
 import type { OperationResult, RotateFailReason } from '../types/operations';
-import type { LibreDrawFeature, Position } from '../types/features';
 import { UpdateAction } from '../types/features';
 import { isNoRotation, rotateFeature } from '../utils/rotate';
 import { cloneFeature } from '../utils/featureSnapshot';
-import { tryValidateFeature } from '../validation/geojson';
-import { findPolygonRingError } from '../validation/intersection';
-
-/**
- * Why a rotated shape failed validation. A rotation keeps the shape on the
- * screen, but back in longitude / latitude it can leave the coordinate
- * range, or bend a ring across another near the poles.
- */
-function rejectionReason(
-  rotated: LibreDrawFeature
-): Exclude<RotateFailReason, 'not-found' | 'not-rotatable' | 'no-rotation'> {
-  const { geometry } = rotated;
-  const positions: Position[] =
-    geometry.type === 'Polygon'
-      ? geometry.coordinates.flat()
-      : geometry.type === 'LineString'
-        ? geometry.coordinates
-        : [geometry.coordinates];
-  const inRange = ([lng, lat]: Position) => Math.abs(lng) <= 180 && Math.abs(lat) <= 90;
-  if (!positions.every(inRange)) return 'out-of-range';
-  if (geometry.type === 'Polygon') {
-    return findPolygonRingError(geometry.coordinates) ?? 'invalid-result';
-  }
-  return 'invalid-result';
-}
+import { rejectedShapeReason, tryValidateFeature } from '../validation/geojson';
 
 /**
  * Rotate a Polygon or LineString around its area centroid by `angleDeg`
@@ -39,8 +14,8 @@ function rejectionReason(
  * back first. Points have no orientation and are rejected; an angle that
  * would not change the shape (0, a multiple of 360, or a non-finite value)
  * is rejected too, so the history never records a no-op. The rotated shape
- * goes through the same validation as `addFeatures` input: near the
- * antimeridian or the poles a valid feature can rotate out of the
+ * is rounded and goes through the same validation as `addFeatures` input:
+ * near the antimeridian or the poles a valid feature can rotate out of the
  * coordinate range, and that result is refused rather than stored, with
  * an `editrejected` event (`action: 'rotate'`).
  *
@@ -61,9 +36,13 @@ export function rotate(context: OperationContext, id: string, angleDeg: number):
   }
 
   const rotatedShape = rotateFeature(current, angleDeg);
-  const validation = tryValidateFeature(rotatedShape);
+  const validation = tryValidateFeature(rotatedShape, context.round);
   if (!validation.valid) {
-    const reason = rejectionReason(rotatedShape);
+    // Classify the shape that failed: the rounded one when only rounding broke it.
+    const failed = tryValidateFeature(rotatedShape).valid
+      ? context.round.feature(rotatedShape)
+      : rotatedShape;
+    const reason: RotateFailReason = rejectedShapeReason(failed);
     context.events.emit('editrejected', { action: 'rotate', reason, featureId: current.id });
     return { ok: false, reason, message: validation.message };
   }

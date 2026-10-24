@@ -7,6 +7,7 @@ import { BatchAction, DeleteAction, UpdateAction } from '../../../src/types/feat
 import type { Mode } from '../../../src/modes/Mode';
 import { attachSelection } from '../../helpers/selection';
 import { LONG_PRESS_MS } from '../../../src/input/gestures';
+import { createCoordinateRounder } from '../../../src/utils/precision';
 
 function makeFeature(id: string): LibreDrawFeature {
   return {
@@ -141,6 +142,7 @@ function createModeContext(
       setDragPan: callbacks.setDragPan,
       getSetbackDistance: () => 10,
       getSnapConfig: () => ({ enabled: false, threshold: 10 }),
+      round: createCoordinateRounder(false),
       getViewportBounds: () => ({ west: -180, south: -90, east: 180, north: 90 }),
     },
     getMode

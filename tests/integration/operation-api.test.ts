@@ -5,7 +5,10 @@ import { SOURCE_IDS } from '../../src/rendering/layers';
 import type { RotateEvent, UpdateEvent } from '../../src/types/events';
 import type { Position } from '../../src/types/features';
 import { rotateFeature } from '../../src/utils/rotate';
+import { createCoordinateRounder } from '../../src/utils/precision';
 import { FakeMap } from './helpers/fakeMap';
+
+const round8 = createCoordinateRounder(8);
 
 function makeSquare(id: string, x = 10, y = 10, size = 20) {
   return {
@@ -150,7 +153,8 @@ describe('operation API (updateFeature / rotate)', () => {
       const updateListener = vi.fn();
       draw.on('rotate', rotateListener);
       draw.on('update', updateListener);
-      const expected = rotateFeature(draw.getFeatureById('a')!, 90);
+      // Stored at the default precision of 8 decimal places.
+      const expected = round8.feature(rotateFeature(draw.getFeatureById('a')!, 90));
 
       const result = draw.rotate('a', 90);
 
@@ -212,7 +216,7 @@ describe('operation API (updateFeature / rotate)', () => {
       rotateMode.executeFromUi(45);
 
       // The UI rotation started from the API result, not from the original.
-      expect(draw.getFeatureById('a')).toEqual(rotateFeature(afterApi, 45));
+      expect(draw.getFeatureById('a')).toEqual(round8.feature(rotateFeature(afterApi, 45)));
       expect(draw.getSelectedFeatureIds()).toEqual(['a']);
       // Two history steps: undo twice returns to the original.
       draw.undo();

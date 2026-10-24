@@ -4,6 +4,7 @@ import { SetbackMode } from '../../../src/modes/SetbackMode';
 import type { LibreDrawFeature } from '../../../src/types/features';
 import type { NormalizedInputEvent } from '../../../src/types/input';
 import { attachSelection } from '../../helpers/selection';
+import { createCoordinateRounder } from '../../../src/utils/precision';
 
 function makeSquare(id: string): LibreDrawFeature {
   return {
@@ -146,6 +147,7 @@ function createHarness(feature: LibreDrawFeature = makeSquare('f1')): Harness {
     setDragPan,
     getSetbackDistance: () => setbackDistance,
     getSnapConfig: () => ({ enabled: false, threshold: 10 }),
+    round: createCoordinateRounder(false),
     getViewportBounds: () => ({ west: -180, south: -90, east: 180, north: 90 }),
   });
 
