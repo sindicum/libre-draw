@@ -51,7 +51,7 @@ type Args = Record<string, unknown>;
  * Operation tools return the `OperationResult` untouched, and `select_feature`
  * maps its boolean onto the same `{ ok, reason }` shape. The catch below
  * is the safety net so the caller on the other side of the wire never sees
- * an exception.
+ * an exception: it reports `dispatch-error` with the exception's message.
  */
 export function dispatch(draw: DrawApi, tool: string, args: unknown): unknown {
   const a = (args ?? {}) as Args;
@@ -92,6 +92,10 @@ export function dispatch(draw: DrawApi, tool: string, args: unknown): unknown {
         return { ok: false, reason: 'unknown-tool' };
     }
   } catch (error) {
-    return { ok: false, reason: error instanceof Error ? error.message : String(error) };
+    return {
+      ok: false,
+      reason: 'dispatch-error',
+      message: error instanceof Error ? error.message : String(error),
+    };
   }
 }

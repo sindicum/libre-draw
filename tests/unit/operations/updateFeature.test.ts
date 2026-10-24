@@ -179,7 +179,7 @@ describe('updateFeature', () => {
       const result = updateFeature(context, 'sq', { geometry: bowtie });
 
       expect(expected).not.toBe('');
-      expect(result).toEqual({ ok: false, reason: expected });
+      expect(result).toEqual({ ok: false, reason: 'invalid-feature', message: expected });
       expect(push).not.toHaveBeenCalled();
     });
 
@@ -196,7 +196,8 @@ describe('updateFeature', () => {
       });
       expect(result.ok).toBe(false);
       if (result.ok) throw new Error('expected failure');
-      expect(result.reason).toContain('longitude');
+      expect(result.reason).toBe('invalid-feature');
+      expect(result.message).toContain('longitude');
     });
   });
 

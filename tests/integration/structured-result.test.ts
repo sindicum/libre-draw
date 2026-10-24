@@ -119,10 +119,15 @@ describe('structured results and event origin', () => {
       expect(results[0]).toEqual({
         valid: false,
         id: 'bad',
-        reason: 'Ring is not closed. The first and last positions must be identical.',
+        reason: 'invalid-feature',
+        message: 'Ring is not closed. The first and last positions must be identical.',
       });
       expect(results[1]).toEqual({ valid: true, id: 'a' });
-      expect(results[2]).toEqual({ valid: false, reason: 'Feature must be a non-null object.' });
+      expect(results[2]).toEqual({
+        valid: false,
+        reason: 'invalid-feature',
+        message: 'Feature must be a non-null object.',
+      });
       expect(results[3]).toEqual({ valid: true, id: 'b' });
 
       expect(draw.getFeatures().map((f) => f.id)).toEqual(['a', 'b']);
@@ -134,7 +139,7 @@ describe('structured results and event origin', () => {
       expect(draw.undo()).toBe(false);
     });
 
-    it('uses the same reason wording as validateFeature()', () => {
+    it('uses the same reason and message as validateFeature()', () => {
       const draw = new LibreDraw(new FakeMap().asMap(), { toolbar: false });
 
       const validation = draw.validateFeature(makeBroken('x'));
@@ -142,7 +147,12 @@ describe('structured results and event origin', () => {
 
       expect(validation.valid).toBe(false);
       if (validation.valid) throw new Error('expected invalid');
-      expect(result).toEqual({ valid: false, id: 'x', reason: validation.reason });
+      expect(result).toEqual({
+        valid: false,
+        id: 'x',
+        reason: validation.reason,
+        message: validation.message,
+      });
     });
 
     it('rejects duplicate ids per feature, whether in the store or within the array', () => {
@@ -152,15 +162,15 @@ describe('structured results and event origin', () => {
       const results = draw.addFeatures([makeSquare('a'), makeSquare('b'), makeSquare('b', 50, 50)]);
 
       expect(results).toEqual([
-        { valid: false, id: 'a', reason: 'Feature already exists: a' },
+        { valid: false, id: 'a', reason: 'duplicate-id', message: 'Feature already exists: a' },
         { valid: true, id: 'b' },
-        { valid: false, id: 'b', reason: 'Feature already exists: b' },
+        { valid: false, id: 'b', reason: 'duplicate-id', message: 'Feature already exists: b' },
       ]);
       expect(draw.getFeatures().map((f) => f.id)).toEqual(['a', 'b']);
 
       // A call whose entries are all rejected records no history step.
       expect(draw.addFeatures([makeSquare('a')])).toEqual([
-        { valid: false, id: 'a', reason: 'Feature already exists: a' },
+        { valid: false, id: 'a', reason: 'duplicate-id', message: 'Feature already exists: a' },
       ]);
       expect(draw.undo()).toBe(true); // removes 'b'
       expect(draw.undo()).toBe(true); // removes 'a'
@@ -195,12 +205,13 @@ describe('structured results and event origin', () => {
       expect(draw.getFeatures()).toHaveLength(0);
     });
 
-    it('returns the rejection reason instead of throwing', () => {
+    it('returns the failure code and message instead of throwing', () => {
       const draw = new LibreDraw(new FakeMap().asMap(), { toolbar: false });
 
       expect(draw.validateFeature(makeBroken('a'))).toEqual({
         valid: false,
-        reason: 'Ring is not closed. The first and last positions must be identical.',
+        reason: 'invalid-feature',
+        message: 'Ring is not closed. The first and last positions must be identical.',
       });
       expect(draw.validateFeature(undefined).valid).toBe(false);
     });

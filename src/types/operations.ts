@@ -28,12 +28,20 @@ export interface OperationSuccess {
 /**
  * Result of an editing operation that did not change the store.
  *
- * `reason` carries the operation's failure code (for example a
- * `SplitFailReason` such as `'has-holes'`) or a validation message.
+ * `reason` is always a failure code (for example a `SplitFailReason` such
+ * as `'has-holes'`, or `'invalid-feature'`), so it can be compared without
+ * parsing. `invalid-geojson`, `invalid-feature`, and a rotation refused
+ * by validation also carry the validation message in `message`.
  */
 export interface OperationFailure {
   ok: false;
+  /** The failure code. */
   reason: string;
+  /**
+   * Validation message, present for `invalid-geojson`, `invalid-feature`,
+   * and a rotation refused by validation.
+   */
+  message?: string;
 }
 
 /**
@@ -59,20 +67,24 @@ export type OperationResult = OperationSuccess | OperationFailure;
  *
  * For a valid feature `id` is the id it has in the store (generated when
  * the input had none). For an invalid feature `id` is the input id when
- * one was given, and `reason` explains why it was rejected.
+ * one was given, `reason` is the failure code, and `message` explains it:
+ *
+ * - `invalid-feature`: the feature failed validation
+ * - `duplicate-id`: the id is already in the store or earlier in the input
  */
 export type AddFeatureResult =
   | { valid: true; id: string }
-  | { valid: false; id?: string; reason: string };
+  | { valid: false; id?: string; reason: string; message: string };
 
 /**
  * Outcome of {@link LibreDraw.validateFeature}: the normalized feature when
- * the input is acceptable, otherwise the rejection reason. The same rules
- * apply as for `addFeatures` / `setFeatures`.
+ * the input is acceptable, otherwise the failure code `invalid-feature`
+ * with the validation message. The same rules apply as for
+ * `addFeatures` / `setFeatures`.
  */
 export type FeatureValidationResult =
   | { valid: true; feature: LibreDrawFeature }
-  | { valid: false; reason: string };
+  | { valid: false; reason: string; message: string };
 
 /**
  * What {@link LibreDraw.updateFeature} replaces on a feature. Each field is
@@ -86,25 +98,44 @@ export interface UpdateFeaturePatch {
 }
 
 /**
- * Failure codes of {@link LibreDraw.updateFeature}. A geometry that fails
- * validation reports the validation message instead of a code.
+ * Failure codes of {@link LibreDraw.updateFeature}.
  *
  * - `not-found`: no feature has that id
  * - `geometry-type-mismatch`: the patch changes the geometry type
  * - `empty-patch`: neither `geometry` nor `properties` was given
+ * - `invalid-feature`: the updated feature failed validation (the
+ *   validation message is in `message`)
  */
-export type UpdateFeatureFailReason = 'not-found' | 'geometry-type-mismatch' | 'empty-patch';
+export type UpdateFeatureFailReason =
+  | 'not-found'
+  | 'geometry-type-mismatch'
+  | 'empty-patch'
+  | 'invalid-feature';
 
 /**
  * Failure codes of {@link LibreDraw.rotate}. A rotated shape that fails
- * validation (it left the coordinate range near the antimeridian or the
- * poles) reports the validation message instead of a code.
+ * validation is reported with the same code as its `editrejected` event,
+ * and the validation message is in `message`.
  *
  * - `not-found`: no feature has that id
  * - `not-rotatable`: the feature is a Point
  * - `no-rotation`: the angle is 0, a multiple of 360, or not finite, so nothing would change
+ * - `out-of-range`: the rotated shape would leave the coordinate range
+ *   (near the antimeridian or the poles)
+ * - `self-intersection` / `ring-intersection` / `hole-outside` /
+ *   `hole-nested`: the rotated polygon's rings would become invalid
+ * - `invalid-result`: the rotated shape failed validation for another reason
  */
-export type RotateFailReason = 'not-found' | 'not-rotatable' | 'no-rotation';
+export type RotateFailReason =
+  | 'not-found'
+  | 'not-rotatable'
+  | 'no-rotation'
+  | 'out-of-range'
+  | 'self-intersection'
+  | 'ring-intersection'
+  | 'hole-outside'
+  | 'hole-nested'
+  | 'invalid-result';
 
 /**
  * Reference to one edge of a Polygon.

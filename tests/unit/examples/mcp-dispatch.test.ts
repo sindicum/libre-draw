@@ -110,14 +110,15 @@ describe('dispatch', () => {
     });
   });
 
-  it('turns a thrown LibreDrawError (instance misuse) into { ok: false, reason }', () => {
+  it('turns a thrown LibreDrawError (instance misuse) into dispatch-error with its message', () => {
     const draw = fakeDraw();
     draw.undo.mockImplementation(() => {
       throw new LibreDrawError('This LibreDraw instance has been destroyed.');
     });
     expect(dispatch(draw, 'undo', {})).toEqual({
       ok: false,
-      reason: 'This LibreDraw instance has been destroyed.',
+      reason: 'dispatch-error',
+      message: 'This LibreDraw instance has been destroyed.',
     });
   });
 

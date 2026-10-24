@@ -1,6 +1,5 @@
 import type { OperationContext } from './OperationContext';
-import type { OperationResult } from '../types/operations';
-import type { EditRejectedReason } from '../types/events';
+import type { OperationResult, RotateFailReason } from '../types/operations';
 import type { LibreDrawFeature, Position } from '../types/features';
 import { UpdateAction } from '../types/features';
 import { isNoRotation, rotateFeature } from '../utils/rotate';
@@ -13,7 +12,9 @@ import { findPolygonRingError } from '../validation/intersection';
  * screen, but back in longitude / latitude it can leave the coordinate
  * range, or bend a ring across another near the poles.
  */
-function rejectionReason(rotated: LibreDrawFeature): EditRejectedReason {
+function rejectionReason(
+  rotated: LibreDrawFeature
+): Exclude<RotateFailReason, 'not-found' | 'not-rotatable' | 'no-rotation'> {
   const { geometry } = rotated;
   const positions: Position[] =
     geometry.type === 'Polygon'
@@ -44,7 +45,8 @@ function rejectionReason(rotated: LibreDrawFeature): EditRejectedReason {
  * an `editrejected` event (`action: 'rotate'`).
  *
  * @returns `updated: [rotated]` on success; otherwise `not-found`,
- *   `not-rotatable`, `no-rotation`, or the validation message.
+ *   `not-rotatable`, `no-rotation`, or the `editrejected` reason with the
+ *   validation message.
  */
 export function rotate(context: OperationContext, id: string, angleDeg: number): OperationResult {
   const current = context.store.getById(id);
@@ -61,12 +63,9 @@ export function rotate(context: OperationContext, id: string, angleDeg: number):
   const rotatedShape = rotateFeature(current, angleDeg);
   const validation = tryValidateFeature(rotatedShape);
   if (!validation.valid) {
-    context.events.emit('editrejected', {
-      action: 'rotate',
-      reason: rejectionReason(rotatedShape),
-      featureId: current.id,
-    });
-    return { ok: false, reason: validation.reason };
+    const reason = rejectionReason(rotatedShape);
+    context.events.emit('editrejected', { action: 'rotate', reason, featureId: current.id });
+    return { ok: false, reason, message: validation.message };
   }
   const rotated = validation.feature;
 

@@ -10,10 +10,10 @@ import { cloneFeature } from '../utils/featureSnapshot';
  * Every check runs before anything is written, so a failure leaves the
  * store, the history, and the listeners untouched. The candidate goes
  * through the same validation as `addFeatures`, and a rejected geometry
- * reports that validation message as the reason.
+ * reports `invalid-feature` with that validation message.
  *
  * @returns `updated: [feature]` on success; otherwise `not-found`,
- *   `geometry-type-mismatch`, `empty-patch`, or the validation message.
+ *   `geometry-type-mismatch`, `empty-patch`, or `invalid-feature`.
  */
 export function updateFeature(
   context: OperationContext,
@@ -42,7 +42,7 @@ export function updateFeature(
     properties: patch.properties ?? current.properties,
   });
   if (!validation.valid) {
-    return { ok: false, reason: validation.reason };
+    return { ok: false, reason: validation.reason, message: validation.message };
   }
   const next = validation.feature;
 

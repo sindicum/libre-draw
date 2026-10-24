@@ -308,7 +308,7 @@ Validates the whole input first (all or nothing), then clears the current store,
 | --------- | --------- | --------------------------------------------------------------------------------- |
 | `geojson` | `unknown` | A GeoJSON FeatureCollection containing Point, LineString, and/or Polygon features |
 
-**Returns:** [`OperationResult`](/api/types#operationresult) — `{ ok: true, created, updated: [], deleted }` with the new features in `created` and the previous ones in `deleted`, or `{ ok: false, reason }` when the input is not a FeatureCollection or one of its features fails validation (`Invalid feature at index i: …`). Nothing changes on failure.
+**Returns:** [`OperationResult`](/api/types#operationresult) — `{ ok: true, created, updated: [], deleted }` with the new features in `created` and the previous ones in `deleted`, or `{ ok: false, reason: 'invalid-geojson', message }` when the input is not a FeatureCollection or one of its features fails validation (`message` reads `Invalid feature at index i: …`). Nothing changes on failure.
 
 **Throws:** [`LibreDrawError`](/api/types#libredrawerror) if this instance has been destroyed.
 
@@ -345,7 +345,7 @@ if (!result.ok) console.warn(result.reason);
 
 Add features to the store from an array of GeoJSON Feature objects.
 
-Every feature is validated first and reported individually: invalid entries come back as `{ valid: false, reason }` and only the valid ones are added. Nothing is thrown for the input. The added features form a **single undoable step** (one [`undo()`](#undo) removes every feature added by the call), and a `'create'` event fires for each added feature. Unlike [`setFeatures`](#setfeatures-geojson), existing features and history are kept. There is no all-or-nothing option: to get one, check each input with [`validateFeature`](#validatefeature-feature) (geometry) and [`getFeatureById`](#getfeaturebyid-id) (a duplicate id, also against the other inputs) before calling.
+Every feature is validated first and reported individually: invalid entries come back as `{ valid: false, reason, message }` and only the valid ones are added. Nothing is thrown for the input. The added features form a **single undoable step** (one [`undo()`](#undo) removes every feature added by the call), and a `'create'` event fires for each added feature. Unlike [`setFeatures`](#setfeatures-geojson), existing features and history are kept. There is no all-or-nothing option: to get one, check each input with [`validateFeature`](#validatefeature-feature) (geometry) and [`getFeatureById`](#getfeaturebyid-id) (a duplicate id, also against the other inputs) before calling.
 
 **Parameters:**
 
@@ -353,7 +353,7 @@ Every feature is validated first and reported individually: invalid entries come
 | ---------- | ----------- | ----------------------------------------------------------------------------------------------------------------------------------- |
 | `features` | `unknown[]` | An array of GeoJSON Feature objects with Point, LineString, and/or Polygon geometry. Features without an `id` get a generated UUID. |
 
-**Returns:** [`AddFeatureResult[]`](/api/types#addfeatureresult) — one entry per input feature, in input order. Valid entries carry the id the feature has in the store; invalid entries carry the rejection `reason` (and the input `id`, if it had one). A duplicate id (already in the store, or repeated earlier in the array) counts as invalid; the first occurrence within the array is the one that gets added.
+**Returns:** [`AddFeatureResult[]`](/api/types#addfeatureresult) — one entry per input feature, in input order. Valid entries carry the id the feature has in the store; invalid entries carry the failure code in `reason` (`'invalid-feature'` or `'duplicate-id'`), the rejection text in `message`, and the input `id`, if it had one. A duplicate id (already in the store, or repeated earlier in the array) counts as invalid; the first occurrence within the array is the one that gets added.
 
 **Throws:** [`LibreDrawError`](/api/types#libredrawerror) if this instance has been destroyed.
 
@@ -384,7 +384,7 @@ draw.undo(); // removes the feature added above
 // Per-feature outcomes:
 const results = draw.addFeatures(features);
 results.forEach((r, i) => {
-  if (!r.valid) console.warn(`feature ${i} rejected: ${r.reason}`);
+  if (!r.valid) console.warn(`feature ${i} rejected (${r.reason}): ${r.message}`);
 });
 ```
 
@@ -402,7 +402,7 @@ Applies the same rules (Feature envelope, geometry type, finite coordinates with
 | --------- | --------- | ---------------------- |
 | `feature` | `unknown` | The object to validate |
 
-**Returns:** [`FeatureValidationResult`](/api/types#featurevalidationresult) — `{ valid: true, feature }` with a normalized copy, or `{ valid: false, reason }` with the same message `addFeatures` reports for that feature.
+**Returns:** [`FeatureValidationResult`](/api/types#featurevalidationresult) — `{ valid: true, feature }` with a normalized copy, or `{ valid: false, reason: 'invalid-feature', message }` with the same message `addFeatures` reports for that feature.
 
 **Throws:** [`LibreDrawError`](/api/types#libredrawerror) if this instance has been destroyed.
 
@@ -411,7 +411,7 @@ Applies the same rules (Feature envelope, geometry type, finite coordinates with
 ```ts
 const result = draw.validateFeature(candidate);
 if (!result.valid) {
-  showError(result.reason);
+  showError(result.message);
 }
 ```
 
@@ -485,7 +485,7 @@ The change is validated like [`addFeatures`](#addfeatures-features) input, recor
 | `id`    | `string`                                              | The feature to change                                                                |
 | `patch` | [`UpdateFeaturePatch`](/api/types#updatefeaturepatch) | `{ geometry?, properties? }`. Omit a field to keep it; `geometry` must keep its type |
 
-**Returns:** [`OperationResult`](/api/types#operationresult) — `{ ok: true, updated: [feature] }`, or `{ ok: false, reason }` with `'not-found'`, `'geometry-type-mismatch'`, `'empty-patch'`, or the validation message (see [`UpdateFeatureFailReason`](/api/types#updatefeaturefailreason)). Nothing changes on failure.
+**Returns:** [`OperationResult`](/api/types#operationresult) — `{ ok: true, updated: [feature] }`, or `{ ok: false, reason }` with `'not-found'`, `'geometry-type-mismatch'`, `'empty-patch'`, or `'invalid-feature'` with the validation message in `message` (see [`UpdateFeatureFailReason`](/api/types#updatefeaturefailreason)). Nothing changes on failure.
 
 **Throws:** [`LibreDrawError`](/api/types#libredrawerror) if this instance has been destroyed.
 
@@ -520,7 +520,7 @@ Same computation as the [`rotate` mode](/guide/modes#rotate) (screen-space rotat
 | `id`       | `string` | The feature to rotate                         |
 | `angleDeg` | `number` | Relative angle in degrees, positive clockwise |
 
-**Returns:** [`OperationResult`](/api/types#operationresult) — `{ ok: true, updated: [feature] }`, or `{ ok: false, reason }` with `'not-found'`, `'not-rotatable'` (a Point), `'no-rotation'` (0, a multiple of 360, or a non-finite angle; see [`RotateFailReason`](/api/types#rotatefailreason)), or the validation message when the rotated shape fails validation (near the antimeridian or the poles it can leave the coordinate range), which also emits [`editrejected`](/api/events#editrejected). Nothing changes on failure.
+**Returns:** [`OperationResult`](/api/types#operationresult) — `{ ok: true, updated: [feature] }`, or `{ ok: false, reason }` with `'not-found'`, `'not-rotatable'` (a Point), `'no-rotation'` (0, a multiple of 360, or a non-finite angle; see [`RotateFailReason`](/api/types#rotatefailreason)), or, when the rotated shape fails validation (near the antimeridian or the poles it can leave the coordinate range), the same code as the [`editrejected`](/api/events#editrejected) event it also emits, with the validation message in `message`. Nothing changes on failure.
 
 **Throws:** [`LibreDrawError`](/api/types#libredrawerror) if this instance has been destroyed.
 

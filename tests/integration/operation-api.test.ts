@@ -241,7 +241,8 @@ describe('operation API (updateFeature / rotate)', () => {
       const outOfRange = draw.rotate('edge', 90);
       expect(outOfRange.ok).toBe(false);
       if (outOfRange.ok) throw new Error('expected failure');
-      expect(outOfRange.reason).toContain('longitude');
+      expect(outOfRange.reason).toBe('out-of-range');
+      expect(outOfRange.message).toContain('longitude');
       expect(draw.getFeatureById('edge')?.geometry).toEqual(
         makeSquare('edge', 170, 80, 9).geometry
       );
