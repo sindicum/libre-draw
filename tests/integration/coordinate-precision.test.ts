@@ -47,6 +47,10 @@ function polygon(id: string, ring: Position[]): GeoJSON.Feature {
   };
 }
 
+function line(id: string, coordinates: Position[]): GeoJSON.Feature {
+  return { id, type: 'Feature', properties: {}, geometry: { type: 'LineString', coordinates } };
+}
+
 function point(id: string, position: Position): GeoJSON.Feature {
   return {
     id,
@@ -222,6 +226,63 @@ describe('coordinatePrecision', () => {
       expect(draw.addFeatures([polygon('tiny', TINY)])).toEqual([{ valid: true, id: 'tiny' }]);
     });
 
+    it('refuses a shape in which rounding merges two consecutive vertices', () => {
+      const draw = new LibreDraw(new FakeMap().asMap(), { toolbar: false });
+      draw.setFeatures(collection(polygon('keep', SQUARE)));
+      const merged: Position[] = [
+        [0, 0],
+        [10, 0],
+        [10.000000001, 0.000000001],
+        [10, 10],
+      ];
+      const merging = /^Invalid after rounding the coordinates: Positions 1 and 2 become identical/;
+
+      const [added] = draw.addFeatures([polygon('m', merged)]);
+      expect(added).toMatchObject({ valid: false, reason: 'invalid-feature', message: merging });
+      const [addedLine] = draw.addFeatures([
+        line('l', [
+          [1.000000001, 1],
+          [1.000000002, 1],
+        ]),
+      ]);
+      expect(addedLine).toMatchObject({ valid: false, reason: 'invalid-feature' });
+      expect(draw.setFeatures(collection(polygon('m', merged)))).toMatchObject({
+        ok: false,
+        reason: 'invalid-geojson',
+      });
+      expect(
+        draw.updateFeature('keep', {
+          geometry: { type: 'Polygon', coordinates: [[...merged, merged[0]]] },
+        })
+      ).toMatchObject({ ok: false, reason: 'invalid-feature', message: merging });
+      expect(draw.validateFeature(polygon('m', merged))).toMatchObject({ valid: false });
+
+      expect(draw.getFeatures().map((f) => f.id)).toEqual(['keep']);
+      expect(draw.canUndo()).toBe(false);
+    });
+
+    it('keeps consecutive positions that were identical before rounding', () => {
+      const draw = new LibreDraw(new FakeMap().asMap(), { toolbar: false });
+
+      const [result] = draw.addFeatures([
+        line('l', [
+          [1, 1],
+          [1, 1],
+          [2.000000001, 2],
+        ]),
+      ]);
+
+      expect(result).toEqual({ valid: true, id: 'l' });
+      expect(draw.getFeatureById('l')?.geometry).toEqual({
+        type: 'LineString',
+        coordinates: [
+          [1, 1],
+          [1, 1],
+          [2, 2],
+        ],
+      });
+    });
+
     it('rejects input that is invalid before rounding even if rounding would repair it', () => {
       const draw = new LibreDraw(new FakeMap().asMap(), { toolbar: false });
       const unclosed: GeoJSON.Feature = {
@@ -291,6 +352,179 @@ describe('coordinatePrecision', () => {
         expect(isOnGrid(feature)).toBe(true);
         expect(draw.getFeatureById(feature.id)).toEqual(feature);
       }
+    });
+
+    describe('refused when only rounding breaks the result', () => {
+      let coarse: LibreDraw;
+      let failed: string[];
+
+      beforeEach(() => {
+        coarse = new LibreDraw(new FakeMap().asMap(), { toolbar: false, coordinatePrecision: 0 });
+        coarse.addFeatures([polygon('a', SQUARE)]);
+        failed = [];
+        for (const type of [
+          'splitfailed',
+          'setbackfailed',
+          'cutfailed',
+          'reshapefailed',
+        ] as const) {
+          coarse.on(type, (e) => failed.push(`${type}:${e.reason}`));
+        }
+        coarse.on('editrejected', (e) => failed.push(`editrejected:${e.reason}`));
+      });
+
+      afterEach(() => {
+        expect(coarse.getFeatures().map((f) => f.id)).toEqual(['a']);
+        expect(outerRing(coarse, 'a')).toEqual([...SQUARE, SQUARE[0]]);
+        expect(coarse.canUndo()).toBe(true); // only the addFeatures step
+        coarse.undo();
+        expect(coarse.canUndo()).toBe(false);
+      });
+
+      it.each([
+        [
+          'split',
+          'splitfailed',
+          (d: LibreDraw) =>
+            d.split('a', [
+              [0.3, -1],
+              [0.3, 11],
+            ]),
+        ],
+        [
+          'cut',
+          'cutfailed',
+          (d: LibreDraw) =>
+            d.cut('a', [
+              [2, 2],
+              [2.3, 2],
+              [2, 2.3],
+            ]),
+        ],
+        [
+          'reshape',
+          'reshapefailed',
+          (d: LibreDraw) =>
+            d.reshape('a', [
+              [4, -1],
+              [4, 0.3],
+              [6, 0.3],
+              [6, -1],
+            ]),
+        ],
+      ])('%s returns invalid-result and emits %s', (_name, event, run) => {
+        expect(run(coarse)).toMatchObject({ ok: false, reason: 'invalid-result' });
+        expect(failed).toEqual([`${event}:invalid-result`]);
+      });
+    });
+
+    describe('rotate when rounding changes the outcome', () => {
+      it('returns the reason of the rounded shape, emits editrejected, and changes nothing', () => {
+        const coarse = new LibreDraw(new FakeMap().asMap(), {
+          toolbar: false,
+          coordinatePrecision: 0,
+        });
+        const thin: Position[] = [
+          [0, 0],
+          [2, 0],
+          [2, 1],
+        ];
+        coarse.addFeatures([polygon('a', thin)]);
+        const rejected: EditRejectedEvent[] = [];
+        coarse.on('editrejected', (e) => rejected.push(e));
+        const rotated = vi.fn();
+        coarse.on('rotate', rotated);
+
+        const result = coarse.rotate('a', 37);
+
+        expect(result).toMatchObject({ ok: false, reason: 'invalid-result' });
+        expect(!result.ok && result.message).toMatch(/^Invalid after rounding the coordinates: /);
+        expect(rejected).toEqual([
+          { action: 'rotate', reason: 'invalid-result', featureId: 'a', origin: 'api' },
+        ]);
+        expect(rotated).not.toHaveBeenCalled();
+        expect(outerRing(coarse, 'a')).toEqual([...thin, thin[0]]);
+        coarse.undo();
+        expect(coarse.canUndo()).toBe(false);
+      });
+
+      it('returns no-rotation when the rotated shape rounds back to the current one', () => {
+        const draw = new LibreDraw(new FakeMap().asMap(), {
+          toolbar: false,
+          coordinatePrecision: 5,
+        });
+        const small: Position[] = [
+          [139.7, 35.6],
+          [139.70001, 35.6],
+          [139.70001, 35.60001],
+          [139.7, 35.60001],
+        ];
+        draw.addFeatures([polygon('a', small)]);
+        const events: string[] = [];
+        draw.on('rotate', () => events.push('rotate'));
+        draw.on('historychange', () => events.push('historychange'));
+        draw.on('editrejected', () => events.push('editrejected'));
+
+        expect(draw.rotate('a', 2)).toEqual({ ok: false, reason: 'no-rotation' });
+
+        expect(events).toEqual([]);
+        expect(outerRing(draw, 'a')).toEqual([...small, small[0]]);
+        draw.undo();
+        expect(draw.canUndo()).toBe(false);
+      });
+    });
+
+    it('union returns invalid-result and emits unionfailed when rounding breaks the outline', () => {
+      const coarse = new LibreDraw(new FakeMap().asMap(), {
+        toolbar: false,
+        coordinatePrecision: 0,
+      });
+      // The outline crosses x = 10 at y = 1/3, which rounds onto the corner (10, 0).
+      coarse.addFeatures([
+        polygon('a', SQUARE),
+        polygon('b', [
+          [9, 0],
+          [12, 0],
+          [12, 1],
+        ]),
+      ]);
+      const failed = vi.fn();
+      coarse.on('unionfailed', failed);
+
+      expect(coarse.union(['a', 'b'])).toMatchObject({ ok: false, reason: 'invalid-result' });
+
+      expect(failed).toHaveBeenCalledWith(expect.objectContaining({ reason: 'invalid-result' }));
+      expect(coarse.getFeatures().map((f) => f.id)).toEqual(['a', 'b']);
+      coarse.undo();
+      expect(coarse.canUndo()).toBe(false);
+    });
+
+    it('setback returns invalid-result when the result rounds back to the original outline', () => {
+      const coarse = new LibreDraw(new FakeMap().asMap(), {
+        toolbar: false,
+        coordinatePrecision: 5,
+      });
+      const small: Position[] = [
+        [139.7, 35.6],
+        [139.701, 35.6],
+        [139.701, 35.601],
+        [139.7, 35.601],
+      ];
+      coarse.addFeatures([polygon('a', small)]);
+      const failed = vi.fn();
+      coarse.on('setbackfailed', failed);
+
+      expect(coarse.setback('a', { index: 0 }, 0.3)).toEqual({
+        ok: false,
+        reason: 'invalid-result',
+      });
+
+      expect(failed).toHaveBeenCalledWith(
+        expect.objectContaining({ reason: 'invalid-result', featureId: 'a' })
+      );
+      expect(outerRing(coarse, 'a')).toEqual([...small, small[0]]);
+      coarse.undo();
+      expect(coarse.canUndo()).toBe(false);
     });
 
     it('union stores and returns rounded coordinates', () => {
@@ -443,6 +677,39 @@ describe('coordinatePrecision', () => {
       expect(draw.canUndo()).toBe(false);
     });
 
+    it('puts a line vertex back when rounding would merge it with its neighbour', () => {
+      const draw = new LibreDraw(map.asMap(), { toolbar: false, coordinatePrecision: 0 });
+      draw.setFeatures(
+        collection(
+          line('l', [
+            [10, 10],
+            [60, 60],
+          ])
+        )
+      );
+      const rejected: EditRejectedEvent[] = [];
+      draw.on('editrejected', (e) => rejected.push(e));
+      draw.setMode('select');
+      clickAt(map, 35, 35);
+
+      pressAt(map, 60, 60);
+      moveTo(30, 30);
+      moveTo(10.4, 10.3);
+      releaseAt(10.4, 10.3);
+
+      expect(rejected).toEqual([
+        { action: 'move-vertex', reason: 'invalid-result', featureId: 'l', origin: 'user' },
+      ]);
+      expect(draw.getFeatureById('l')?.geometry).toEqual({
+        type: 'LineString',
+        coordinates: [
+          [10, 10],
+          [60, 60],
+        ],
+      });
+      expect(draw.canUndo()).toBe(false);
+    });
+
     it('moves a dragged feature by the rounded delta, keeping its exact shape', () => {
       const draw = new LibreDraw(map.asMap(), { toolbar: false, coordinatePrecision: 2 });
       draw.addFeatures([polygon('t', TRIANGLE)]);
@@ -494,6 +761,32 @@ describe('coordinatePrecision', () => {
         type: 'Point',
         coordinates: [80.12, 70.99],
       });
+    });
+
+    it('records nothing when a rotation in rotate mode rounds back to the current shape', () => {
+      const draw = new LibreDraw(map.asMap(), { coordinatePrecision: 0 });
+      draw.setFeatures(
+        collection(
+          polygon(
+            'a',
+            SQUARE.map(([x, y]) => [x * 2 + 20, y * 2 + 20])
+          )
+        )
+      );
+      const rotated = vi.fn();
+      draw.on('rotate', rotated);
+      draw.setMode('rotate');
+      clickAt(map, 30, 30);
+      const rotateMode = (draw as unknown as { rotateMode: { executeFromUi(a: number): void } })
+        .rotateMode;
+
+      rotateMode.executeFromUi(0.5);
+
+      expect(rotated).not.toHaveBeenCalled();
+      expect(outerRing(draw, 'a')).toEqual(
+        [...SQUARE, SQUARE[0]].map(([x, y]) => [x * 2 + 20, y * 2 + 20])
+      );
+      expect(draw.canUndo()).toBe(false);
     });
 
     it('rounds a rotation only when it is committed', () => {

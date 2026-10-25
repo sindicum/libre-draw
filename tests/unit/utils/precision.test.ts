@@ -33,7 +33,16 @@ describe('createCoordinateRounder', () => {
 
   it.each([3, 8, 15])('returns an already rounded value unchanged at %i places', (places) => {
     const round = createCoordinateRounder(places);
-    for (const value of [179.999999999999, -89.12345678901234, 0.1 + 0.2, 1e-9, 139.7]) {
+    // 4.0025988456909545 drifts by one unit in the last place when scaled by 10 ** 15.
+    const values = [
+      179.999999999999,
+      -89.12345678901234,
+      0.1 + 0.2,
+      1e-9,
+      139.7,
+      4.0025988456909545,
+    ];
+    for (const value of values) {
       const once = round.position([value, value]);
       expect(round.position(once)).toEqual(once);
     }

@@ -1,5 +1,6 @@
 import type { OperationContext } from './OperationContext';
 import type { OperationResult, RotateFailReason } from '../types/operations';
+import type { LibreDrawFeature } from '../types/features';
 import { UpdateAction } from '../types/features';
 import { isNoRotation, rotateFeature } from '../utils/rotate';
 import { cloneFeature } from '../utils/featureSnapshot';
@@ -12,12 +13,13 @@ import { rejectedShapeReason, tryValidateFeature } from '../validation/geojson';
  * The rotation starts from whatever shape the store currently holds, so a
  * caller that shows a preview in the store must write the committed shape
  * back first. Points have no orientation and are rejected; an angle that
- * would not change the shape (0, a multiple of 360, or a non-finite value)
- * is rejected too, so the history never records a no-op. The rotated shape
- * is rounded and goes through the same validation as `addFeatures` input:
- * near the antimeridian or the poles a valid feature can rotate out of the
- * coordinate range, and that result is refused rather than stored, with
- * an `editrejected` event (`action: 'rotate'`).
+ * would not change the shape (0, a multiple of 360, a non-finite value, or
+ * one too small to survive rounding) is rejected too, so the history never
+ * records a no-op. The rotated shape is rounded and goes through the same
+ * validation as `addFeatures` input: near the antimeridian or the poles a
+ * valid feature can rotate out of the coordinate range, and that result is
+ * refused rather than stored, with an `editrejected` event
+ * (`action: 'rotate'`).
  *
  * @returns `updated: [rotated]` on success; otherwise `not-found`,
  *   `not-rotatable`, `no-rotation`, or the `editrejected` reason with the
@@ -47,6 +49,9 @@ export function rotate(context: OperationContext, id: string, angleDeg: number):
     return { ok: false, reason, message: validation.message };
   }
   const rotated = validation.feature;
+  if (sameGeometry(rotated, current)) {
+    return { ok: false, reason: 'no-rotation' };
+  }
 
   context.store.update(id, rotated);
   context.history.push(new UpdateAction(id, current, rotated));
@@ -57,4 +62,9 @@ export function rotate(context: OperationContext, id: string, angleDeg: number):
   });
 
   return { ok: true, created: [], updated: [cloneFeature(rotated)], deleted: [] };
+}
+
+/** Whether two features of the same type have identical coordinates, position by position. */
+function sameGeometry(a: LibreDrawFeature, b: LibreDrawFeature): boolean {
+  return JSON.stringify(a.geometry.coordinates) === JSON.stringify(b.geometry.coordinates);
 }

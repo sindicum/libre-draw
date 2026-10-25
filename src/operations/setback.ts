@@ -33,7 +33,8 @@ const EXTENDED_OFFSET_LINE_RATIO = 1.0;
  * `has-holes`.
  *
  * The result is validated like `addFeatures` input before anything is
- * written; an unusable result is `invalid-result`.
+ * written; an unusable result, or one that rounds back to the original
+ * outline (a distance below the coordinate precision), is `invalid-result`.
  *
  * @returns `created: [result], deleted: [original]` on success; otherwise
  *   `not-found`, `not-polygon`, `invalid-edge`, `invalid-distance`,
@@ -73,7 +74,7 @@ export function setback(
     distanceMeters,
     context.round
   );
-  if (!remaining) {
+  if (!remaining || sameOutline(remaining, current)) {
     context.events.emit('setbackfailed', { reason: 'invalid-result', featureId: current.id });
     return { ok: false, reason: 'invalid-result' };
   }
@@ -133,4 +134,23 @@ function computeSetbackResult(
   );
   const validation = tryValidateFeature(isASetbackBand ? featureB : featureA, round);
   return validation.valid ? validation.feature : undefined;
+}
+
+/**
+ * Whether two single-ring polygons have the same outline: the same vertices
+ * in the same cyclic order, from any start and in either direction.
+ */
+function sameOutline(a: LibreDrawFeature, b: LibreDrawFeature): boolean {
+  const ringA = getVertices(a);
+  const ringB = getVertices(b);
+  if (ringA.length !== ringB.length) return false;
+  const n = ringA.length;
+  const matches = (ring: Position[]) =>
+    ringA.some((_, offset) =>
+      ring.every((position, i) => {
+        const other = ringA[(i + offset) % n];
+        return position[0] === other[0] && position[1] === other[1];
+      })
+    );
+  return matches(ringB) || matches([...ringB].reverse());
 }

@@ -237,6 +237,60 @@ describe('rotate', () => {
       });
     });
 
+    it('classifies a rotation that only rounding breaks by the rounded shape', () => {
+      // Valid after a 41° turn, but at 0 decimal places the turned ring crosses itself.
+      const notched: LibreDrawFeature = {
+        id: 'n',
+        type: 'Feature',
+        geometry: {
+          type: 'Polygon',
+          coordinates: [
+            [
+              [0, 0],
+              [4, 0],
+              [4, 4],
+              [3, 1],
+              [0, 4],
+              [0, 0],
+            ],
+          ],
+        },
+        properties: {},
+      };
+      const round = createCoordinateRounder(0);
+      const { context, features, push, emit } = createContext([notched], round);
+      const before = features.get('n');
+
+      const result = rotate(context, 'n', 41);
+
+      expect(result).toEqual({
+        ok: false,
+        reason: 'self-intersection',
+        message: expect.stringMatching(/^Invalid after rounding the coordinates: /),
+      });
+      expect(features.get('n')).toBe(before);
+      expect(push).not.toHaveBeenCalled();
+      expect(emit).toHaveBeenCalledOnce();
+      expect(emit).toHaveBeenCalledWith('editrejected', {
+        action: 'rotate',
+        reason: 'self-intersection',
+        featureId: 'n',
+      });
+    });
+
+    it('rejects a rotation that rounds back to the current shape as no-rotation', () => {
+      const { context, features, push, emit } = createContext(
+        [makeSquare()],
+        createCoordinateRounder(0)
+      );
+      const before = features.get('sq');
+
+      expect(rotate(context, 'sq', 1)).toEqual({ ok: false, reason: 'no-rotation' });
+      expect(features.get('sq')).toBe(before);
+      expect(push).not.toHaveBeenCalled();
+      expect(emit).not.toHaveBeenCalled();
+    });
+
     it('checks the id before the angle', () => {
       const { context } = createContext([]);
       expect(rotate(context, 'missing', 0)).toEqual({ ok: false, reason: 'not-found' });

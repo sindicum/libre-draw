@@ -119,7 +119,8 @@ export type UpdateFeatureFailReason =
  *
  * - `not-found`: no feature has that id
  * - `not-rotatable`: the feature is a Point
- * - `no-rotation`: the angle is 0, a multiple of 360, or not finite, so nothing would change
+ * - `no-rotation`: the angle is 0, a multiple of 360, or not finite, or the
+ *   rotated shape rounds back to the current one, so nothing would change
  * - `out-of-range`: the rotated shape would leave the coordinate range
  *   (near the antimeridian or the poles)
  * - `self-intersection` / `ring-intersection` / `hole-outside` /

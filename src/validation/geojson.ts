@@ -295,16 +295,49 @@ export function validateFeature(feature: unknown): LibreDrawFeature {
 /** Prefix of the message when a feature is valid but its rounded shape is not. */
 const ROUNDED_PREFIX = 'Invalid after rounding the coordinates: ';
 
+/** The position lists of a geometry, each in order (a Point has none). */
+function positionLists(feature: LibreDrawFeature): Position[][] {
+  const { geometry } = feature;
+  if (geometry.type === 'Polygon') return geometry.coordinates;
+  if (geometry.type === 'LineString') return [geometry.coordinates];
+  return [];
+}
+
+/**
+ * Reject a rounded shape in which two consecutive positions became
+ * identical. Rounding maps positions one to one, so the lists line up by
+ * index; positions that were already identical before rounding are left
+ * alone.
+ */
+function checkRoundingMerges(before: LibreDrawFeature, after: LibreDrawFeature): void {
+  const beforeLists = positionLists(before);
+  positionLists(after).forEach((list, l) => {
+    for (let i = 0; i < list.length - 1; i++) {
+      if (
+        positionsEqual(list[i], list[i + 1]) &&
+        !positionsEqual(beforeLists[l][i], beforeLists[l][i + 1])
+      ) {
+        throw new LibreDrawError(
+          `Positions ${i} and ${i + 1} become identical. Rounding must not merge consecutive vertices.`
+        );
+      }
+    }
+  });
+}
+
 /**
  * Validate a feature and, with a rounder, round the validated copy and
  * validate the rounded shape too. Input that is invalid before rounding is
- * rejected even if rounding would repair it.
+ * rejected even if rounding would repair it, and rounding must not merge
+ * consecutive vertices.
  */
 function validateRoundedFeature(feature: unknown, round?: CoordinateRounder): LibreDrawFeature {
   const validated = validateFeature(feature);
   if (!round) return validated;
   try {
-    return validateFeature(round.feature(validated));
+    const rounded = validateFeature(round.feature(validated));
+    checkRoundingMerges(validated, rounded);
+    return rounded;
   } catch (err) {
     if (err instanceof LibreDrawError) {
       throw new LibreDrawError(`${ROUNDED_PREFIX}${err.message}`);
@@ -463,8 +496,7 @@ export function roundingRejection(
   round: CoordinateRounder
 ): { reason: RejectedShapeReason; message: string } | undefined {
   if (!tryValidateFeature(shape).valid) return undefined;
-  const rounded = round.feature(shape);
-  const validation = tryValidateFeature(rounded);
+  const validation = tryValidateFeature(shape, round);
   if (validation.valid) return undefined;
-  return { reason: rejectedShapeReason(rounded), message: validation.message };
+  return { reason: rejectedShapeReason(round.feature(shape)), message: validation.message };
 }
