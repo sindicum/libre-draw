@@ -46,7 +46,7 @@ export function union(context: OperationContext, ids: string[]): OperationResult
 
   // The geometry engine's output is checked like `addFeatures` input; a
   // ring it produced that is not a usable polygon is `invalid-result`.
-  const validation = tryValidateFeature(unionResult.feature);
+  const validation = tryValidateFeature(unionResult.feature, context.round);
   if (!validation.valid) {
     context.events.emit('unionfailed', {
       reason: 'invalid-result',

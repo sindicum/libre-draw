@@ -193,19 +193,21 @@ interface LibreDrawOptions {
   locale?: Locale;
   messages?: Partial<Messages>;
   inputMethod?: InputMethod;
+  coordinatePrecision?: number | false;
 }
 ```
 
-| Property       | Type                                  | Default                             | Description                                                                                                                                |
-| -------------- | ------------------------------------- | ----------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------ |
-| `toolbar`      | `boolean \| ToolbarOptions`           | `true`                              | Whether to show the toolbar, or toolbar configuration. Set to `false` for headless mode.                                                   |
-| `keyboard`     | `boolean \| KeyboardOptions`          | `true`                              | Whether to enable keyboard shortcuts, or shortcut configuration. See [`KeyboardOptions`](#keyboardoptions).                                |
-| `historyLimit` | `number`                              | `100`                               | Maximum number of undo/redo history entries                                                                                                |
-| `layers`       | [`LibreDrawLayer[]`](#libredrawlayer) | [`DEFAULT_LAYERS`](#default-layers) | MapLibre layer definitions to draw with. They replace the defaults entirely and survive `map.setStyle()`. See [Layer Types](#layer-types). |
-| `snap`         | `boolean \| SnapConfig`               | `true`                              | Whether to enable snapping, or snap configuration ([`SnapConfig`](#snapconfig)). Set to `false` to disable.                                |
-| `locale`       | [`Locale`](#locale)                   | `'en'`                              | Language of the toolbar and its popups. Throws `LibreDrawError` for an unknown value.                                                      |
-| `messages`     | `Partial<Messages>`                   | `{}`                                | Overrides for individual UI strings, merged onto the selected locale. See [`Messages`](#messages).                                         |
-| `inputMethod`  | [`InputMethod`](#inputmethod)         | `'tap'`                             | How the drawing modes take a point. Throws `LibreDrawError` for an unknown value.                                                          |
+| Property              | Type                                  | Default                             | Description                                                                                                                                                                                                                                                 |
+| --------------------- | ------------------------------------- | ----------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `toolbar`             | `boolean \| ToolbarOptions`           | `true`                              | Whether to show the toolbar, or toolbar configuration. Set to `false` for headless mode.                                                                                                                                                                    |
+| `keyboard`            | `boolean \| KeyboardOptions`          | `true`                              | Whether to enable keyboard shortcuts, or shortcut configuration. See [`KeyboardOptions`](#keyboardoptions).                                                                                                                                                 |
+| `historyLimit`        | `number`                              | `100`                               | Maximum number of undo/redo history entries                                                                                                                                                                                                                 |
+| `layers`              | [`LibreDrawLayer[]`](#libredrawlayer) | [`DEFAULT_LAYERS`](#default-layers) | MapLibre layer definitions to draw with. They replace the defaults entirely and survive `map.setStyle()`. See [Layer Types](#layer-types).                                                                                                                  |
+| `snap`                | `boolean \| SnapConfig`               | `true`                              | Whether to enable snapping, or snap configuration ([`SnapConfig`](#snapconfig)). Set to `false` to disable.                                                                                                                                                 |
+| `locale`              | [`Locale`](#locale)                   | `'en'`                              | Language of the toolbar and its popups. Throws `LibreDrawError` for an unknown value.                                                                                                                                                                       |
+| `messages`            | `Partial<Messages>`                   | `{}`                                | Overrides for individual UI strings, merged onto the selected locale. See [`Messages`](#messages).                                                                                                                                                          |
+| `inputMethod`         | [`InputMethod`](#inputmethod)         | `'tap'`                             | How the drawing modes take a point. Throws `LibreDrawError` for an unknown value.                                                                                                                                                                           |
+| `coordinatePrecision` | `number \| false`                     | `8`                                 | Decimal places every stored longitude / latitude is rounded to: an integer from `0` to `15`, or `false` to keep coordinates as given. See [Coordinate precision](/guide/getting-started#coordinate-precision). Throws `LibreDrawError` for any other value. |
 
 ---
 
@@ -579,14 +581,14 @@ type RotateFailReason =
   | 'invalid-result';
 ```
 
-| Value                                                                              | Meaning                                                                                 |
-| ---------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------- |
-| `'not-found'`                                                                      | No feature has that id                                                                  |
-| `'not-rotatable'`                                                                  | The feature is a Point                                                                  |
-| `'no-rotation'`                                                                    | The angle is 0, a multiple of 360, or not finite, so nothing would change               |
-| `'out-of-range'`                                                                   | The rotated shape would leave the coordinate range (near the antimeridian or the poles) |
-| `'self-intersection'` / `'ring-intersection'` / `'hole-outside'` / `'hole-nested'` | The rotated polygon's rings would become invalid                                        |
-| `'invalid-result'`                                                                 | The rotated shape failed validation for another reason                                  |
+| Value                                                                              | Meaning                                                                                                                        |
+| ---------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------ |
+| `'not-found'`                                                                      | No feature has that id                                                                                                         |
+| `'not-rotatable'`                                                                  | The feature is a Point                                                                                                         |
+| `'no-rotation'`                                                                    | The angle is 0, a multiple of 360, or not finite, or the rotated shape rounds back to the current one, so nothing would change |
+| `'out-of-range'`                                                                   | The rotated shape would leave the coordinate range (near the antimeridian or the poles)                                        |
+| `'self-intersection'` / `'ring-intersection'` / `'hole-outside'` / `'hole-nested'` | The rotated polygon's rings would become invalid                                                                               |
+| `'invalid-result'`                                                                 | The rotated shape failed validation for another reason                                                                         |
 
 ---
 

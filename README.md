@@ -177,6 +177,7 @@ interface LibreDrawOptions {
   locale?: 'en' | 'ja'; // UI language. Default: 'en'
   messages?: Partial<Messages>; // Override individual UI strings
   inputMethod?: 'tap' | 'reticle'; // How drawing modes take a point. Default: 'tap'
+  coordinatePrecision?: number | false; // Decimal places of stored coordinates (0–15). Default: 8
 }
 ```
 

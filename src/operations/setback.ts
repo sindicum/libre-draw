@@ -1,6 +1,11 @@
 import type { OperationContext } from './OperationContext';
 import type { EdgeRef, OperationResult } from '../types/operations';
-import type { LibreDrawFeature, PolygonGeometry, Position } from '../types/features';
+import type {
+  CoordinateRounder,
+  LibreDrawFeature,
+  PolygonGeometry,
+  Position,
+} from '../types/features';
 import { SetbackAction } from '../types/features';
 import { cloneFeature } from '../utils/featureSnapshot';
 import { getVertices } from '../utils/geometry';
@@ -28,7 +33,8 @@ const EXTENDED_OFFSET_LINE_RATIO = 1.0;
  * `has-holes`.
  *
  * The result is validated like `addFeatures` input before anything is
- * written; an unusable result is `invalid-result`.
+ * written; an unusable result, or one that rounds back to the original
+ * outline (a distance below the coordinate precision), is `invalid-result`.
  *
  * @returns `created: [result], deleted: [original]` on success; otherwise
  *   `not-found`, `not-polygon`, `invalid-edge`, `invalid-distance`,
@@ -61,8 +67,14 @@ export function setback(
     return { ok: false, reason: 'invalid-distance' };
   }
 
-  const remaining = computeSetbackResult(current, vertices, edgeIndex, distanceMeters);
-  if (!remaining) {
+  const remaining = computeSetbackResult(
+    current,
+    vertices,
+    edgeIndex,
+    distanceMeters,
+    context.round
+  );
+  if (!remaining || sameOutline(remaining, current)) {
     context.events.emit('setbackfailed', { reason: 'invalid-result', featureId: current.id });
     return { ok: false, reason: 'invalid-result' };
   }
@@ -88,14 +100,15 @@ export function setback(
 /**
  * Split the polygon along the extended offset line and keep the part that
  * does not contain the original edge. `undefined` when the offset line
- * cannot be built, the split fails, or the kept part is not a valid
- * polygon.
+ * cannot be built, the split fails, or the kept part, once rounded, is not
+ * a valid polygon.
  */
 function computeSetbackResult(
   feature: LibreDrawFeature,
   vertices: Position[],
   edgeIndex: number,
-  distanceMeters: number
+  distanceMeters: number,
+  round: CoordinateRounder
 ): LibreDrawFeature | undefined {
   let extendedStart: Position;
   let extendedEnd: Position;
@@ -119,6 +132,25 @@ function computeSetbackResult(
   const isASetbackBand = ringA.some(
     (v) => Math.abs(v[0] - edgeStart[0]) < EPSILON && Math.abs(v[1] - edgeStart[1]) < EPSILON
   );
-  const validation = tryValidateFeature(isASetbackBand ? featureB : featureA);
+  const validation = tryValidateFeature(isASetbackBand ? featureB : featureA, round);
   return validation.valid ? validation.feature : undefined;
+}
+
+/**
+ * Whether two single-ring polygons have the same outline: the same vertices
+ * in the same cyclic order, from any start and in either direction.
+ */
+function sameOutline(a: LibreDrawFeature, b: LibreDrawFeature): boolean {
+  const ringA = getVertices(a);
+  const ringB = getVertices(b);
+  if (ringA.length !== ringB.length) return false;
+  const n = ringA.length;
+  const matches = (ring: Position[]) =>
+    ringA.some((_, offset) =>
+      ring.every((position, i) => {
+        const other = ringA[(i + offset) % n];
+        return position[0] === other[0] && position[1] === other[1];
+      })
+    );
+  return matches(ringB) || matches([...ringB].reverse());
 }

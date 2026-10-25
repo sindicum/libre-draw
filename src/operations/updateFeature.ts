@@ -9,7 +9,7 @@ import { cloneFeature } from '../utils/featureSnapshot';
  *
  * Every check runs before anything is written, so a failure leaves the
  * store, the history, and the listeners untouched. The candidate goes
- * through the same validation as `addFeatures`, and a rejected geometry
+ * through the same rounding and validation as `addFeatures`, and a rejected geometry
  * reports `invalid-feature` with that validation message.
  *
  * @returns `updated: [feature]` on success; otherwise `not-found`,
@@ -33,14 +33,17 @@ export function updateFeature(
     return { ok: false, reason: 'geometry-type-mismatch' };
   }
 
-  // Validation also normalizes: it returns a deep copy with the coordinates
-  // and properties detached from the caller's objects.
-  const validation = tryValidateFeature({
-    type: 'Feature',
-    id,
-    geometry: patch.geometry ?? current.geometry,
-    properties: patch.properties ?? current.properties,
-  });
+  // Validation also normalizes: it returns a rounded deep copy with the
+  // coordinates and properties detached from the caller's objects.
+  const validation = tryValidateFeature(
+    {
+      type: 'Feature',
+      id,
+      geometry: patch.geometry ?? current.geometry,
+      properties: patch.properties ?? current.properties,
+    },
+    context.round
+  );
   if (!validation.valid) {
     return { ok: false, reason: validation.reason, message: validation.message };
   }

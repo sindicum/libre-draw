@@ -5,6 +5,7 @@ import type { LibreDrawFeature, Position } from '../../../src/types/features';
 import { UpdateAction } from '../../../src/types/features';
 import type { InputType, NormalizedInputEvent } from '../../../src/types/input';
 import { attachSelection } from '../../helpers/selection';
+import { createCoordinateRounder } from '../../../src/utils/precision';
 
 function makeSquare(id: string, x: number, size: number): LibreDrawFeature {
   return {
@@ -109,6 +110,7 @@ describe('ReshapeMode', () => {
         setDragPan: vi.fn(),
         getSetbackDistance: () => 10,
         getSnapConfig: () => ({ enabled: false, threshold: 10 }),
+        round: createCoordinateRounder(false),
         getViewportBounds: () => ({ west: -180, south: -90, east: 180, north: 90 }),
       },
       () => mode

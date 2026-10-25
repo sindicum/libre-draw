@@ -5,6 +5,7 @@ import { UnionAction } from '../../../src/types/features';
 import type { LibreDrawFeature } from '../../../src/types/features';
 import type { NormalizedInputEvent, InputType } from '../../../src/types/input';
 import { attachSelection } from '../../helpers/selection';
+import { createCoordinateRounder } from '../../../src/utils/precision';
 
 function makeSquare(id: string, x: number, y: number, size = 10): LibreDrawFeature {
   return {
@@ -98,6 +99,7 @@ function createHarness(initial: LibreDrawFeature[]): TestHarness {
     setDragPan: vi.fn(),
     getSetbackDistance: () => 10,
     getSnapConfig: () => ({ enabled: false, threshold: 10 }),
+    round: createCoordinateRounder(false),
     getViewportBounds: () => ({ west: -180, south: -90, east: 180, north: 90 }),
   });
 

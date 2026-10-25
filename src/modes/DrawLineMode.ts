@@ -6,6 +6,7 @@ import { cloneFeature } from '../utils/featureSnapshot';
 import type { ModeContext } from '../core/ModeContext';
 import { findSnapTarget } from '../utils/snap';
 import { createFeatureId } from '../utils/id';
+import { roundingRejection } from '../validation/geojson';
 import { LONG_PRESS_MS, clickTolerance, pointerTravel } from '../input/gestures';
 import { findDraftVertexTarget, finishRadius, type DraftVertexTarget } from './draftVertexTarget';
 
@@ -310,8 +311,8 @@ export class DrawLineMode implements DraftCapableMode {
     let completed = true;
     if (this.onComplete) {
       completed = this.onComplete(line);
-    } else {
-      this.createFeature(line);
+    } else if (!this.createFeature(line)) {
+      return false;
     }
 
     // Reset state for next drawing and notify listeners.
@@ -325,9 +326,12 @@ export class DrawLineMode implements DraftCapableMode {
   }
 
   /**
-   * Add a LineString feature with the given positions as one history step.
+   * Add a LineString feature with the given positions, rounded, as one
+   * history step. When rounding alone makes the line invalid, nothing is
+   * added, the finish is reported as refused, and the draft stays.
+   * @returns Whether the feature was added.
    */
-  private createFeature(line: Position[]): void {
+  private createFeature(line: Position[]): boolean {
     const feature: LibreDrawFeature = {
       id: createFeatureId(),
       type: 'Feature',
@@ -337,12 +341,18 @@ export class DrawLineMode implements DraftCapableMode {
       },
       properties: {},
     };
+    const rejection = roundingRejection(feature, this.context.round);
+    if (rejection) {
+      this.context.events.emit('editrejected', { action: 'finish', reason: rejection.reason });
+      return false;
+    }
 
-    const stored = this.context.store.add(feature);
+    const stored = this.context.store.add(this.context.round.feature(feature));
     const action = new CreateAction(stored);
     this.context.history.push(action);
     this.context.events.emit('create', { feature: cloneFeature(stored) });
     this.context.render.renderFeatures();
+    return true;
   }
 
   /**

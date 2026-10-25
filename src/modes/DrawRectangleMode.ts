@@ -7,6 +7,7 @@ import type { ModeContext } from '../core/ModeContext';
 import { findSnapTarget } from '../utils/snap';
 import { LONG_PRESS_MS, clickTolerance, pointerTravel } from '../input/gestures';
 import { createFeatureId } from '../utils/id';
+import { roundingRejection } from '../validation/geojson';
 
 /**
  * Build a closed, counter-clockwise rectangle ring from two opposite corners.
@@ -274,8 +275,11 @@ export class DrawRectangleMode implements DraftCapableMode {
   }
 
   /**
-   * Attempt to finalize the rectangle with the given opposite corner.
-   * @returns `true` when a feature was created, `false` for a degenerate span.
+   * Attempt to finalize the rectangle with the given opposite corner. The
+   * rectangle is rounded; when rounding alone makes it invalid, the close
+   * is reported as refused and the first corner stays.
+   * @returns `true` when a feature was created, `false` for a degenerate span
+   *   or a refused close.
    */
   private tryFinalize(secondCorner: Position): boolean {
     if (this.firstCorner === null) return false;
@@ -291,8 +295,13 @@ export class DrawRectangleMode implements DraftCapableMode {
       },
       properties: {},
     };
+    const rejection = roundingRejection(feature, this.context.round);
+    if (rejection) {
+      this.context.events.emit('editrejected', { action: 'close', reason: rejection.reason });
+      return false;
+    }
 
-    const stored = this.context.store.add(feature);
+    const stored = this.context.store.add(this.context.round.feature(feature));
     const action = new CreateAction(stored);
     this.context.history.push(action);
     this.context.events.emit('create', { feature: cloneFeature(stored) });

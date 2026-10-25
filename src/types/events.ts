@@ -96,8 +96,9 @@ export interface SplitFailedEvent {
  * - `has-holes`: the target Polygon has an inner ring, or the edge is not
  *   on the outer ring
  * - `invalid-result`: the offset line cannot be built, it does not divide the
- *   polygon in two (the distance reaches past the opposite side), or the
- *   remaining part failed validation
+ *   polygon in two (the distance reaches past the opposite side), the
+ *   remaining part failed validation, or it rounds back to the original
+ *   outline (a distance below the coordinate precision)
  *
  * Later versions may add or remove values, so the type also accepts any
  * other string: handle values you do not know.
@@ -322,7 +323,8 @@ export interface HistoryChangeEvent {
  * The edit an `editrejected` event refused.
  *
  * - `add-vertex`: a vertex added while drawing a polygon (or a cut's cutter)
- * - `close`: closing the polygon being drawn
+ * - `close`: closing the polygon or rectangle being drawn
+ * - `finish`: finishing the line being drawn
  * - `move-vertex`: dragging a vertex of the selected feature
  * - `delete-vertex`: deleting a vertex of the selected feature
  * - `rotate`: a rotation, in rotate mode or through `rotate()`
@@ -333,6 +335,7 @@ export interface HistoryChangeEvent {
 export type EditRejectedAction =
   | 'add-vertex'
   | 'close'
+  | 'finish'
   | 'move-vertex'
   | 'delete-vertex'
   | 'rotate'
@@ -347,7 +350,9 @@ export type EditRejectedAction =
  * - `hole-nested`: a hole would lie inside another hole
  * - `out-of-range`: the rotated shape would leave the coordinate range
  *   (near the antimeridian or the poles)
- * - `invalid-result`: the rotated shape failed validation for another reason
+ * - `invalid-result`: the shape failed validation for another reason, such as
+ *   rounding to `coordinatePrecision` flattening it or merging two
+ *   consecutive vertices
  *
  * Later versions may add or remove values, so the type also accepts any
  * other string: handle values you do not know.

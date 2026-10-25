@@ -2,7 +2,8 @@ import { describe, expect, it, vi } from 'vitest';
 import { updateFeature } from '../../../src/operations/updateFeature';
 import type { OperationContext } from '../../../src/operations/OperationContext';
 import { UpdateAction } from '../../../src/types/features';
-import type { LibreDrawFeature } from '../../../src/types/features';
+import type { CoordinateRounder, LibreDrawFeature } from '../../../src/types/features';
+import { createCoordinateRounder } from '../../../src/utils/precision';
 import { validateFeature } from '../../../src/validation/geojson';
 
 function makeSquare(id = 'sq'): LibreDrawFeature {
@@ -40,7 +41,10 @@ function makeLine(id = 'ln'): LibreDrawFeature {
   };
 }
 
-function createContext(initial: LibreDrawFeature[]) {
+function createContext(
+  initial: LibreDrawFeature[],
+  round: CoordinateRounder = createCoordinateRounder(false)
+) {
   const features = new Map<string, LibreDrawFeature>();
   for (const f of initial) features.set(f.id, f);
   const update = vi.fn((id: string, f: LibreDrawFeature) => {
@@ -64,6 +68,7 @@ function createContext(initial: LibreDrawFeature[]) {
     },
     history: { push },
     events: { emit },
+    round,
   };
   return { context, features, update, push, emit };
 }
@@ -198,6 +203,61 @@ describe('updateFeature', () => {
       if (result.ok) throw new Error('expected failure');
       expect(result.reason).toBe('invalid-feature');
       expect(result.message).toContain('longitude');
+    });
+  });
+
+  describe('rounding', () => {
+    it('stores the rounded geometry', () => {
+      const { context, features } = createContext([makeLine()], createCoordinateRounder(2));
+
+      const result = updateFeature(context, 'ln', {
+        geometry: {
+          type: 'LineString',
+          coordinates: [
+            [10.123, 0],
+            [14, 0.987],
+          ],
+        },
+      });
+
+      const rounded = {
+        type: 'LineString',
+        coordinates: [
+          [10.12, 0],
+          [14, 0.99],
+        ],
+      };
+      expect(result.ok && result.updated[0].geometry).toEqual(rounded);
+      expect(features.get('ln')?.geometry).toEqual(rounded);
+    });
+
+    it('rejects a geometry in which rounding merges consecutive positions', () => {
+      const { context, features, push, emit } = createContext(
+        [makeLine()],
+        createCoordinateRounder(2)
+      );
+      const before = features.get('ln');
+
+      const result = updateFeature(context, 'ln', {
+        geometry: {
+          type: 'LineString',
+          coordinates: [
+            [10.001, 0],
+            [10.002, 0],
+          ],
+        },
+      });
+
+      expect(result).toEqual({
+        ok: false,
+        reason: 'invalid-feature',
+        message: expect.stringMatching(
+          /^Invalid after rounding the coordinates: Positions 0 and 1/
+        ),
+      });
+      expect(features.get('ln')).toBe(before);
+      expect(push).not.toHaveBeenCalled();
+      expect(emit).not.toHaveBeenCalled();
     });
   });
 

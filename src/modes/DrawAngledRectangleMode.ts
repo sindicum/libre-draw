@@ -8,6 +8,7 @@ import { findSnapTarget } from '../utils/snap';
 import { buildAngledRectangleRing } from '../utils/angledRectangle';
 import { LONG_PRESS_MS, clickTolerance, pointerTravel } from '../input/gestures';
 import { createFeatureId } from '../utils/id';
+import { roundingRejection } from '../validation/geojson';
 
 /**
  * Drawing mode for creating rectangles at any angle from three points.
@@ -246,7 +247,9 @@ export class DrawAngledRectangleMode implements DraftCapableMode {
 
   /**
    * Create the rectangle on base edge `a`→`b` whose width is set by
-   * `widthPoint`. A zero width is ignored and the base edge is kept.
+   * `widthPoint`, rounded. A zero width is ignored and the base edge is
+   * kept; so is a rectangle that rounding alone makes invalid, which is
+   * also reported as a refused close.
    */
   private tryFinalize(a: Position, b: Position, widthPoint: Position): void {
     const ring = buildAngledRectangleRing(a, b, widthPoint);
@@ -261,8 +264,13 @@ export class DrawAngledRectangleMode implements DraftCapableMode {
       },
       properties: {},
     };
+    const rejection = roundingRejection(feature, this.context.round);
+    if (rejection) {
+      this.context.events.emit('editrejected', { action: 'close', reason: rejection.reason });
+      return;
+    }
 
-    const stored = this.context.store.add(feature);
+    const stored = this.context.store.add(this.context.round.feature(feature));
     this.context.history.push(new CreateAction(stored));
     this.context.events.emit('create', { feature: cloneFeature(stored) });
     this.context.render.renderFeatures();

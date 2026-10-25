@@ -4,8 +4,11 @@ import {
   validateGeoJSON,
   tryValidateFeature,
   tryValidateGeoJSON,
+  roundingRejection,
 } from '../../../src/validation/geojson';
 import { LibreDrawError } from '../../../src/core/errors';
+import type { LibreDrawFeature } from '../../../src/types/features';
+import { createCoordinateRounder } from '../../../src/utils/precision';
 
 function makeFeature(overrides: Record<string, unknown> = {}) {
   return {
@@ -689,5 +692,66 @@ describe('geometry envelope rejections', () => {
     expect(() => validateGeoJSON({ type: 'FeatureCollection', features: [hostile] })).toThrow(
       TypeError
     );
+  });
+});
+
+describe('validation with rounding', () => {
+  const round = createCoordinateRounder(8);
+  const tiny = makeFeature({
+    geometry: {
+      type: 'Polygon',
+      coordinates: [
+        [
+          [139.700000001, 35.6],
+          [139.700000002, 35.6],
+          [139.700000001, 35.600000001],
+          [139.700000001, 35.6],
+        ],
+      ],
+    },
+  });
+
+  it('returns the rounded feature', () => {
+    const result = tryValidateFeature(
+      makeFeature({ geometry: { type: 'Point', coordinates: [1.123456789, 2] } }),
+      round
+    );
+    expect(result.valid && result.feature.geometry).toEqual({
+      type: 'Point',
+      coordinates: [1.12345679, 2],
+    });
+  });
+
+  it('rejects a feature that rounding makes invalid, saying so in the message', () => {
+    expect(tryValidateFeature(tiny).valid).toBe(true);
+    const result = tryValidateFeature(tiny, round);
+    expect(result).toMatchObject({ valid: false, reason: 'invalid-feature' });
+    expect(!result.valid && result.message).toMatch(/^Invalid after rounding the coordinates: /);
+  });
+
+  it('rounds each feature of a collection and keeps the index prefix', () => {
+    const result = tryValidateGeoJSON(
+      { type: 'FeatureCollection', features: [makeFeature(), tiny] },
+      round
+    );
+    expect(result).toMatchObject({ valid: false, reason: 'invalid-geojson' });
+    expect(!result.valid && result.message).toMatch(
+      /^Invalid feature at index 1: Invalid after rounding the coordinates: /
+    );
+  });
+
+  describe('roundingRejection', () => {
+    it('reports a shape that only rounding breaks', () => {
+      expect(roundingRejection(tiny as LibreDrawFeature, round)).toMatchObject({
+        reason: 'invalid-result',
+        message: expect.any(String),
+      });
+    });
+
+    it('reports nothing for a shape that stays valid or was invalid before rounding', () => {
+      expect(roundingRejection(makeFeature() as LibreDrawFeature, round)).toBeUndefined();
+      const outOfRange = makeFeature({ geometry: { type: 'Point', coordinates: [200, 0] } });
+      expect(roundingRejection(outOfRange as LibreDrawFeature, round)).toBeUndefined();
+    });
   });
 });

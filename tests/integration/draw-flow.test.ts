@@ -19,6 +19,7 @@ import type {
   UpdateEvent,
 } from '../../src/types/events';
 import { attachSelection } from '../helpers/selection';
+import { createCoordinateRounder } from '../../src/utils/precision';
 
 function createPointerEvent(
   lng: number,
@@ -110,6 +111,7 @@ describe('Draw Flow Integration', () => {
       setDragPan: vi.fn(),
       getSetbackDistance: () => 10,
       getSnapConfig: () => ({ enabled: false, threshold: 10 }),
+      round: createCoordinateRounder(false),
       getViewportBounds: () => ({ west: -180, south: -90, east: 180, north: 90 }),
     });
 

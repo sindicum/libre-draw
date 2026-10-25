@@ -90,7 +90,12 @@ const draw = new LibreDraw(map, { locale: 'ja', messages: { setbackExecute: '適
 const draw = new LibreDraw(map, { inputMethod: 'reticle' });
 ```
 
-**Throws:** [`LibreDrawError`](/api/types#libredrawerror) if `options.locale` is not `'en'` or `'ja'`, or if `options.inputMethod` is not `'tap'` or `'reticle'`.
+```ts
+// Store coordinates to 6 decimal places (about 11 cm) instead of 8
+const draw = new LibreDraw(map, { coordinatePrecision: 6 });
+```
+
+**Throws:** [`LibreDrawError`](/api/types#libredrawerror) if `options.locale` is not `'en'` or `'ja'`, if `options.inputMethod` is not `'tap'` or `'reticle'`, or if `options.coordinatePrecision` is not an integer from `0` to `15` or `false`.
 
 ---
 
@@ -300,7 +305,7 @@ fetch('/api/polygons', {
 
 Replace all features in the store with the given GeoJSON FeatureCollection.
 
-Validates the whole input first (all or nothing), then clears the current store, history, and selection (vertex handles and previews are removed; a `selectionchange` event fires if something was selected), and re-renders the map. **Undo/redo history is reset** after this call. No `create` / `delete` events are emitted for the replaced features: this is a reload, not an edit.
+Validates the whole input first (all or nothing): each feature is checked as given and again after its coordinates are rounded to [`coordinatePrecision`](/guide/getting-started#coordinate-precision), and the rounded features are stored. It then clears the current store, history, and selection (vertex handles and previews are removed; a `selectionchange` event fires if something was selected), and re-renders the map. **Undo/redo history is reset** after this call. No `create` / `delete` events are emitted for the replaced features: this is a reload, not an edit.
 
 **Parameters:**
 
@@ -346,6 +351,8 @@ if (!result.ok) console.warn(result.reason);
 Add features to the store from an array of GeoJSON Feature objects.
 
 Every feature is validated first and reported individually: invalid entries come back as `{ valid: false, reason, message }` and only the valid ones are added. Nothing is thrown for the input. The added features form a **single undoable step** (one [`undo()`](#undo) removes every feature added by the call), and a `'create'` event fires for each added feature. Unlike [`setFeatures`](#setfeatures-geojson), existing features and history are kept. There is no all-or-nothing option: to get one, check each input with [`validateFeature`](#validatefeature-feature) (geometry) and [`getFeatureById`](#getfeaturebyid-id) (a duplicate id, also against the other inputs) before calling.
+
+Each feature is checked as given and again after its coordinates are rounded to [`coordinatePrecision`](/guide/getting-started#coordinate-precision), and the rounded feature is stored. A feature that only rounding breaks is `invalid-feature` with a `message` starting `Invalid after rounding the coordinates:`.
 
 **Parameters:**
 
@@ -394,7 +401,7 @@ results.forEach((r, i) => {
 
 Check whether an object would be accepted by [`addFeatures`](#addfeatures-features) / [`setFeatures`](#setfeatures-geojson), without adding it and without throwing.
 
-Applies the same rules (Feature envelope, geometry type, finite coordinates within range, ring closure, at least three distinct vertices per ring that are not all on one line, self-intersection, holes inside the outer ring without crossing or nesting). Duplicate ids are not checked here because they depend on the store's contents at add time.
+Applies the same rules (Feature envelope, geometry type, finite coordinates within range, ring closure, at least three distinct vertices per ring that are not all on one line, self-intersection, holes inside the outer ring without crossing or nesting) to the object as given and to its copy rounded to [`coordinatePrecision`](/guide/getting-started#coordinate-precision). A feature that only rounding breaks fails with a `message` starting `Invalid after rounding the coordinates:`. Duplicate ids are not checked here because they depend on the store's contents at add time.
 
 **Parameters:**
 
@@ -402,7 +409,7 @@ Applies the same rules (Feature envelope, geometry type, finite coordinates with
 | --------- | --------- | ---------------------- |
 | `feature` | `unknown` | The object to validate |
 
-**Returns:** [`FeatureValidationResult`](/api/types#featurevalidationresult) — `{ valid: true, feature }` with a normalized copy, or `{ valid: false, reason: 'invalid-feature', message }` with the same message `addFeatures` reports for that feature.
+**Returns:** [`FeatureValidationResult`](/api/types#featurevalidationresult) — `{ valid: true, feature }` with a normalized copy rounded to `coordinatePrecision` (the feature `addFeatures` would store), or `{ valid: false, reason: 'invalid-feature', message }` with the same message `addFeatures` reports for that feature.
 
 **Throws:** [`LibreDrawError`](/api/types#libredrawerror) if this instance has been destroyed.
 
@@ -520,7 +527,7 @@ Same computation as the [`rotate` mode](/guide/modes#rotate) (screen-space rotat
 | `id`       | `string` | The feature to rotate                         |
 | `angleDeg` | `number` | Relative angle in degrees, positive clockwise |
 
-**Returns:** [`OperationResult`](/api/types#operationresult) — `{ ok: true, updated: [feature] }`, or `{ ok: false, reason }` with `'not-found'`, `'not-rotatable'` (a Point), `'no-rotation'` (0, a multiple of 360, or a non-finite angle; see [`RotateFailReason`](/api/types#rotatefailreason)), or, when the rotated shape fails validation (near the antimeridian or the poles it can leave the coordinate range), the same code as the [`editrejected`](/api/events#editrejected) event it also emits, with the validation message in `message`. Nothing changes on failure.
+**Returns:** [`OperationResult`](/api/types#operationresult) — `{ ok: true, updated: [feature] }`, or `{ ok: false, reason }` with `'not-found'`, `'not-rotatable'` (a Point), `'no-rotation'` (0, a multiple of 360, a non-finite angle, or an angle so small that the rotated shape rounds back to the current one; see [`RotateFailReason`](/api/types#rotatefailreason)), or, when the rotated shape fails validation (near the antimeridian or the poles it can leave the coordinate range), the same code as the [`editrejected`](/api/events#editrejected) event it also emits, with the validation message in `message`. Nothing changes on failure.
 
 **Throws:** [`LibreDrawError`](/api/types#libredrawerror) if this instance has been destroyed.
 

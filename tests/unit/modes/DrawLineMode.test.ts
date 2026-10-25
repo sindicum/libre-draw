@@ -3,6 +3,7 @@ import { DrawLineMode } from '../../../src/modes/DrawLineMode';
 import type { ModeContext } from '../../../src/core/ModeContext';
 import type { NormalizedInputEvent, InputType } from '../../../src/types/input';
 import type { LibreDrawFeature } from '../../../src/types/features';
+import { createCoordinateRounder } from '../../../src/utils/precision';
 
 function createMockContext(): ModeContext {
   return {
@@ -40,6 +41,7 @@ function createMockContext(): ModeContext {
     setDragPan: vi.fn(),
     getSetbackDistance: () => 10,
     getSnapConfig: () => ({ enabled: false, threshold: 10 }),
+    round: createCoordinateRounder(false),
     getViewportBounds: () => ({
       west: -180,
       south: -90,
@@ -127,6 +129,32 @@ describe('DrawLineMode', () => {
         }),
       })
     );
+  });
+
+  it('should refuse to finish a line whose vertices merge when rounded and keep the draft', () => {
+    context = {
+      ...createMockContext(),
+      round: createCoordinateRounder(0),
+      // Spread the screen so the two close vertices are not the finish target.
+      getScreenPoint: vi.fn((lngLat) => ({ x: lngLat.lng * 100, y: lngLat.lat * 100 })),
+    };
+    mode = new DrawLineMode(context);
+    mode.activate();
+    mode.onPointerDown(createPointerEvent(1, 1));
+    mode.onPointerUp(createPointerEvent(1, 1));
+    const second = { ...createPointerEvent(1.4, 1), point: { x: 140, y: 100 } };
+    mode.onPointerDown(second);
+    mode.onPointerUp(second);
+
+    expect(mode.finishDrawing()).toBe(false);
+
+    expect(context.store.add).not.toHaveBeenCalled();
+    expect(context.history.push).not.toHaveBeenCalled();
+    expect(context.events.emit).toHaveBeenCalledWith('editrejected', {
+      action: 'finish',
+      reason: 'invalid-result',
+    });
+    expect(mode.getDraftVertexCount()).toBe(2);
   });
 
   it('should not finalize with fewer than 2 vertices', () => {

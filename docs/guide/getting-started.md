@@ -67,6 +67,33 @@ const draw = new LibreDraw(map, {
 });
 ```
 
+## Coordinate Precision
+
+Every longitude and latitude LibreDraw stores is rounded to `coordinatePrecision` decimal places, 8 by default. That is about 1.1 mm, one digit finer than RTK positioning (2–3 cm).
+
+| Places | Resolution (latitude) |
+| ------ | --------------------- |
+| 5      | about 1.1 m           |
+| 6      | about 11 cm           |
+| 7      | about 1.1 cm          |
+| 8      | about 1.1 mm          |
+
+```ts
+const draw = new LibreDraw(map, { coordinatePrecision: 6 });
+// coordinatePrecision: false keeps coordinates as given
+```
+
+- Everything that is stored is rounded: drawn and edited shapes, the results of `rotate()`, `split()`, `setback()`, `union()`, `cut()` and `reshape()`, and the input of `setFeatures()`, `addFeatures()` and `updateFeature()`. `getFeatures()`, `toGeoJSON()` and event payloads return the rounded values, so the coordinates you read back can differ from the ones you passed beyond the chosen places.
+- `validateFeature()` checks the rounded shape and returns it, so it agrees with `addFeatures()`.
+- Input is validated as given and again once rounded, so input that only rounding would repair is still refused.
+- A shape that only rounding breaks, such as one smaller than the precision collapsing onto a line or two vertices merging into one, is refused and nothing changes:
+  - `addFeatures()`, `updateFeature()` and `validateFeature()` return `invalid-feature`, and `setFeatures()` returns `invalid-geojson`. The `message` reads `Invalid after rounding the coordinates: …`.
+  - `split()`, `setback()`, `union()`, `cut()` and `reshape()` return `invalid-result` and emit their `*failed` event, as they do when run from the toolbar. A setback that rounds back to the original outline is `invalid-result` too.
+  - `rotate()` returns the reason of the rounded shape and emits [`editrejected`](/api/events#editrejected). A rotation that rounds back to the current shape returns `no-rotation`.
+  - Drawing and vertex edits on the map report [`editrejected`](/api/events#editrejected), keeping the draft or putting the vertex back where the drag started.
+- Drafts, drags and the rotate preview are not rounded until they are committed. A dragged feature moves by a rounded distance, so its shape does not change.
+- The precision is fixed when the instance is created.
+
 ## Customizing the Look
 
 LibreDraw draws with ordinary MapLibre layers. Pass your own layer definitions as `layers` (or later with `setLayers()`) to replace the defaults. Start from `DEFAULT_LAYERS` and change what you need:

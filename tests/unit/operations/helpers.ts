@@ -1,6 +1,7 @@
 import { vi } from 'vitest';
 import type { OperationContext } from '../../../src/operations/OperationContext';
 import type { LibreDrawFeature, Position } from '../../../src/types/features';
+import { createCoordinateRounder } from '../../../src/utils/precision';
 
 export function makeSquare(id: string, x = 0, y = 0, size = 10): LibreDrawFeature {
   return {
@@ -96,6 +97,7 @@ export function createContext(initial: LibreDrawFeature[]) {
     },
     history: { push },
     events: { emit },
+    round: createCoordinateRounder(false),
   };
   return { context, features, push, emit, add, remove };
 }

@@ -6,6 +6,7 @@ import type { LibreDrawFeature, Position } from '../../../src/types/features';
 import type { NormalizedInputEvent } from '../../../src/types/input';
 import { getRotationCenter } from '../../../src/utils/rotate';
 import { attachSelection } from '../../helpers/selection';
+import { createCoordinateRounder } from '../../../src/utils/precision';
 
 // The harness maps lng/lat to screen as (lng * 10, lat * 10). Features sit
 // near the equator so Mercator distortion is negligible in the assertions.
@@ -148,6 +149,7 @@ function createHarness(initial: LibreDrawFeature[] = [makeSquare()]): Harness {
     setDragPan,
     getSetbackDistance: () => 10,
     getSnapConfig: () => ({ enabled: true, threshold: 10 }),
+    round: createCoordinateRounder(false),
     getViewportBounds: () => ({ west: -180, south: -90, east: 180, north: 90 }),
   });
 

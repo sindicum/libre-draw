@@ -12,6 +12,7 @@ import { findSnapTarget } from '../utils/snap';
 import { createFeatureId } from '../utils/id';
 import { LONG_PRESS_MS, clickTolerance, pointerTravel } from '../input/gestures';
 import { findDraftVertexTarget, finishRadius, type DraftVertexTarget } from './draftVertexTarget';
+import { roundingRejection } from '../validation/geojson';
 
 /**
  * Minimum number of vertices required to form a polygon.
@@ -338,8 +339,8 @@ export class DrawPolygonMode implements DraftCapableMode {
     let completed = true;
     if (this.onComplete) {
       completed = this.onComplete(ring);
-    } else {
-      this.createFeature(ring);
+    } else if (!this.createFeature(ring)) {
+      return false;
     }
 
     // Reset state for next drawing and notify listeners.
@@ -353,9 +354,12 @@ export class DrawPolygonMode implements DraftCapableMode {
   }
 
   /**
-   * Add a polygon feature with the given closed ring as one history step.
+   * Add a polygon feature with the given closed ring, rounded, as one
+   * history step. When rounding alone makes the ring invalid, nothing is
+   * added, the close is reported as refused, and the draft stays.
+   * @returns Whether the feature was added.
    */
-  private createFeature(ring: Position[]): void {
+  private createFeature(ring: Position[]): boolean {
     const feature: LibreDrawFeature = {
       id: createFeatureId(),
       type: 'Feature',
@@ -365,12 +369,18 @@ export class DrawPolygonMode implements DraftCapableMode {
       },
       properties: {},
     };
+    const rejection = roundingRejection(feature, this.context.round);
+    if (rejection) {
+      this.context.events.emit('editrejected', { action: 'close', reason: rejection.reason });
+      return false;
+    }
 
-    const stored = this.context.store.add(feature);
+    const stored = this.context.store.add(this.context.round.feature(feature));
     const action = new CreateAction(stored);
     this.context.history.push(action);
     this.context.events.emit('create', { feature: cloneFeature(stored) });
     this.context.render.renderFeatures();
+    return true;
   }
 
   /**

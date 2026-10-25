@@ -18,7 +18,7 @@ import type {
   EdgeRef,
   Position,
 } from './types';
-import type { Action } from './types/features';
+import type { Action, CoordinateRounder } from './types/features';
 import {
   DeleteAction,
   CreateAction,
@@ -69,6 +69,11 @@ import { Toolbar } from './ui/Toolbar';
 import { ReticleOverlay } from './ui/ReticleOverlay';
 import { getBuiltinMessages, isBuiltinLocale, resolveMessages } from './ui/messages';
 import { cloneFeature } from './utils/featureSnapshot';
+import {
+  MAX_COORDINATE_PRECISION,
+  createCoordinateRounder,
+  isCoordinatePrecision,
+} from './utils/precision';
 
 function setHandlerEnabled(handler: { enable(): void; disable(): void }, enabled: boolean): void {
   if (enabled) {
@@ -145,6 +150,8 @@ export class LibreDraw {
   private reticleInput: ReticleInput;
   private reticleOverlay: ReticleOverlay;
   private inputMethod: InputMethod;
+  /** Rounds every stored coordinate to `coordinatePrecision`. */
+  private round: CoordinateRounder;
   /** Dependencies handed to modes; also the OperationContext for operations. */
   private modeContext: ModeContext;
   private selection: SelectionManager;
@@ -289,6 +296,14 @@ export class LibreDraw {
     }
     this.inputMethod = inputMethod;
 
+    const precision = options.coordinatePrecision === undefined ? 8 : options.coordinatePrecision;
+    if (!isCoordinatePrecision(precision)) {
+      throw new LibreDrawError(
+        `Unsupported coordinate precision: ${String(precision)}. Use an integer from 0 to ${MAX_COORDINATE_PRECISION} or false.`
+      );
+    }
+    this.round = createCoordinateRounder(precision);
+
     // Rendering
     this.sourceManager = new SourceManager(map);
     this.renderManager = new RenderManager(map, this.sourceManager, options.layers);
@@ -378,6 +393,7 @@ export class LibreDraw {
           north: bounds.getNorth(),
         };
       },
+      round: this.round,
     };
 
     this.modeContext = modeContext;
@@ -592,7 +608,9 @@ export class LibreDraw {
    * Replace all features in the store with the given GeoJSON FeatureCollection.
    *
    * Validates the whole input first (all or nothing), then clears the
-   * store, the selection, and the history, and re-renders the map. No
+   * store, the selection, and the history, and re-renders the map. Each
+   * feature is validated as given and again after its coordinates are
+   * rounded to `coordinatePrecision`; the rounded features are stored. No
    * `'create'` / `'delete'` events are emitted for the replaced features:
    * this is a reload, not an edit. Undo/redo history is reset after this
    * call.
@@ -626,7 +644,7 @@ export class LibreDraw {
    */
   setFeatures(geojson: unknown): OperationResult {
     this.assertNotDestroyed();
-    const validated = tryValidateGeoJSON(geojson);
+    const validated = tryValidateGeoJSON(geojson, this.round);
     if (!validated.valid) {
       return { ok: false, reason: validated.reason, message: validated.message };
     }
@@ -658,6 +676,11 @@ export class LibreDraw {
    * features and history are kept. There is no all-or-nothing option: to
    * get one, check each input with {@link validateFeature} and its id with
    * {@link getFeatureById} (and against the other inputs) before calling.
+   *
+   * Each feature is validated as given and again after its coordinates are
+   * rounded to `coordinatePrecision`, and the rounded feature is stored. A
+   * feature that only rounding breaks is `invalid-feature` with a `message`
+   * starting `Invalid after rounding the coordinates:`.
    *
    * @param features - An array of GeoJSON Feature objects with Point,
    *   LineString, or Polygon geometry. Features without an `id` get a
@@ -694,7 +717,7 @@ export class LibreDraw {
     // store or earlier in the array are rejected up front.
     const seenIds = new Set<string>();
     features.forEach((input, index) => {
-      const validation = tryValidateFeature(input);
+      const validation = tryValidateFeature(input, this.round);
       if (!validation.valid) {
         results.push({
           valid: false,
@@ -744,11 +767,15 @@ export class LibreDraw {
    *
    * Applies the same rules (Feature envelope, geometry type, coordinate
    * ranges, ring closure, self-intersection, holes inside the outer ring
-   * without crossing or nesting). Duplicate ids are not checked here
-   * because they depend on the store's contents at add time.
+   * without crossing or nesting) to the object as given and to its copy
+   * rounded to `coordinatePrecision`. A feature that only rounding breaks
+   * fails with a `message` starting `Invalid after rounding the
+   * coordinates:`. Duplicate ids are not checked here because they depend
+   * on the store's contents at add time.
    *
    * @param feature - The object to validate.
-   * @returns `{ valid: true, feature }` with a normalized copy, or
+   * @returns `{ valid: true, feature }` with a normalized copy rounded to
+   *   `coordinatePrecision` (the feature `addFeatures` would store), or
    *   `{ valid: false, reason: 'invalid-feature', message }` with the same
    *   message `addFeatures` would report for it.
    *
@@ -764,7 +791,7 @@ export class LibreDraw {
    */
   validateFeature(feature: unknown): FeatureValidationResult {
     this.assertNotDestroyed();
-    return tryValidateFeature(feature);
+    return tryValidateFeature(feature, this.round);
   }
 
   /**
@@ -887,7 +914,8 @@ export class LibreDraw {
    * @param angleDeg - Relative angle in degrees, positive clockwise.
    * @returns `{ ok: true, updated: [feature] }`, or `{ ok: false, reason }`
    *   with `'not-found'`, `'not-rotatable'` (Point), `'no-rotation'`
-   *   (0, a multiple of 360, or a non-finite angle), or, when the rotated
+   *   (0, a multiple of 360, a non-finite angle, or an angle so small that
+   *   the rotated shape rounds back to the current one), or, when the rotated
    *   shape fails validation (near the antimeridian or the poles it can
    *   leave the coordinate range), the same code as the `'editrejected'`
    *   event it also emits, with the validation message in `message`.
@@ -961,7 +989,8 @@ export class LibreDraw {
    * @returns `{ ok: true, created: [result], deleted: [original] }`, or
    *   `{ ok: false, reason }` with `'not-found'`, `'not-polygon'`,
    *   `'invalid-edge'`, `'invalid-distance'`, `'has-holes'`, or
-   *   `'invalid-result'`. Nothing changes on failure.
+   *   `'invalid-result'` (also when the result rounds back to the original
+   *   outline). Nothing changes on failure.
    *
    * @throws {LibreDrawError} If this instance has been destroyed.
    *
