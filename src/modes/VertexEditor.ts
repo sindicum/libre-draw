@@ -1,7 +1,8 @@
 import type { ModeContext } from '../core/ModeContext';
 import type { LibreDrawFeature, PolygonGeometry, Position } from '../types/features';
 import type { NormalizedInputEvent } from '../types/input';
-import { UpdateAction } from '../types/features';
+import { BatchAction, UpdateAction } from '../types/features';
+import type { Action } from '../types/features';
 import { cloneFeature } from '../utils/featureSnapshot';
 import {
   computeMidpoints,
@@ -18,6 +19,7 @@ import {
 import { findPolygonRingError, type PolygonRingError } from '../validation/intersection';
 import { roundingRejection } from '../validation/geojson';
 import { findSnapTarget } from '../utils/snap';
+import { findSharedVertices, insertOnSharedEdges, type VertexRef } from '../utils/sharedVertices';
 
 const HIT_THRESHOLD_MOUSE_PX = 10;
 const HIT_THRESHOLD_TOUCH_PX = 24;
@@ -72,6 +74,28 @@ function buildHandleLayout(feature: LibreDrawFeature): HandleLayout {
   return layout;
 }
 
+/**
+ * A polygon that a topological edit changes along with the selected one:
+ * its shape before the edit (for undo), the shape the edit starts from
+ * (after a midpoint insert), and its vertices at the edited position.
+ */
+interface LinkedFeature {
+  start: LibreDrawFeature;
+  base: LibreDrawFeature;
+  refs: VertexRef[];
+}
+
+/** The feature with each of `refs` moved to `position`. */
+function moveRefs(base: LibreDrawFeature, refs: VertexRef[], position: Position): LibreDrawFeature {
+  return refs.reduce((f, ref) => moveVertex(f, ref.index, position, ref.ring), base);
+}
+
+/** The feature with each of `refs` removed, later indices first. */
+function removeRefs(base: LibreDrawFeature, refs: VertexRef[]): LibreDrawFeature {
+  const ordered = [...refs].sort((a, b) => a.ring - b.ring || b.index - a.index);
+  return ordered.reduce((f, ref) => removeVertex(f, ref.index, ref.ring), base);
+}
+
 /** Why a polygon's rings are invalid together, or `null` when they are valid. */
 function ringError(feature: LibreDrawFeature): PolygonRingError | null {
   return findPolygonRingError((feature.geometry as PolygonGeometry).coordinates);
@@ -86,6 +110,8 @@ export class VertexEditor {
   private dragging = false;
   private dragVertex: RingRef | null = null;
   private dragStartFeature: LibreDrawFeature | null = null;
+  // Other polygons that move with the dragged vertex, by id.
+  private linked = new Map<string, LinkedFeature>();
   // Whether this drag already reported an `editrejected`: one per drag.
   private dragRejectionReported = false;
   private highlightedVertexIndex = -1;
@@ -101,6 +127,11 @@ export class VertexEditor {
 
   getDragStartFeature(): LibreDrawFeature | null {
     return this.dragStartFeature;
+  }
+
+  /** Shapes at drag start of the other polygons the drag moves. */
+  getLinkedStartFeatures(): LibreDrawFeature[] {
+    return [...this.linked.values()].map((link) => link.start);
   }
 
   resetInteractionState(): void {
@@ -125,7 +156,14 @@ export class VertexEditor {
 
     const vertexIdx = this.findNearestVertex(layout.vertices, event.point, threshold);
     if (vertexIdx >= 0) {
-      this.startDrag(feature, layout.vertexRefs[vertexIdx], vertexIdx);
+      const linked = this.collectLinked(feature, layout.vertices[vertexIdx]);
+      this.startDrag(
+        feature,
+        layout.vertexRefs[vertexIdx],
+        vertexIdx,
+        cloneFeature(feature),
+        linked
+      );
       return true;
     }
 
@@ -138,6 +176,7 @@ export class VertexEditor {
       const newFeature = isLine
         ? insertLineVertex(feature, inserted.index, midpoint)
         : insertVertex(feature, inserted.index, midpoint, ring);
+      const sharedStarts = isLine ? [] : this.insertOnSharedEdges(feature, ring, index, midpoint);
       this.context.store.update(selectedId, newFeature);
       // Set highlight to the newly inserted vertex before rendering
       const insertedFlatIdx = buildHandleLayout(newFeature).vertexRefs.findIndex(
@@ -146,7 +185,9 @@ export class VertexEditor {
       this.highlightedVertexIndex = insertedFlatIdx;
       this.highlightedMidpointIndex = -1;
       this.renderHandles(newFeature);
-      this.startDrag(newFeature, inserted, insertedFlatIdx, beforeInsert);
+      const linked = this.collectLinked(newFeature, midpoint, sharedStarts);
+      if (sharedStarts.length > 0) this.context.render.renderFeatures();
+      this.startDrag(newFeature, inserted, insertedFlatIdx, beforeInsert, linked);
       return true;
     }
 
@@ -173,39 +214,65 @@ export class VertexEditor {
       return true;
     }
 
-    const updatedFeature = moveVertex(feature, index, newPos, ring);
-
     // A move that makes a ring cross itself or another ring, or puts a hole
-    // outside the outer ring, is refused: the vertex stays where it was.
-    const error = ringError(updatedFeature);
-    if (error) {
+    // outside the outer ring, is refused: the vertex stays where it was. With
+    // topological editing the same holds for every polygon that moves along.
+    let moved = this.moveWithLinked(selectedId, feature, ring, index, newPos);
+    if (
+      'error' in moved &&
+      (snappedPos.lng !== event.lngLat.lng || snappedPos.lat !== event.lngLat.lat)
+    ) {
       // If snap caused intersection, try without snap
-      if (snappedPos.lng !== event.lngLat.lng || snappedPos.lat !== event.lngLat.lat) {
-        const unsnappedPos: Position = [event.lngLat.lng, event.lngLat.lat];
-        const unsnappedFeature = moveVertex(feature, index, unsnappedPos, ring);
-        if (!ringError(unsnappedFeature)) {
-          this.context.render.clearSnapIndicator();
-          this.context.store.update(selectedId, unsnappedFeature);
-          this.context.render.renderFeatures();
-          this.renderHandles(unsnappedFeature);
-          return true;
-        }
+      const unsnapped = this.moveWithLinked(selectedId, feature, ring, index, [
+        event.lngLat.lng,
+        event.lngLat.lat,
+      ]);
+      if (!('error' in unsnapped)) {
+        this.context.render.clearSnapIndicator();
+        moved = unsnapped;
       }
+    }
+    if ('error' in moved) {
       if (!this.dragRejectionReported) {
         this.dragRejectionReported = true;
         this.context.events.emit('editrejected', {
           action: 'move-vertex',
-          reason: error,
-          featureId: selectedId,
+          reason: moved.error,
+          featureId: moved.featureId,
         });
       }
       return true;
     }
 
-    this.context.store.update(selectedId, updatedFeature);
+    for (const [id, shape] of moved.shapes) {
+      this.context.store.update(id, shape);
+    }
     this.context.render.renderFeatures();
-    this.renderHandles(updatedFeature);
+    this.renderHandles(moved.shapes.get(selectedId) as LibreDrawFeature);
     return true;
+  }
+
+  /**
+   * The selected polygon and its linked polygons with the dragged vertex at
+   * `position`, or the first of them that would be invalid.
+   */
+  private moveWithLinked(
+    selectedId: string,
+    feature: LibreDrawFeature,
+    ring: number,
+    index: number,
+    position: Position
+  ): { shapes: Map<string, LibreDrawFeature> } | { error: PolygonRingError; featureId: string } {
+    const shapes = new Map<string, LibreDrawFeature>();
+    shapes.set(selectedId, moveVertex(feature, index, position, ring));
+    for (const [id, link] of this.linked) {
+      shapes.set(id, moveRefs(link.base, link.refs, position));
+    }
+    for (const [id, shape] of shapes) {
+      const error = ringError(shape);
+      if (error) return { error, featureId: id };
+    }
+    return { shapes };
   }
 
   updateHighlightIfNeeded(feature: LibreDrawFeature, event: NormalizedInputEvent): void {
@@ -264,16 +331,48 @@ export class VertexEditor {
       return false;
     }
 
-    const oldFeature = cloneFeature(feature);
+    // With topological editing the vertex goes from every polygon that
+    // shares it, or from none of them.
+    const changes: Array<{ id: string; before: LibreDrawFeature; after: LibreDrawFeature }> = [
+      { id: selectedId, before: feature, after: updatedFeature },
+    ];
+    const linked = isLine
+      ? new Map<string, LinkedFeature>()
+      : this.collectLinked(feature, layout.vertices[vertexIdx]);
+    for (const [id, link] of linked) {
+      const vertices = getRingVertices(link.base);
+      const tooFew = link.refs.some(
+        (ref) =>
+          vertices[ref.ring].length - link.refs.filter((r) => r.ring === ref.ring).length <
+          MIN_VERTICES
+      );
+      const after = tooFew ? null : removeRefs(link.base, link.refs);
+      const linkedError = after ? ringError(after) : 'invalid-result';
+      if (linkedError || !after) {
+        this.context.events.emit('editrejected', {
+          action: 'delete-vertex',
+          reason: linkedError ?? 'invalid-result',
+          featureId: id,
+        });
+        return false;
+      }
+      changes.push({ id, before: link.start, after });
+    }
 
-    this.context.store.update(selectedId, updatedFeature);
-
-    const action = new UpdateAction(selectedId, oldFeature, cloneFeature(updatedFeature));
-    this.context.history.push(action);
-    this.context.events.emit('update', {
-      feature: cloneFeature(updatedFeature),
-      oldFeature: cloneFeature(oldFeature),
-    });
+    const actions: Action[] = [];
+    for (const change of changes) {
+      this.context.store.update(change.id, change.after);
+      actions.push(
+        new UpdateAction(change.id, cloneFeature(change.before), cloneFeature(change.after))
+      );
+    }
+    this.context.history.push(actions.length === 1 ? actions[0] : new BatchAction(actions));
+    for (const change of changes) {
+      this.context.events.emit('update', {
+        feature: cloneFeature(change.after),
+        oldFeature: cloneFeature(change.before),
+      });
+    }
 
     this.context.render.renderFeatures();
     this.renderHandles(updatedFeature);
@@ -299,21 +398,35 @@ export class VertexEditor {
   roundDraggedShape(selectedId: string): void {
     const current = this.context.store.getById(selectedId);
     if (!current) return;
-    const rejection = roundingRejection(current, this.context.round);
-    if (!rejection) {
-      this.context.store.update(selectedId, this.context.round.feature(current));
+    const dragged = new Map<string, LibreDrawFeature>([[selectedId, current]]);
+    for (const id of this.linked.keys()) {
+      const shape = this.context.store.getById(id);
+      if (shape) dragged.set(id, shape);
+    }
+
+    for (const [id, shape] of dragged) {
+      const rejection = roundingRejection(shape, this.context.round);
+      if (!rejection) continue;
+      // One shape that rounding breaks puts every dragged shape back.
+      if (this.dragStartFeature) {
+        this.context.store.update(selectedId, cloneFeature(this.dragStartFeature));
+      }
+      for (const [linkedId, link] of this.linked) {
+        this.context.store.update(linkedId, cloneFeature(link.start));
+      }
+      if (!this.dragRejectionReported) {
+        this.dragRejectionReported = true;
+        this.context.events.emit('editrejected', {
+          action: 'move-vertex',
+          reason: rejection.reason,
+          featureId: id,
+        });
+      }
       return;
     }
-    if (this.dragStartFeature) {
-      this.context.store.update(selectedId, cloneFeature(this.dragStartFeature));
-    }
-    if (!this.dragRejectionReported) {
-      this.dragRejectionReported = true;
-      this.context.events.emit('editrejected', {
-        action: 'move-vertex',
-        reason: rejection.reason,
-        featureId: selectedId,
-      });
+
+    for (const [id, shape] of dragged) {
+      this.context.store.update(id, this.context.round.feature(shape));
     }
   }
 
@@ -325,6 +438,7 @@ export class VertexEditor {
     this.dragging = false;
     this.dragVertex = null;
     this.dragStartFeature = null;
+    this.linked = new Map();
   }
 
   private startDrag(
@@ -333,16 +447,67 @@ export class VertexEditor {
     // Index of the vertex in the flat handle list, for the highlight.
     flatIndex: number,
     // Midpoint insertion passes the pre-insert snapshot so undo restores original shape.
-    startFeatureSnapshot: LibreDrawFeature = cloneFeature(feature)
+    startFeatureSnapshot: LibreDrawFeature,
+    linked: Map<string, LinkedFeature>
   ): void {
     this.dragging = true;
     this.dragRejectionReported = false;
     this.dragVertex = vertex;
     this.dragStartFeature = startFeatureSnapshot;
+    this.linked = linked;
     // Show dragged vertex as highlighted, clear midpoint highlight
     this.highlightedVertexIndex = flatIndex;
     this.highlightedMidpointIndex = -1;
     this.context.setDragPan(false);
+  }
+
+  /**
+   * The other polygons with a vertex exactly at `position`, when topological
+   * editing is on and `feature` is a polygon. `starts` gives the shapes
+   * before a midpoint insert, for the polygons it changed.
+   */
+  private collectLinked(
+    feature: LibreDrawFeature,
+    position: Position,
+    starts: LibreDrawFeature[] = []
+  ): Map<string, LinkedFeature> {
+    const linked = new Map<string, LinkedFeature>();
+    if (feature.geometry.type !== 'Polygon' || !this.context.isTopologicalEditing?.()) {
+      return linked;
+    }
+    const all = this.context.store.getAll();
+    for (const [id, refs] of findSharedVertices(all, feature.id, position)) {
+      const base = all.find((f) => f.id === id) as LibreDrawFeature;
+      const start = starts.find((f) => f.id === id) ?? base;
+      linked.set(id, { start: cloneFeature(start), base: cloneFeature(base), refs });
+    }
+    return linked;
+  }
+
+  /**
+   * Put `midpoint` into the edges of other polygons that match the edge
+   * `index` of `ring` in `feature`, when topological editing is on. Returns
+   * the changed polygons as they were before.
+   */
+  private insertOnSharedEdges(
+    feature: LibreDrawFeature,
+    ring: number,
+    index: number,
+    midpoint: Position
+  ): LibreDrawFeature[] {
+    if (!this.context.isTopologicalEditing?.()) return [];
+    const vertices = getRingVertices(feature)[ring];
+    const a = vertices[index];
+    const b = vertices[(index + 1) % vertices.length];
+    const starts: LibreDrawFeature[] = [];
+    for (const other of this.context.store.getAll()) {
+      if (other.id === feature.id) continue;
+      const updated = insertOnSharedEdges(other, a, b, midpoint);
+      if (!updated) continue;
+      starts.push(cloneFeature(other));
+      this.context.store.update(other.id, updated);
+    }
+    return starts;
   }
 
   private getThreshold(event: NormalizedInputEvent): number {
@@ -392,9 +557,11 @@ export class VertexEditor {
     const snapConfig = this.context.getSnapConfig();
     if (!snapConfig.enabled) return lngLat;
 
+    // Polygons that move with the drag are not targets: their vertex at the
+    // dragged position would hold the drag in place.
     const snapTarget = findSnapTarget(
       lngLat,
-      this.context.store.getAll(),
+      this.context.store.getAll().filter((f) => !this.linked.has(f.id)),
       this.context.getScreenPoint,
       {
         threshold: snapConfig.threshold ?? 10,

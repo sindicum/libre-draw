@@ -68,8 +68,8 @@ export interface SplitEvent {
  * - `self-intersecting-result`: a part would be self-intersecting
  * - `invalid-result`: a part failed validation (rounding at the coordinate limits)
  *
- * Later versions may add or remove values, so the type also accepts any
- * other string: handle values you do not know.
+ * A minor version may add values (removing one is a breaking change), so
+ * the type also accepts any other string: handle values you do not know.
  */
 export type SplitFailReason =
   | 'same-points'
@@ -100,8 +100,8 @@ export interface SplitFailedEvent {
  *   remaining part failed validation, or it rounds back to the original
  *   outline (a distance below the coordinate precision)
  *
- * Later versions may add or remove values, so the type also accepts any
- * other string: handle values you do not know.
+ * A minor version may add values (removing one is a breaking change), so
+ * the type also accepts any other string: handle values you do not know.
  */
 export type SetbackFailReason = 'has-holes' | 'invalid-result' | (string & {});
 
@@ -135,8 +135,8 @@ export interface SetbackFailedEvent {
  * - `disjoint`: the targets do not all connect, so the result would be a MultiPolygon
  * - `invalid-result`: the geometry engine produced no usable polygon
  *
- * Later versions may add or remove values, so the type also accepts any
- * other string: handle values you do not know.
+ * A minor version may add values (removing one is a breaking change), so
+ * the type also accepts any other string: handle values you do not know.
  */
 export type UnionFailReason =
   | 'not-polygon'
@@ -192,8 +192,8 @@ export interface CutEvent {
  * - `empty-result`: the cutter covers the whole polygon
  * - `invalid-result`: the geometry engine failed, or a piece failed validation
  *
- * Later versions may add or remove values, so the type also accepts any
- * other string: handle values you do not know.
+ * A minor version may add values (removing one is a breaking change), so
+ * the type also accepts any other string: handle values you do not know.
  */
 export type CutFailReason = 'no-overlap' | 'empty-result' | 'invalid-result' | (string & {});
 
@@ -233,8 +233,8 @@ export interface ReshapeEvent {
  * - `invalid-result`: the new outer ring is degenerate (no area), or the
  *   result failed validation
  *
- * Later versions may add or remove values, so the type also accepts any
- * other string: handle values you do not know.
+ * A minor version may add values (removing one is a breaking change), so
+ * the type also accepts any other string: handle values you do not know.
  */
 export type ReshapeFailReason =
   | 'invalid-intersection-count'
@@ -329,8 +329,8 @@ export interface HistoryChangeEvent {
  * - `delete-vertex`: deleting a vertex of the selected feature
  * - `rotate`: a rotation, in rotate mode or through `rotate()`
  *
- * Later versions may add or remove values, so the type also accepts any
- * other string: handle values you do not know.
+ * A minor version may add values (removing one is a breaking change), so
+ * the type also accepts any other string: handle values you do not know.
  */
 export type EditRejectedAction =
   | 'add-vertex'
@@ -354,8 +354,8 @@ export type EditRejectedAction =
  *   rounding to `coordinatePrecision` flattening it or merging two
  *   consecutive vertices
  *
- * Later versions may add or remove values, so the type also accepts any
- * other string: handle values you do not know.
+ * A minor version may add values (removing one is a breaking change), so
+ * the type also accepts any other string: handle values you do not know.
  */
 export type EditRejectedReason =
   | 'self-intersection'
@@ -378,7 +378,11 @@ export interface EditRejectedEvent {
   origin: EventOrigin;
   action: EditRejectedAction;
   reason: EditRejectedReason;
-  /** The edited feature. Absent while drawing, where there is no feature yet. */
+  /**
+   * The edited feature; with topological editing, the polygon that would
+   * break, which may be one sharing the edited vertex. Absent while drawing,
+   * where there is no feature yet.
+   */
   featureId?: string;
 }
 

@@ -185,6 +185,8 @@ export class LibreDraw {
    * be read and set through the public API; the field only displays it.
    */
   private setbackDistance = DEFAULT_SETBACK_DISTANCE_METERS;
+  /** Whether editing a shared polygon vertex edits every polygon at it. */
+  private topologicalEditing: boolean;
 
   // The latest mouse move whose hover is not applied yet: hover is worked
   // out once per frame, not on every move.
@@ -303,6 +305,7 @@ export class LibreDraw {
       );
     }
     this.round = createCoordinateRounder(precision);
+    this.topologicalEditing = options.topologicalEditing === true;
 
     // Rendering
     this.sourceManager = new SourceManager(map);
@@ -384,6 +387,7 @@ export class LibreDraw {
       },
       getSetbackDistance: () => this.setbackDistance,
       getSnapConfig: () => this.snapConfig,
+      isTopologicalEditing: () => this.topologicalEditing,
       getViewportBounds: () => {
         const bounds = map.getBounds();
         return {
@@ -1425,6 +1429,45 @@ export class LibreDraw {
   }
 
   /**
+   * Turn topological editing on or off.
+   *
+   * While it is on, moving, inserting, or deleting a vertex of the selected
+   * polygon in `select` mode does the same to every other polygon with a
+   * vertex at exactly the same position, so a shared boundary stays shared.
+   * The change applies from the next vertex drag or delete; a drag in
+   * progress keeps the setting it started with.
+   *
+   * @param enabled - `true` to edit shared vertices together.
+   *
+   * @throws {LibreDrawError} If this instance has been destroyed.
+   *
+   * @example
+   * ```ts
+   * linkToggle.addEventListener('change', () => {
+   *   draw.setTopologicalEditing(linkToggle.checked);
+   * });
+   * ```
+   */
+  setTopologicalEditing(enabled: boolean): void {
+    this.assertNotDestroyed();
+    this.topologicalEditing = enabled;
+  }
+
+  /**
+   * Get whether topological editing is on.
+   *
+   * @returns `true` while shared polygon vertices are edited together
+   *   (`false` until turned on by the `topologicalEditing` option or
+   *   {@link setTopologicalEditing}).
+   *
+   * @throws {LibreDrawError} If this instance has been destroyed.
+   */
+  getTopologicalEditing(): boolean {
+    this.assertNotDestroyed();
+    return this.topologicalEditing;
+  }
+
+  /**
    * Get the distance the setback mode previews and applies.
    *
    * @returns Distance in meters (10 until changed by
@@ -1720,7 +1763,10 @@ export class LibreDraw {
 
     // Deselected first so a mode cancelling a drag or preview puts the
     // committed shape back; the feature is read only after that, so the
-    // history, the event, and the return value never carry a preview.
+    // history, the event, and the return value never carry a preview. A
+    // polygon moving along with a shared vertex is not selected, so the
+    // drag that moves it is cancelled explicitly.
+    this.selectMode.cancelInteractionInvolving(id);
     this.selection.remove(id);
     const feature = this.featureStore.getById(id);
     if (!feature) return undefined;

@@ -84,6 +84,8 @@ new LibreDraw(map: maplibregl.Map, options?: LibreDrawOptions)
 | `getMode()`                         | Get the current mode                                                                                                                                                                                          |
 | `setInputMethod(method)`            | How the drawing modes take a point: `'tap'` (click / tap the map) or `'reticle'` (center crosshair and an "Add point" button)                                                                                 |
 | `getInputMethod()`                  | Get the current input method                                                                                                                                                                                  |
+| `setTopologicalEditing(enabled)`    | Edit shared polygon vertices together in select mode (on / off)                                                                                                                                               |
+| `getTopologicalEditing()`           | Whether shared polygon vertices are edited together                                                                                                                                                           |
 | `finishDrawing()`                   | Finish the in-progress line or polygon                                                                                                                                                                        |
 | `cancelDrawing()`                   | Discard the in-progress draft                                                                                                                                                                                 |
 | `undoLastVertex()`                  | Take back the last placed point of the draft                                                                                                                                                                  |
@@ -178,6 +180,7 @@ interface LibreDrawOptions {
   messages?: Partial<Messages>; // Override individual UI strings
   inputMethod?: 'tap' | 'reticle'; // How drawing modes take a point. Default: 'tap'
   coordinatePrecision?: number | false; // Decimal places of stored coordinates (0–15). Default: 8
+  topologicalEditing?: boolean; // Edit vertices shared by adjacent polygons together. Default: false
 }
 ```
 

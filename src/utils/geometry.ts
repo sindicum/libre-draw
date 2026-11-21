@@ -35,6 +35,11 @@ export function getVertices(feature: LibreDrawFeature): Position[] {
   return getRingVertices(feature)[0];
 }
 
+/** Whether two positions are exactly the same point. */
+export function samePosition(a: Position, b: Position): boolean {
+  return a[0] === b[0] && a[1] === b[1];
+}
+
 /**
  * Get the unique vertices (excluding the closing point) of every ring of a
  * polygon: the outer ring first, then the holes in their stored order.

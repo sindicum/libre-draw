@@ -441,7 +441,14 @@ export class SelectMode implements Mode {
 
     if (vertexDragging) {
       this.vertexEditor.roundDraggedShape(selectedId);
-      this.commitDragUpdate(selectedId, this.vertexEditor.getDragStartFeature());
+      const start = this.vertexEditor.getDragStartFeature();
+      const linkedStarts = this.vertexEditor.getLinkedStartFeatures();
+      if (start && linkedStarts.length > 0) {
+        // Topological editing: the polygons that moved along share one step.
+        this.commitGroupDrag([start, ...linkedStarts]);
+      } else {
+        this.commitDragUpdate(selectedId, start);
+      }
       this.vertexEditor.endDrag();
       this.context.render.renderFeatures();
       this.syncHandles();
@@ -661,6 +668,28 @@ export class SelectMode implements Mode {
   }
 
   /**
+   * Cancel the drag in progress when it changes the feature `id`, so the
+   * store holds committed shapes before `id` is read. Deselecting `id`
+   * already cancels a drag of the selected features; what needs this is a
+   * polygon moving along with a shared vertex, which is not selected.
+   */
+  cancelInteractionInvolving(id: string): void {
+    const ids: string[] = [];
+    if (this.pointDragState) ids.push(this.pointDragState.startFeature.id);
+    if (this.groupDragState) ids.push(...this.groupDragState.startFeatures.map((f) => f.id));
+    if (this.vertexEditor.isDragging()) {
+      const start = this.vertexEditor.getDragStartFeature();
+      if (start) ids.push(start.id);
+      ids.push(...this.vertexEditor.getLinkedStartFeatures().map((f) => f.id));
+    }
+    const bodyStart = this.polygonDragger.isDragging()
+      ? this.polygonDragger.getDragStartFeature()
+      : null;
+    if (bodyStart) ids.push(bodyStart.id);
+    if (ids.includes(id)) this.abortInteraction();
+  }
+
+  /**
    * Cancel an in-progress drag: put every dragged feature back to its shape
    * at drag start (the preview lives in the store), then forget the drag.
    * Nothing reaches the history or the event stream.
@@ -672,7 +701,7 @@ export class SelectMode implements Mode {
     const vertexStart = this.vertexEditor.isDragging()
       ? this.vertexEditor.getDragStartFeature()
       : null;
-    if (vertexStart) starts.push(vertexStart);
+    if (vertexStart) starts.push(vertexStart, ...this.vertexEditor.getLinkedStartFeatures());
     const bodyStart = this.polygonDragger.isDragging()
       ? this.polygonDragger.getDragStartFeature()
       : null;

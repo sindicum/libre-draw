@@ -20,10 +20,10 @@ You can create it before the map's style has loaded (right after `new maplibregl
 
 **Parameters:**
 
-| Name      | Type                                              | Required | Description                                                                                                                                                                                                                                         |
-| --------- | ------------------------------------------------- | -------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `map`     | `maplibregl.Map`                                  | Yes      | The MapLibre GL JS map instance to draw on                                                                                                                                                                                                          |
-| `options` | [`LibreDrawOptions`](/api/types#libredrawoptions) | No       | Configuration options. Defaults: toolbar enabled, 100-action history limit, the layers in [`DEFAULT_LAYERS`](/api/types#default-layers), snapping enabled (10 px), keyboard shortcuts enabled, English UI strings, tap input, 10 m setback distance |
+| Name      | Type                                              | Required | Description                                                                                                                                                                                                                                                                  |
+| --------- | ------------------------------------------------- | -------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `map`     | `maplibregl.Map`                                  | Yes      | The MapLibre GL JS map instance to draw on                                                                                                                                                                                                                                   |
+| `options` | [`LibreDrawOptions`](/api/types#libredrawoptions) | No       | Configuration options. Defaults: toolbar enabled, 100-action history limit, the layers in [`DEFAULT_LAYERS`](/api/types#default-layers), snapping enabled (10 px), keyboard shortcuts enabled, English UI strings, tap input, 10 m setback distance, topological editing off |
 
 **Example:**
 
@@ -93,6 +93,11 @@ const draw = new LibreDraw(map, { inputMethod: 'reticle' });
 ```ts
 // Store coordinates to 6 decimal places (about 11 cm) instead of 8
 const draw = new LibreDraw(map, { coordinatePrecision: 6 });
+```
+
+```ts
+// Move the vertices adjacent polygons share together
+const draw = new LibreDraw(map, { topologicalEditing: true });
 ```
 
 **Throws:** [`LibreDrawError`](/api/types#libredrawerror) if `options.locale` is not `'en'` or `'ja'`, if `options.inputMethod` is not `'tap'` or `'reticle'`, or if `options.coordinatePrecision` is not an integer from `0` to `15` or `false`.
@@ -188,6 +193,42 @@ draw.setMode('draw-polygon');
 Get how the drawing modes take a point.
 
 **Returns:** [`InputMethod`](/api/types#inputmethod) — `'tap'` or `'reticle'`.
+
+**Throws:** [`LibreDrawError`](/api/types#libredrawerror) if this instance has been destroyed.
+
+---
+
+## Topological Editing
+
+### `setTopologicalEditing(enabled)`
+
+Turn topological editing on or off. While it is on, moving, inserting, or deleting a vertex of the selected polygon in `select` mode does the same to every other polygon with a vertex at exactly the same position, so a boundary drawn with snapping stays shared. The change applies from the next vertex drag or delete; a drag in progress keeps the setting it started with. There is no toolbar button for it: add your own toggle. See [Topological editing](/guide/modes#topological-editing).
+
+**Parameters:**
+
+| Name      | Type      | Description                              |
+| --------- | --------- | ---------------------------------------- |
+| `enabled` | `boolean` | `true` to edit shared vertices together. |
+
+**Returns:** `void`
+
+**Throws:** [`LibreDrawError`](/api/types#libredrawerror) if this instance has been destroyed.
+
+**Example:**
+
+```ts
+linkToggle.addEventListener('change', () => {
+  draw.setTopologicalEditing(linkToggle.checked);
+});
+```
+
+---
+
+### `getTopologicalEditing()`
+
+Get whether topological editing is on.
+
+**Returns:** `boolean` — `false` until turned on by the `topologicalEditing` option or `setTopologicalEditing()`.
 
 **Throws:** [`LibreDrawError`](/api/types#libredrawerror) if this instance has been destroyed.
 
