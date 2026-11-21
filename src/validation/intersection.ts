@@ -231,10 +231,7 @@ export function wouldClosingCauseIntersection(vertices: Position[]): boolean {
  * - `hole-nested`: a hole lies inside another hole.
  */
 export type PolygonRingError =
-  | 'self-intersection'
-  | 'ring-intersection'
-  | 'hole-outside'
-  | 'hole-nested';
+  'self-intersection' | 'ring-intersection' | 'hole-outside' | 'hole-nested';
 
 /**
  * Check whether two segments lie on the same line and share a stretch of

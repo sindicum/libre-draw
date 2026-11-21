@@ -495,8 +495,7 @@ One entry per input feature of [`addFeatures()`](/api/libre-draw#addfeatures-fea
 
 ```ts
 type AddFeatureResult =
-  | { valid: true; id: string }
-  | { valid: false; id?: string; reason: string; message: string };
+  { valid: true; id: string } | { valid: false; id?: string; reason: string; message: string };
 ```
 
 | Property  | Type      | Description                                                                                                                                           |
@@ -514,8 +513,7 @@ Returned by [`validateFeature()`](/api/libre-draw#validatefeature-feature).
 
 ```ts
 type FeatureValidationResult =
-  | { valid: true; feature: LibreDrawFeature }
-  | { valid: false; reason: string; message: string };
+  { valid: true; feature: LibreDrawFeature } | { valid: false; reason: string; message: string };
 ```
 
 | Property  | Type                                    | Description                                                                |
@@ -551,10 +549,7 @@ Failure codes of [`updateFeature()`](/api/libre-draw#updatefeature-id-patch).
 
 ```ts
 type UpdateFeatureFailReason =
-  | 'not-found'
-  | 'geometry-type-mismatch'
-  | 'empty-patch'
-  | 'invalid-feature';
+  'not-found' | 'geometry-type-mismatch' | 'empty-patch' | 'invalid-feature';
 ```
 
 | Value                      | Meaning                                                                       |
@@ -633,11 +628,7 @@ Failure codes of [`setback()`](/api/libre-draw#setback-id-edge-distancemeters). 
 
 ```ts
 type SetbackOperationFailReason =
-  | 'not-found'
-  | 'not-polygon'
-  | 'invalid-edge'
-  | 'invalid-distance'
-  | SetbackFailReason;
+  'not-found' | 'not-polygon' | 'invalid-edge' | 'invalid-distance' | SetbackFailReason;
 ```
 
 | Value                | Meaning                                               |

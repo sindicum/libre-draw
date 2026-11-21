@@ -10,8 +10,7 @@ import { createFeatureId } from './id';
  * single hole-free polygon could be produced.
  */
 export type UnionResult =
-  | { type: 'success'; feature: LibreDrawFeature }
-  | { type: 'error'; reason: UnionFailReason };
+  { type: 'success'; feature: LibreDrawFeature } | { type: 'error'; reason: UnionFailReason };
 
 function fail(reason: UnionFailReason): UnionResult {
   return { type: 'error', reason };
