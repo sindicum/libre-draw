@@ -55,4 +55,9 @@ export interface ModeContext {
    * when they commit it, never while it is a draft or a drag preview.
    */
   round: CoordinateRounder;
+  /**
+   * Whether editing a vertex of a polygon also edits the vertices of other
+   * polygons at exactly the same position. Absent means off.
+   */
+  isTopologicalEditing?(): boolean;
 }

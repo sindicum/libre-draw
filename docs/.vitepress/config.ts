@@ -40,6 +40,7 @@ const config = defineConfig({
             { text: 'Getting Started', link: '/guide/getting-started' },
             { text: 'Modes', link: '/guide/modes' },
             { text: 'Programmatic API', link: '/guide/programmatic-api' },
+            { text: 'Versioning and Stability', link: '/guide/versioning' },
           ],
         },
       ],

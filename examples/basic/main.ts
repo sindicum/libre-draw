@@ -52,6 +52,8 @@ const map = new maplibregl.Map({
 });
 
 const draw = new LibreDraw(map, {
+  // `?topology` turns on topological editing to try shared vertices by hand.
+  topologicalEditing: new URLSearchParams(window.location.search).has('topology'),
   toolbar: {
     position: 'top-left',
     controls: {

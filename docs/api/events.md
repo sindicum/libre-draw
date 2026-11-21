@@ -56,7 +56,7 @@ The value is decided by the call path, not by the kind of change: the same `dele
 
 ## Failure reasons
 
-The `reason` of the `*failed` events (`splitfailed`, `setbackfailed`, `unionfailed`, `cutfailed`, `reshapefailed`) is one of the values listed under each event, but its type also accepts any other string: later versions may add or remove values. Your editor still suggests the known values; give a `switch` on `reason` a `default` branch for values you do not know.
+The `reason` of the `*failed` events (`splitfailed`, `setbackfailed`, `unionfailed`, `cutfailed`, `reshapefailed`) is one of the values listed under each event, but its type also accepts any other string: a minor version may add values (removing one is a breaking change; see [Versioning and Stability](/guide/versioning)). Your editor still suggests the known values; give a `switch` on `reason` a `default` branch for values you do not know.
 
 ```ts
 draw.on('cutfailed', (e) => {
@@ -729,14 +729,14 @@ draw.on('historychange', (e) => {
 
 Emitted when an edit is refused because the result would not be a valid shape. Nothing changes: the draft keeps its vertices, the dragged vertex stays where it last was valid (or returns to where the drag started when rounding refuses the drop), and the feature keeps its shape. Use it to tell the user why a click or a drag had no effect.
 
-| `action`          | When                                                                                                                                                                                                                                                               | `reason`                                                                                            |
-| ----------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | --------------------------------------------------------------------------------------------------- |
-| `'add-vertex'`    | A vertex added in `draw-polygon` mode, or to the cutter in `cut` mode, would make an edge cross another                                                                                                                                                            | `'self-intersection'`                                                                               |
-| `'close'`         | Finishing the polygon or the cutter (a click on the first or last vertex, or `finishDrawing()`) would close it across an edge, or a polygon or rectangle would become invalid when rounded to [`coordinatePrecision`](/guide/getting-started#coordinate-precision) | `'self-intersection'`, and when rounding refuses it, the ring reasons below or `'invalid-result'`   |
-| `'finish'`        | A line drawn in `draw-line` mode would become invalid when rounded to [`coordinatePrecision`](/guide/getting-started#coordinate-precision), such as two vertices merging                                                                                           | `'invalid-result'`                                                                                  |
-| `'move-vertex'`   | A vertex dragged in `select` mode would leave the polygon invalid during the drag, or would leave the polygon or line invalid once rounded at the drop. Reported once per drag                                                                                     | `'self-intersection'`, `'ring-intersection'`, `'hole-outside'`, `'hole-nested'`, `'invalid-result'` |
-| `'delete-vertex'` | Deleting a vertex in `select` mode would leave the polygon invalid                                                                                                                                                                                                 | `'self-intersection'`, `'ring-intersection'`, `'hole-outside'`, `'hole-nested'`                     |
-| `'rotate'`        | A rotation in `rotate` mode or through [`rotate()`](/api/libre-draw#rotate-id-angledeg) would leave the coordinate range, or bend a ring across another (near the antimeridian or the poles)                                                                       | `'out-of-range'`, the ring reasons above, `'invalid-result'`                                        |
+| `action`          | When                                                                                                                                                                                                                                                                                                                           | `reason`                                                                                            |
+| ----------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | --------------------------------------------------------------------------------------------------- |
+| `'add-vertex'`    | A vertex added in `draw-polygon` mode, or to the cutter in `cut` mode, would make an edge cross another                                                                                                                                                                                                                        | `'self-intersection'`                                                                               |
+| `'close'`         | Finishing the polygon or the cutter (a click on the first or last vertex, or `finishDrawing()`) would close it across an edge, or a polygon or rectangle would become invalid when rounded to [`coordinatePrecision`](/guide/getting-started#coordinate-precision)                                                             | `'self-intersection'`, and when rounding refuses it, the ring reasons below or `'invalid-result'`   |
+| `'finish'`        | A line drawn in `draw-line` mode would become invalid when rounded to [`coordinatePrecision`](/guide/getting-started#coordinate-precision), such as two vertices merging                                                                                                                                                       | `'invalid-result'`                                                                                  |
+| `'move-vertex'`   | A vertex dragged in `select` mode would leave the polygon invalid during the drag, or would leave the polygon or line invalid once rounded at the drop. Reported once per drag. With [topological editing](/guide/modes#topological-editing), `featureId` is the polygon that would break, which may be one sharing the vertex | `'self-intersection'`, `'ring-intersection'`, `'hole-outside'`, `'hole-nested'`, `'invalid-result'` |
+| `'delete-vertex'` | Deleting a vertex in `select` mode would leave the polygon invalid. With [topological editing](/guide/modes#topological-editing), also when a polygon sharing the vertex would break or keep fewer than 3 vertices in a ring (`'invalid-result'`); `featureId` is that polygon                                                 | `'self-intersection'`, `'ring-intersection'`, `'hole-outside'`, `'hole-nested'`, `'invalid-result'` |
+| `'rotate'`        | A rotation in `rotate` mode or through [`rotate()`](/api/libre-draw#rotate-id-angledeg) would leave the coordinate range, or bend a ring across another (near the antimeridian or the poles)                                                                                                                                   | `'out-of-range'`, the ring reasons above, `'invalid-result'`                                        |
 
 | Reason                | Meaning                                                                                                            |
 | --------------------- | ------------------------------------------------------------------------------------------------------------------ |
@@ -778,12 +778,12 @@ interface EditRejectedEvent {
 }
 ```
 
-| Property    | Type                           | Description                                                       |
-| ----------- | ------------------------------ | ----------------------------------------------------------------- |
-| `origin`    | [`EventOrigin`](#event-origin) | Who caused the change: `'api'` or `'user'`                        |
-| `action`    | `EditRejectedAction`           | The edit that was refused                                         |
-| `reason`    | `EditRejectedReason`           | Why it was refused                                                |
-| `featureId` | `string \| undefined`          | The edited feature; absent while drawing, before a feature exists |
+| Property    | Type                           | Description                                                                                                                |
+| ----------- | ------------------------------ | -------------------------------------------------------------------------------------------------------------------------- |
+| `origin`    | [`EventOrigin`](#event-origin) | Who caused the change: `'api'` or `'user'`                                                                                 |
+| `action`    | `EditRejectedAction`           | The edit that was refused                                                                                                  |
+| `reason`    | `EditRejectedReason`           | Why it was refused                                                                                                         |
+| `featureId` | `string \| undefined`          | The edited feature (with topological editing, the polygon that would break); absent while drawing, before a feature exists |
 
 ### Example
 

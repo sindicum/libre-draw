@@ -1,5 +1,7 @@
 # LibreDraw
 
+English | [日本語](./README.ja.md)
+
 [![npm version](https://img.shields.io/npm/v/%40sindicum%2Flibre-draw.svg)](https://www.npmjs.com/package/@sindicum/libre-draw)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](https://opensource.org/licenses/MIT)
 [![CI](https://github.com/sindicum/libre-draw/actions/workflows/ci.yml/badge.svg)](https://github.com/sindicum/libre-draw/actions/workflows/ci.yml)
@@ -84,6 +86,8 @@ new LibreDraw(map: maplibregl.Map, options?: LibreDrawOptions)
 | `getMode()`                         | Get the current mode                                                                                                                                                                                          |
 | `setInputMethod(method)`            | How the drawing modes take a point: `'tap'` (click / tap the map) or `'reticle'` (center crosshair and an "Add point" button)                                                                                 |
 | `getInputMethod()`                  | Get the current input method                                                                                                                                                                                  |
+| `setTopologicalEditing(enabled)`    | Edit shared polygon vertices together in select mode (on / off)                                                                                                                                               |
+| `getTopologicalEditing()`           | Whether shared polygon vertices are edited together                                                                                                                                                           |
 | `finishDrawing()`                   | Finish the in-progress line or polygon                                                                                                                                                                        |
 | `cancelDrawing()`                   | Discard the in-progress draft                                                                                                                                                                                 |
 | `undoLastVertex()`                  | Take back the last placed point of the draft                                                                                                                                                                  |
@@ -178,6 +182,7 @@ interface LibreDrawOptions {
   messages?: Partial<Messages>; // Override individual UI strings
   inputMethod?: 'tap' | 'reticle'; // How drawing modes take a point. Default: 'tap'
   coordinatePrecision?: number | false; // Decimal places of stored coordinates (0–15). Default: 8
+  topologicalEditing?: boolean; // Edit vertices shared by adjacent polygons together. Default: false
 }
 ```
 
@@ -190,6 +195,10 @@ Full documentation with interactive demos is available at:
 **https://sindicum.github.io/libre-draw/**
 
 Every method answers with a return value (`{ ok, ... }`, per-feature results, or a boolean) and throws only for misuse of the instance, so the same API serves your own code and an AI agent. See [Programmatic API](https://sindicum.github.io/libre-draw/guide/programmatic-api) for the return value / exception table and the `origin` rules. A reference MCP server for local use is available in [`examples/mcp`](./examples/mcp).
+
+## Versioning
+
+LibreDraw follows [Semantic Versioning](https://semver.org/): from 1.0.0 on, only major versions break the public API (before 1.0.0, a `0.x` minor version may). See [Versioning and Stability](https://sindicum.github.io/libre-draw/guide/versioning) for what the public API covers.
 
 ## Development
 

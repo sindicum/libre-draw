@@ -165,6 +165,8 @@ describe('history state for a custom UI', () => {
     expect(() => draw.setSetbackDistance(5)).toThrow(LibreDrawError);
     expect(() => draw.getSetbackEdge()).toThrow(LibreDrawError);
     expect(() => draw.setLayers([])).toThrow(LibreDrawError);
+    expect(() => draw.getTopologicalEditing()).toThrow(LibreDrawError);
+    expect(() => draw.setTopologicalEditing(true)).toThrow(LibreDrawError);
   });
 });
 

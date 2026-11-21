@@ -312,6 +312,22 @@ When a polygon is selected, vertex handles appear:
 
 A polygon with holes shows handles on every ring, and a hole's vertices are moved, inserted, and deleted the same way as the outer ring's. The minimum of 3 vertices applies to each ring. Clicking inside a hole does not hit the polygon.
 
+### Topological Editing
+
+Adjacent polygons drawn with snapping share their boundary vertices at exactly the same position. With the `topologicalEditing` option (or [`setTopologicalEditing(true)`](/api/libre-draw#settopologicalediting-enabled)), editing such a vertex edits every polygon that shares it, so no gap or overlap opens along the boundary:
+
+| Action                        | Effect on the other polygons                            |
+| ----------------------------- | ------------------------------------------------------- |
+| Drag a shared vertex          | Their vertex at the same position moves with it         |
+| Drag a shared edge's midpoint | The new vertex is inserted into their matching edge too |
+| Long-press a shared vertex    | Their vertex at the same position is deleted too        |
+
+- Only polygons take part, outer rings and holes alike. A vertex that is off by any amount is not shared, and lines and points never move along
+- The edit is all or nothing: if any of the polygons would become invalid (a crossing, fewer than 3 vertices in a ring, or a shape that rounding breaks), none of them changes and [`editrejected`](/api/events#editrejected) names the polygon that would break
+- One undo takes back the change to every polygon, and an `update` event fires for each polygon that changed
+- The polygons that move along are not snap targets during the drag
+- Moving a whole polygon, the other modes, and API calls such as `updateFeature()` change only their own target
+
 ### Polygon Dragging
 
 | Action              | Effect                                  |

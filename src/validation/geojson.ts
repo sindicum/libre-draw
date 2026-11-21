@@ -9,6 +9,7 @@ import {
 } from './intersection';
 import type { PolygonRingError } from './intersection';
 import { deepCloneValue } from '../utils/featureSnapshot';
+import { samePosition } from '../utils/geometry';
 
 /**
  * A GeoJSON FeatureCollection type for validation purposes.
@@ -16,13 +17,6 @@ import { deepCloneValue } from '../utils/featureSnapshot';
 interface FeatureCollectionLike {
   type: 'FeatureCollection';
   features: unknown[];
-}
-
-/**
- * Check if two positions are equal.
- */
-function positionsEqual(a: Position, b: Position): boolean {
-  return a[0] === b[0] && a[1] === b[1];
 }
 
 /**
@@ -90,7 +84,7 @@ function validateRing(ring: Position[]): void {
 
   const first = ring[0];
   const last = ring[ring.length - 1];
-  if (!positionsEqual(first, last)) {
+  if (!samePosition(first, last)) {
     throw new LibreDrawError('Ring is not closed. The first and last positions must be identical.');
   }
 
@@ -314,8 +308,8 @@ function checkRoundingMerges(before: LibreDrawFeature, after: LibreDrawFeature):
   positionLists(after).forEach((list, l) => {
     for (let i = 0; i < list.length - 1; i++) {
       if (
-        positionsEqual(list[i], list[i + 1]) &&
-        !positionsEqual(beforeLists[l][i], beforeLists[l][i + 1])
+        samePosition(list[i], list[i + 1]) &&
+        !samePosition(beforeLists[l][i], beforeLists[l][i + 1])
       ) {
         throw new LibreDrawError(
           `Positions ${i} and ${i + 1} become identical. Rounding must not merge consecutive vertices.`

@@ -108,6 +108,13 @@ export interface LibreDrawOptions {
    */
   coordinatePrecision?: number | false;
   /**
+   * Whether moving, inserting, or deleting a vertex of a polygon in `select`
+   * mode also edits every other polygon with a vertex at exactly the same
+   * position, keeping shared boundaries shared. Defaults to `false`. Can be
+   * changed later with `setTopologicalEditing()`.
+   */
+  topologicalEditing?: boolean;
+  /**
    * How the drawing modes take a point. Defaults to `'tap'`.
    * Can be changed later with `setInputMethod()`.
    */
