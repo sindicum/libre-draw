@@ -191,6 +191,10 @@ Full documentation with interactive demos is available at:
 
 Every method answers with a return value (`{ ok, ... }`, per-feature results, or a boolean) and throws only for misuse of the instance, so the same API serves your own code and an AI agent. See [Programmatic API](https://sindicum.github.io/libre-draw/guide/programmatic-api) for the return value / exception table and the `origin` rules. A reference MCP server for local use is available in [`examples/mcp`](./examples/mcp).
 
+## Versioning
+
+LibreDraw follows [Semantic Versioning](https://semver.org/): from 1.0.0 on, only major versions break the public API (before 1.0.0, a `0.x` minor version may). See [Versioning and Stability](https://sindicum.github.io/libre-draw/guide/versioning) for what the public API covers.
+
 ## Development
 
 ```bash

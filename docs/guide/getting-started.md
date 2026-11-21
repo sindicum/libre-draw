@@ -277,4 +277,5 @@ draw.destroy();
 - Learn about [Modes](/guide/modes) (Idle, Draw Point, Draw Line, Draw Polygon, Draw Rectangle, Draw Angled Rectangle, Select, Split, Cut, Reshape, Union, Setback, Rotate)
 - Drive it from your own code or an AI agent: [Programmatic API](/guide/programmatic-api)
 - See the full [API Reference](/api/)
+- Check what the version number promises: [Versioning and Stability](/guide/versioning)
 - Try the [Live Demo](/examples/)
