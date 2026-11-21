@@ -33,6 +33,7 @@ A point, line, and polygon drawing and editing library for [MapLibre GL JS](http
 - **Self-intersection prevention** — Invalid polygon geometries are rejected during editing, including holes that would cross or leave the outer ring
 - **Framework-agnostic** — Works with vanilla JS, React, Vue, or any framework
 - **TypeScript** — Full type definitions included
+- **Polygon area** — `getArea(id)` returns a polygon's area in square meters (holes subtracted); swap in your own calculation with `measureArea`
 - **Headless mode** — Disable the toolbar and drive everything via API
 
 ## Quick Start
@@ -95,6 +96,7 @@ new LibreDraw(map: maplibregl.Map, options?: LibreDrawOptions)
 | `getFeatures()`                     | Get all features as an array                                                                                                                                                                                  |
 | `toGeoJSON()`                       | Export all features as a GeoJSON FeatureCollection                                                                                                                                                            |
 | `getFeatureById(id)`                | Get a single feature by ID                                                                                                                                                                                    |
+| `getArea(id)`                       | Get a polygon's area in square meters (holes subtracted); `undefined` for an unknown id, a line, or a point                                                                                                   |
 | `setFeatures(geojson)`              | Replace all features with a GeoJSON FeatureCollection (all or nothing, returns `{ ok, ... }`)                                                                                                                 |
 | `addFeatures(features)`             | Add an array of GeoJSON Feature objects (undoable as one step). Returns one `{ valid, id, reason?, message? }` per feature; invalid entries are reported there, never thrown                                  |
 | `validateFeature(feature)`          | Check an object against the same rules as `addFeatures` without adding it and without throwing                                                                                                                |
@@ -183,6 +185,7 @@ interface LibreDrawOptions {
   inputMethod?: 'tap' | 'reticle'; // How drawing modes take a point. Default: 'tap'
   coordinatePrecision?: number | false; // Decimal places of stored coordinates (0–15). Default: 8
   topologicalEditing?: boolean; // Edit vertices shared by adjacent polygons together. Default: false
+  measureArea?: (geometry: PolygonGeometry) => number; // Area calculation for getArea(). Default: sphere (@turf/area)
 }
 ```
 

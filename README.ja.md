@@ -33,6 +33,7 @@
 - **自己交差の防止** — 不正なポリゴンになる編集は拒否します。外輪と交わる穴や、外輪の外に出る穴も含みます
 - **フレームワーク非依存** — バニラ JS、React、Vue など、どのフレームワークでも使えます
 - **TypeScript** — 型定義を同梱しています
+- **ポリゴンの面積** — `getArea(id)` でポリゴンの面積（穴を差し引いた平方メートル）を取得できます。計算は `measureArea` で差し替えられます
 - **ヘッドレスモード** — ツールバーを無効にして、すべてを API から操作できます
 
 ## クイックスタート
@@ -95,6 +96,7 @@ new LibreDraw(map: maplibregl.Map, options?: LibreDrawOptions)
 | `getFeatures()`                     | すべての地物を配列で返します                                                                                                                                                                                    |
 | `toGeoJSON()`                       | すべての地物を GeoJSON の FeatureCollection で書き出します                                                                                                                                                      |
 | `getFeatureById(id)`                | ID で地物を 1 件取得します                                                                                                                                                                                      |
+| `getArea(id)`                       | ポリゴンの面積（穴を差し引いた平方メートル）を取得します。未知の id・ライン・ポイントは `undefined`                                                                                                             |
 | `setFeatures(geojson)`              | すべての地物を GeoJSON の FeatureCollection で置き換えます（全件を置き換えるか何も変えないか。`{ ok, ... }` を返す）                                                                                            |
 | `addFeatures(features)`             | GeoJSON の Feature の配列を追加します（1 ステップで元に戻せる）。地物ごとに `{ valid, id, reason?, message? }` を 1 件返し、不正なものは例外ではなくそこで報告します                                            |
 | `validateFeature(feature)`          | 追加せず、例外も投げずに、`addFeatures` と同じ規則でオブジェクトを検査します                                                                                                                                    |
@@ -183,6 +185,7 @@ interface LibreDrawOptions {
   inputMethod?: 'tap' | 'reticle'; // 描画モードでの点の置き方。既定: 'tap'
   coordinatePrecision?: number | false; // 保存する座標の小数点以下の桁数（0〜15）。既定: 8
   topologicalEditing?: boolean; // 隣り合うポリゴンが共有する頂点を一緒に編集する。既定: false
+  measureArea?: (geometry: PolygonGeometry) => number; // getArea() の面積の計算。既定: 球体（@turf/area）
 }
 ```
 

@@ -69,6 +69,7 @@ import { Toolbar } from './ui/Toolbar';
 import { ReticleOverlay } from './ui/ReticleOverlay';
 import { getBuiltinMessages, isBuiltinLocale, resolveMessages } from './ui/messages';
 import { cloneFeature } from './utils/featureSnapshot';
+import { type AreaMeasure, featureArea, sphericalArea } from './utils/area';
 import {
   MAX_COORDINATE_PRECISION,
   createCoordinateRounder,
@@ -187,6 +188,8 @@ export class LibreDraw {
   private setbackDistance = DEFAULT_SETBACK_DISTANCE_METERS;
   /** Whether editing a shared polygon vertex edits every polygon at it. */
   private topologicalEditing: boolean;
+  /** Computes the area returned by {@link getArea}. */
+  private measureArea: AreaMeasure;
 
   // The latest mouse move whose hover is not applied yet: hover is worked
   // out once per frame, not on every move.
@@ -306,6 +309,13 @@ export class LibreDraw {
     }
     this.round = createCoordinateRounder(precision);
     this.topologicalEditing = options.topologicalEditing === true;
+
+    if (options.measureArea !== undefined && typeof options.measureArea !== 'function') {
+      throw new LibreDrawError(
+        `Unsupported measureArea: ${String(options.measureArea)}. Use a function.`
+      );
+    }
+    this.measureArea = options.measureArea ?? sphericalArea;
 
     // Rendering
     this.sourceManager = new SourceManager(map);
@@ -846,6 +856,35 @@ export class LibreDraw {
   getFeatureById(id: string): LibreDrawFeature | undefined {
     this.assertNotDestroyed();
     return this.featureStore.getById(id);
+  }
+
+  /**
+   * Get the area of a stored polygon in square meters, holes subtracted.
+   *
+   * The area is computed from the stored coordinates (rounded to
+   * `coordinatePrecision`), on a sphere with the mean Earth radius
+   * (`@turf/area`) unless the `measureArea` option supplies another
+   * calculation. Nothing is cached: call it again after an `update`,
+   * `undo`, or other change to get the new area.
+   *
+   * @param id - The unique identifier of the feature.
+   * @returns The area in square meters, or `undefined` if the feature is
+   *   not found or is not a Polygon.
+   *
+   * @throws {LibreDrawError} If this instance has been destroyed.
+   * @throws Anything the `measureArea` option throws.
+   *
+   * @example
+   * ```ts
+   * const area = draw.getArea('abc-123');
+   * if (area !== undefined) {
+   *   console.log(`${(area / 10000).toFixed(2)} ha`);
+   * }
+   * ```
+   */
+  getArea(id: string): number | undefined {
+    this.assertNotDestroyed();
+    return featureArea(this.featureStore.getById(id), this.measureArea);
   }
 
   /**

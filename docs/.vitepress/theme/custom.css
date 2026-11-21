@@ -188,3 +188,19 @@
 .demo-basemap-note {
   color: var(--vp-c-text-2);
 }
+
+/* Area of the selected polygon, under the aerial photo toggle. */
+.demo-area {
+  position: absolute;
+  top: 48px;
+  left: 10px;
+  z-index: 1;
+  padding: 4px 10px;
+  border: 1px solid var(--vp-c-divider);
+  border-radius: 4px;
+  background: var(--vp-c-bg);
+  color: var(--vp-c-text-1);
+  font-size: 13px;
+  font-family: var(--vp-font-family-mono);
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.2);
+}

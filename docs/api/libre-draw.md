@@ -100,7 +100,12 @@ const draw = new LibreDraw(map, { coordinatePrecision: 6 });
 const draw = new LibreDraw(map, { topologicalEditing: true });
 ```
 
-**Throws:** [`LibreDrawError`](/api/types#libredrawerror) if `options.locale` is not `'en'` or `'ja'`, if `options.inputMethod` is not `'tap'` or `'reticle'`, or if `options.coordinatePrecision` is not an integer from `0` to `15` or `false`.
+```ts
+// Compute getArea() with your own function (for example on an ellipsoid)
+const draw = new LibreDraw(map, { measureArea: (geometry) => ellipsoidalArea(geometry) });
+```
+
+**Throws:** [`LibreDrawError`](/api/types#libredrawerror) if `options.locale` is not `'en'` or `'ja'`, if `options.inputMethod` is not `'tap'` or `'reticle'`, if `options.coordinatePrecision` is not an integer from `0` to `15` or `false`, or if `options.measureArea` is given and is not a function.
 
 ---
 
@@ -487,6 +492,33 @@ Each call returns deep copies: changing the returned objects (coordinates, prope
 const feature = draw.getFeatureById('abc-123');
 if (feature) {
   console.log(feature.geometry.coordinates);
+}
+```
+
+---
+
+### `getArea(id)`
+
+Get the area of a stored polygon in square meters, with its holes subtracted.
+
+The area is computed from the stored coordinates (rounded to [`coordinatePrecision`](/api/types#libredrawoptions)) on a sphere with the mean Earth radius (6,371,008.8 m, [`@turf/area`](https://turfjs.org/docs/api/area)), unless the [`measureArea`](/api/types#libredrawoptions) option supplies another calculation. Nothing is cached: call it again after a change. To keep a display up to date, call it from [`selectionchange`](/api/events#selectionchange) and [`historychange`](/api/events#historychange); see [Showing the area of a polygon](/guide/programmatic-api#showing-the-area-of-a-polygon).
+
+**Parameters:**
+
+| Name | Type     | Description                          |
+| ---- | -------- | ------------------------------------ |
+| `id` | `string` | The unique identifier of the feature |
+
+**Returns:** `number | undefined` — the area in square meters, or `undefined` if the feature is not found or is not a Polygon (a LineString or a Point).
+
+**Throws:** [`LibreDrawError`](/api/types#libredrawerror) if this instance has been destroyed. Anything the `measureArea` function throws propagates unchanged.
+
+**Example:**
+
+```ts
+const area = draw.getArea('abc-123');
+if (area !== undefined) {
+  console.log(`${(area / 10000).toFixed(2)} ha`);
 }
 ```
 

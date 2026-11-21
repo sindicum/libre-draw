@@ -26,7 +26,8 @@ Two parts of the API make it a contract a program can rely on:
 `LibreDraw` throws a [`LibreDrawError`](/api/types#libredrawerror) only for misuse of the
 instance: a call after `destroy()`, a mode name that does not exist, an unsupported
 `locale` in the constructor, or an unsupported input method (in the constructor or
-`setInputMethod`). Everything about the data you pass (an unknown id, an invalid
+`setInputMethod`). A `measureArea` function you pass is your code: what it throws reaches
+the caller of `getArea` unchanged. Everything about the data you pass (an unknown id, an invalid
 geometry, a line that misses the polygon) comes back in the return value. Argument _types_
 are TypeScript's job: the library does not check them at runtime, and `split(id, undefined)`
 fails with an ordinary `TypeError` like any JavaScript call.
@@ -51,6 +52,7 @@ the table leaves that out.
 | `addFeatures(features)`             | [`AddFeatureResult[]`](/api/types#addfeatureresult)             | never             | One entry per input, in order. Valid entries are added as one undo step; invalid ones carry `invalid-feature` or `duplicate-id` as `reason`.                                                                                                                                                         |
 | `validateFeature(feature)`          | [`FeatureValidationResult`](/api/types#featurevalidationresult) | never             | Checks the Feature only (envelope, geometry type, finite coordinates within range, ring closure, non-degenerate rings, self-intersection), as given and once rounded to `coordinatePrecision`; returns the rounded copy. Does not check duplicate ids. An invalid feature reports `invalid-feature`. |
 | `getFeatureById(id)`                | `LibreDrawFeature \| undefined`                                 | never             |                                                                                                                                                                                                                                                                                                      |
+| `getArea(id)`                       | `number \| undefined`                                           | never             | Square meters, holes subtracted. `undefined` for an unknown id, a LineString, or a Point. Anything a `measureArea` function throws propagates.                                                                                                                                                       |
 | `deleteFeature(id)`                 | `LibreDrawFeature \| undefined`                                 | never             | `undefined` for an unknown id: nothing recorded, no event.                                                                                                                                                                                                                                           |
 | `updateFeature(id, patch)`          | `OperationResult`                                               | never             | `not-found`, `geometry-type-mismatch`, `empty-patch`, or `invalid-feature`.                                                                                                                                                                                                                          |
 | `rotate(id, angleDeg)`              | `OperationResult`                                               | never             | `not-found`, `not-rotatable`, `no-rotation`, or the `editrejected` reason of a rotated shape that fails validation.                                                                                                                                                                                  |
@@ -143,6 +145,39 @@ method. Only the built-in toolbar, pointer and touch input on the map, and the k
 shortcuts are `'user'`. A sync loop that filters on `origin` therefore treats your UI as
 part of the program, which is usually what you want; if it must tell the person's clicks
 on your buttons from your own automated calls, keep that distinction in your UI code.
+
+## Showing the area of a polygon
+
+LibreDraw draws no area label: [`getArea(id)`](/api/libre-draw#getarea-id) returns square
+meters and your page decides the unit, the digits, and where to show it. The area of a
+polygon changes only when the selection changes or when the history does (a committed
+edit, undo, redo), so re-reading it on `selectionchange` and `historychange` keeps a
+display in step. The [live demo](/examples/) shows the area of the one selected polygon
+with this code:
+
+```ts
+const label = document.getElementById('area')!;
+
+function formatArea(squareMeters: number): string {
+  return squareMeters >= 10000
+    ? `${(squareMeters / 10000).toFixed(2)} ha`
+    : `${squareMeters.toFixed(1)} m²`;
+}
+
+function showArea(): void {
+  const ids = draw.getSelectedFeatureIds();
+  const area = ids.length === 1 ? draw.getArea(ids[0]) : undefined;
+  label.hidden = area === undefined;
+  if (area !== undefined) label.textContent = `Area: ${formatArea(area)}`;
+}
+
+draw.on('selectionchange', showArea);
+draw.on('historychange', showArea);
+```
+
+The default is a sphere with the mean Earth radius. For an ellipsoidal or projected
+area, pass your own function as the `measureArea` option; `getArea` then returns
+whatever it returns.
 
 ## Using it from an AI agent
 
