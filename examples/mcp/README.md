@@ -1,5 +1,7 @@
 # LibreDraw MCP bridge (reference implementation)
 
+English | [日本語](./README.ja.md)
+
 An MCP server that lets an AI agent (Claude Code, or any MCP client) read and edit the
 features on a LibreDraw map through the public API, without touching the pointer or the
 toolbar. It is the working example for the `OperationResult` / `origin` contract:

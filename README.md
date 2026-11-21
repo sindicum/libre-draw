@@ -1,5 +1,7 @@
 # LibreDraw
 
+English | [日本語](./README.ja.md)
+
 [![npm version](https://img.shields.io/npm/v/%40sindicum%2Flibre-draw.svg)](https://www.npmjs.com/package/@sindicum/libre-draw)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](https://opensource.org/licenses/MIT)
 [![CI](https://github.com/sindicum/libre-draw/actions/workflows/ci.yml/badge.svg)](https://github.com/sindicum/libre-draw/actions/workflows/ci.yml)
