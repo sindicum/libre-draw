@@ -139,11 +139,7 @@ export interface SetbackFailedEvent {
  * the type also accepts any other string: handle values you do not know.
  */
 export type UnionFailReason =
-  | 'not-polygon'
-  | 'has-holes'
-  | 'disjoint'
-  | 'invalid-result'
-  | (string & {});
+  'not-polygon' | 'has-holes' | 'disjoint' | 'invalid-result' | (string & {});
 
 /**
  * Event payload for a successful union operation.
@@ -333,13 +329,7 @@ export interface HistoryChangeEvent {
  * the type also accepts any other string: handle values you do not know.
  */
 export type EditRejectedAction =
-  | 'add-vertex'
-  | 'close'
-  | 'finish'
-  | 'move-vertex'
-  | 'delete-vertex'
-  | 'rotate'
-  | (string & {});
+  'add-vertex' | 'close' | 'finish' | 'move-vertex' | 'delete-vertex' | 'rotate' | (string & {});
 
 /**
  * Why an `editrejected` event refused an edit.

@@ -753,13 +753,7 @@ Like the [failure reasons](#failure-reasons), `action` and `reason` also accept 
 
 ```ts
 type EditRejectedAction =
-  | 'add-vertex'
-  | 'close'
-  | 'finish'
-  | 'move-vertex'
-  | 'delete-vertex'
-  | 'rotate'
-  | (string & {});
+  'add-vertex' | 'close' | 'finish' | 'move-vertex' | 'delete-vertex' | 'rotate' | (string & {});
 
 type EditRejectedReason =
   | 'self-intersection'

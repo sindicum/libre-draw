@@ -73,8 +73,7 @@ export type OperationResult = OperationSuccess | OperationFailure;
  * - `duplicate-id`: the id is already in the store or earlier in the input
  */
 export type AddFeatureResult =
-  | { valid: true; id: string }
-  | { valid: false; id?: string; reason: string; message: string };
+  { valid: true; id: string } | { valid: false; id?: string; reason: string; message: string };
 
 /**
  * Outcome of {@link LibreDraw.validateFeature}: the normalized feature when
@@ -83,8 +82,7 @@ export type AddFeatureResult =
  * `addFeatures` / `setFeatures`.
  */
 export type FeatureValidationResult =
-  | { valid: true; feature: LibreDrawFeature }
-  | { valid: false; reason: string; message: string };
+  { valid: true; feature: LibreDrawFeature } | { valid: false; reason: string; message: string };
 
 /**
  * What {@link LibreDraw.updateFeature} replaces on a feature. Each field is
@@ -107,10 +105,7 @@ export interface UpdateFeaturePatch {
  *   validation message is in `message`)
  */
 export type UpdateFeatureFailReason =
-  | 'not-found'
-  | 'geometry-type-mismatch'
-  | 'empty-patch'
-  | 'invalid-feature';
+  'not-found' | 'geometry-type-mismatch' | 'empty-patch' | 'invalid-feature';
 
 /**
  * Failure codes of {@link LibreDraw.rotate}. A rotated shape that fails
@@ -177,11 +172,7 @@ export type SplitOperationFailReason = 'not-found' | 'not-splittable' | SplitFai
  * - `invalid-distance`: the distance is not a finite positive number
  */
 export type SetbackOperationFailReason =
-  | 'not-found'
-  | 'not-polygon'
-  | 'invalid-edge'
-  | 'invalid-distance'
-  | SetbackFailReason;
+  'not-found' | 'not-polygon' | 'invalid-edge' | 'invalid-distance' | SetbackFailReason;
 
 /**
  * Failure codes of {@link LibreDraw.union}. Geometric failures reuse the
@@ -216,7 +207,4 @@ export type CutOperationFailReason = 'not-found' | 'not-polygon' | 'invalid-cutt
  *   non-numeric position
  */
 export type ReshapeOperationFailReason =
-  | 'not-found'
-  | 'not-polygon'
-  | 'invalid-line'
-  | ReshapeFailReason;
+  'not-found' | 'not-polygon' | 'invalid-line' | ReshapeFailReason;

@@ -14,8 +14,7 @@ import { buildPathSegment, edgeParameter, findPathIndex, positionsEqual } from '
  * why the reshape could not be made.
  */
 export type ReshapeResult =
-  | { type: 'success'; feature: LibreDrawFeature }
-  | { type: 'error'; reason: ReshapeFailReason };
+  { type: 'success'; feature: LibreDrawFeature } | { type: 'error'; reason: ReshapeFailReason };
 
 /**
  * A crossing of the line with the outer ring. `linePosition` is the

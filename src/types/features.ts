@@ -73,14 +73,7 @@ export interface FeatureCollection {
  * The type of history action.
  */
 export type ActionType =
-  | 'create'
-  | 'update'
-  | 'delete'
-  | 'split'
-  | 'setback'
-  | 'union'
-  | 'cut'
-  | 'batch';
+  'create' | 'update' | 'delete' | 'split' | 'setback' | 'union' | 'cut' | 'batch';
 
 /**
  * A reversible action that can be applied and reverted on a FeatureStore.
