@@ -820,6 +820,34 @@ describe('RotateMode', () => {
       expect(harness.mocks.push).toHaveBeenCalledTimes(1);
     });
 
+    it('cancelInteraction puts a numeric-input preview back and keeps the target', () => {
+      mode.onPointerDown(pointerEvent(2, 2));
+      mode.onAngleChange(45);
+      expect(ring(harness.features.get('sq'))).not.toEqual(ring(makeSquare()));
+
+      mode.cancelInteraction();
+
+      expectRing(ring(harness.features.get('sq')), ring(makeSquare()), 9);
+      expect(mode.getSelectedId()).toBe('sq');
+      expect(harness.mocks.push).not.toHaveBeenCalled();
+    });
+
+    it('cancelInteraction puts a drag back and the release commits nothing', () => {
+      mode.onPointerDown(pointerEvent(2, 2));
+      mode.onPointerDown(around(squareCenter, 0, 1));
+      mode.onPointerMove(around(squareCenter, 30, 1));
+      harness.mocks.setDragPan.mockClear();
+
+      mode.cancelInteraction();
+      mode.onPointerMove(around(squareCenter, 60, 1));
+      mode.onPointerUp(around(squareCenter, 60, 1));
+
+      expectRing(ring(harness.features.get('sq')), ring(makeSquare()), 9);
+      expect(harness.mocks.setDragPan).toHaveBeenLastCalledWith(true);
+      expect(harness.mocks.push).not.toHaveBeenCalled();
+      expect(mode.getSelectedId()).toBe('sq');
+    });
+
     it('dropSelection forgets the selection without writing to the store', () => {
       mode.onPointerDown(pointerEvent(2, 2));
       mode.onAngleChange(45);

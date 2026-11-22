@@ -7,6 +7,7 @@
         <input type="checkbox" :checked="showAerial" @change="toggleAerial" />
         Aerial photo <span class="demo-basemap-note">(Japan only, zoom 14+)</span>
       </label>
+      <div v-if="area !== null" class="demo-area">Area: {{ formatArea(area) }}</div>
       <div class="demo-log" ref="logContainer">
         <p v-if="logs.length === 0" class="demo-log-empty">
           Place a point or draw a polygon to see events here...
@@ -45,6 +46,13 @@ function describeFeature(feature: any): string {
   return `Polygon ${feature.id.slice(0, 8)}... (${feature.geometry.coordinates[0].length - 1} vertices)`;
 }
 
+function formatArea(squareMeters: number): string {
+  return squareMeters >= 10000
+    ? `${(squareMeters / 10000).toFixed(2)} ha`
+    : `${squareMeters.toFixed(1)} m²`;
+}
+
+const area = ref<number | null>(null);
 const mapContainer = ref<HTMLDivElement | null>(null);
 const logContainer = ref<HTMLDivElement | null>(null);
 const logs = ref<LogEntry[]>([]);
@@ -148,6 +156,16 @@ onMounted(async () => {
     });
 
     drawInstance = draw;
+
+    // Area of the one selected polygon. Its committed area changes only with
+    // the selection and the history (a committed edit, undo, redo), so a drag
+    // shows its new area when it is dropped.
+    const showArea = () => {
+      const ids = draw.getSelectedFeatureIds();
+      area.value = ids.length === 1 ? (draw.getArea(ids[0]) ?? null) : null;
+    };
+    draw.on('selectionchange', showArea);
+    draw.on('historychange', showArea);
 
     draw.on('create', (e) => {
       addLog('create', `${describeFeature(e.feature)} created`);

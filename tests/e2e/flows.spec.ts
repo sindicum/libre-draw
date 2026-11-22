@@ -1,5 +1,6 @@
 import { test, expect } from '@playwright/test';
 import {
+  type E2EWindow,
   Pointer,
   addPolygonFromScreen,
   featureCount,
@@ -118,6 +119,56 @@ test('rotate: dragging on the selected rectangle rotates it', async ({ page, has
   const [rotate] = await getEvents<{ angle: number }>(page, 'rotate');
   expect(rotate.angle).not.toBe(0);
   expect(await featureCount(page)).toBe(1);
+});
+
+test('select: an API update in the middle of a drag cancels it, and the rest of the drag changes nothing', async ({
+  page,
+  hasTouch,
+}) => {
+  const pointer = new Pointer(page, hasTouch);
+  await addPolygonFromScreen(page, [
+    [200, 200],
+    [300, 200],
+    [300, 300],
+    [200, 300],
+  ]);
+  await setMode(page, 'select');
+  const id = await page.evaluate(() => {
+    const draw = (window as unknown as E2EWindow).draw;
+    const [feature] = draw.getFeatures();
+    draw.selectFeature(feature.id);
+    return feature.id;
+  });
+  const ring = () =>
+    page.evaluate((featureId) => {
+      const draw = (window as unknown as E2EWindow).draw;
+      const feature = draw.getFeatureById(featureId)!;
+      return (feature.geometry as { coordinates: number[][][] }).coordinates[0];
+    }, id);
+  const start = await ring();
+  await recordEvents(page, ['update']);
+
+  let preview: number[][] = [];
+  await pointer.drag([250, 250], [330, 330], 10, async () => {
+    preview = await ring();
+    await page.evaluate((featureId) => {
+      const draw = (window as unknown as E2EWindow).draw;
+      draw.updateFeature(featureId, { properties: { crop: 'wheat' } });
+    }, id);
+  });
+
+  // The drag had moved the polygon before the call.
+  expect(preview).not.toEqual(start);
+  // Only the API update was recorded, against the shape at drag start, and
+  // the rest of the drag and the release left the polygon where it started.
+  const updates = await getEvents<{
+    origin: string;
+    oldFeature: { geometry: { coordinates: number[][][] } };
+  }>(page, 'update');
+  expect(updates).toHaveLength(1);
+  expect(updates[0].origin).toBe('api');
+  expect(updates[0].oldFeature.geometry.coordinates[0]).toEqual(start);
+  expect(await ring()).toEqual(start);
 });
 
 test('union: tapping polygons adds them to the selection and the execute button merges them', async ({
@@ -580,44 +631,104 @@ test('reshape: tapping a polygon and drawing a line into it cuts a notch in its 
   expect(outerLength).toBe(9);
 });
 
-test('toolbar: on a short map the buttons scroll and a popup beside them stays visible', async ({
+test('toolbar: on a short map the buttons that do not fit wrap into a second column, then scroll, and a popup beside them stays visible', async ({
   page,
   hasTouch,
 }) => {
   const { width } = page.viewportSize()!;
-  await page.setViewportSize({ width, height: 500 });
   const frame = page.locator('.libre-draw-toolbar');
   const list = page.locator('.libre-draw-toolbar-buttons');
-  const frameBottom = async () => {
-    const box = await frame.boundingBox();
-    return (box?.y ?? 0) + (box?.height ?? 0);
+  const buttonX = (id: string) =>
+    page.locator(`[data-libre-draw-button="${id}"]`).evaluate((el) => {
+      return Math.round(el.getBoundingClientRect().left);
+    });
+  const frameBox = async () => (await frame.boundingBox())!;
+  const scrolls = () => list.evaluate((el) => el.scrollHeight > el.clientHeight);
+  const maxHeight = () => frame.evaluate((el) => parseFloat((el as HTMLElement).style.maxHeight));
+
+  // Opens the setback popup and checks it sits beside the frame's outer
+  // (map-side) edge, uncovered and inside the viewport.
+  const checkSetbackPopup = async (height: number) => {
+    const setback = page.locator('[data-libre-draw-button="setback"]');
+    await setback.scrollIntoViewIfNeeded();
+    if (hasTouch) {
+      await setback.tap();
+    } else {
+      await setback.click();
+    }
+    const execute = page.getByRole('button', { name: 'Execute setback' });
+    await expect(execute).toBeVisible();
+    const box = (await execute.boundingBox())!;
+    expect(box.height).toBeGreaterThanOrEqual(44);
+    const hit = await execute.evaluate(
+      (el, [x, y]) => el.contains(document.elementFromPoint(x, y)),
+      [box.x + box.width / 2, box.y + box.height / 2]
+    );
+    expect(hit).toBe(true);
+    const frameRight = (await frameBox()).x + (await frameBox()).width;
+    expect(box.x).toBeGreaterThanOrEqual(frameRight);
+    expect(box.x + box.width).toBeLessThanOrEqual(width);
+    expect(box.y).toBeGreaterThanOrEqual(0);
+    expect(box.y + box.height).toBeLessThanOrEqual(height);
+    // Leave setback mode so the next step starts from the same state.
+    await setMode(page, 'idle');
   };
 
-  await expect.poll(frameBottom).toBeLessThanOrEqual(500);
-  expect(await list.evaluate((el) => el.scrollHeight > el.clientHeight)).toBe(true);
+  // One column does not fit (16 rows of 44px need 772px): the first column is
+  // filled to the bottom and only the rest move to a second column, which
+  // opens to the right, toward the map, without scrolling.
+  await page.setViewportSize({ width, height: 500 });
+  // The map reports its resize a little later. The layout before it may
+  // already have two columns (a 720px map holds 14 rows), so wait for the cap
+  // to follow the new height before reading the layout.
+  await expect.poll(maxHeight).toBeLessThanOrEqual(500);
+  await expect.poll(() => buttonX('redo')).toBeGreaterThan(await buttonX('draw-point'));
+  expect(await scrolls()).toBe(false);
+  // The expected count comes from the height the toolbar may use (its
+  // max-height), not from the list, whose height is the first column's.
+  const firstColumn = await list.evaluate((el) => {
+    const buttons = [...el.querySelectorAll('[data-libre-draw-button]')];
+    const x = (b: Element) => Math.round(b.getBoundingClientRect().left);
+    const available = parseFloat((el.parentElement as HTMLElement).style.maxHeight);
+    return {
+      count: buttons.filter((b) => x(b) === x(buttons[0])).length,
+      fit: Math.floor((available - 8 + 4) / 48),
+    };
+  });
+  expect(firstColumn.count).toBe(firstColumn.fit);
+  expect(firstColumn.count).toBeGreaterThan(8);
+  // The background is cut to the columns: the corner below the shorter
+  // second column belongs to the map, not to the toolbar.
+  const corner = await page.locator('[data-libre-draw-button="redo"]').evaluate((el) => {
+    const box = el.getBoundingClientRect();
+    const frame = el.closest('.libre-draw-toolbar')!;
+    const frameBottom = frame.getBoundingClientRect().bottom;
+    const x = box.left + box.width / 2;
+    const y = (box.bottom + frameBottom) / 2;
+    return {
+      gap: frameBottom - box.bottom,
+      hitsToolbar: frame.contains(document.elementFromPoint(x, y)),
+    };
+  });
+  expect(corner.gap).toBeGreaterThan(44);
+  expect(corner.hitsToolbar).toBe(false);
+  const twoColumns = await frameBox();
+  expect(twoColumns.y + twoColumns.height).toBeLessThanOrEqual(500);
+  await checkSetbackPopup(500);
+
+  // Even two columns do not fit: they stay two and the list scrolls.
+  await page.setViewportSize({ width, height: 300 });
+  await expect.poll(maxHeight).toBeLessThanOrEqual(300);
+  await expect.poll(scrolls).toBe(true);
+  expect(await buttonX('redo')).toBeGreaterThan(await buttonX('draw-point'));
+  const scrolled = await frameBox();
+  expect(scrolled.y + scrolled.height).toBeLessThanOrEqual(300);
   // The scrollbar must not squeeze the 44px buttons into a sideways scroll.
   expect(await list.evaluate((el) => el.scrollWidth <= el.clientWidth)).toBe(true);
+  await checkSetbackPopup(300);
 
-  const setback = page.locator('[data-libre-draw-button="setback"]');
-  await setback.scrollIntoViewIfNeeded();
-  if (hasTouch) {
-    await setback.tap();
-  } else {
-    await setback.click();
-  }
-
-  // The popup sits outside the scrolling list, so nothing clips or covers it.
-  const execute = page.getByRole('button', { name: 'Execute setback' });
-  await expect(execute).toBeVisible();
-  const box = (await execute.boundingBox())!;
-  expect(box.height).toBeGreaterThanOrEqual(44);
-  const hit = await execute.evaluate(
-    (el, [x, y]) => el.contains(document.elementFromPoint(x, y)),
-    [box.x + box.width / 2, box.y + box.height / 2]
-  );
-  expect(hit).toBe(true);
-
-  // A taller map needs no scrolling: the cap follows the map's resize.
+  // A tall map fits one column: the layout follows the map's resize.
   await page.setViewportSize({ width, height: 1000 });
-  await expect.poll(() => list.evaluate((el) => el.scrollHeight <= el.clientHeight)).toBe(true);
+  await expect.poll(() => buttonX('redo')).toBe(await buttonX('draw-point'));
+  expect(await scrolls()).toBe(false);
 });

@@ -1,4 +1,4 @@
-import { describe, expect, it, vi } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import type { Map as MaplibreMap } from 'maplibre-gl';
 import { Toolbar, type ToolbarCallbacks } from '../../../src/ui/Toolbar';
 
@@ -49,6 +49,42 @@ function createToolbar(mapHeight = 600) {
   return { ...env, toolbar, frame, list };
 }
 
+function columns(list: HTMLElement): HTMLElement[] {
+  return [...list.children] as HTMLElement[];
+}
+
+/** Ids of the buttons in each column, outer column first. */
+function idsByColumn(list: HTMLElement): string[][] {
+  return columns(list).map((column) =>
+    [...column.querySelectorAll('[data-libre-draw-button]')].map((b) =>
+      b.getAttribute('data-libre-draw-button')!
+    )
+  );
+}
+
+function firstRow(list: HTMLElement): HTMLElement {
+  return columns(list)[0].firstElementChild as HTMLElement;
+}
+
+const ORDER = [
+  'draw-point',
+  'draw-line',
+  'draw-polygon',
+  'draw-rectangle',
+  'draw-angled-rectangle',
+  'input-method',
+  'select',
+  'split',
+  'cut',
+  'reshape',
+  'union',
+  'setback',
+  'rotate',
+  'delete',
+  'undo',
+  'redo',
+];
+
 function rowOf(list: HTMLElement, id: string): HTMLElement {
   return list.querySelector(`[data-libre-draw-button="${id}"]`)!.parentElement!;
 }
@@ -59,7 +95,21 @@ function visiblePopups(frame: HTMLElement, list: HTMLElement): HTMLElement[] {
   );
 }
 
+/** Map containers put in the document, removed after each test. */
+const attached: HTMLElement[] = [];
+
+/** Put the map in the document: focus needs the button there. */
+function attach(map: MaplibreMap): void {
+  const container = map.getContainer();
+  document.body.appendChild(container);
+  attached.push(container);
+}
+
 describe('Toolbar layout', () => {
+  afterEach(() => {
+    for (const container of attached.splice(0)) container.remove();
+  });
+
   it('scrolls the button list inside the frame and keeps the popups outside it', () => {
     const { frame, list, toolbar } = createToolbar();
 
@@ -122,6 +172,111 @@ describe('Toolbar layout', () => {
     const { frame } = createToolbar(0);
 
     expect(frame.style.maxHeight).toBe('');
+  });
+
+  it('lays out one painted column while every button fits', () => {
+    const { frame, list, fire } = createToolbar(772);
+    stub(firstRow(list), 'offsetHeight', 44);
+    fire('resize');
+
+    expect(idsByColumn(list)).toEqual([ORDER, []]);
+    const [outer, inner] = columns(list);
+    expect(inner.style.display).toBe('none');
+    expect(outer.style.backgroundColor).not.toBe('');
+    // Only the painted column takes pointer input.
+    expect(frame.style.backgroundColor).toBe('');
+    expect(frame.style.pointerEvents).toBe('none');
+    expect(outer.style.pointerEvents).toBe('auto');
+  });
+
+  it.each([
+    ['top-right', 'row-reverse'],
+    ['bottom-right', 'row-reverse'],
+    ['top-left', 'row'],
+    ['bottom-left', 'row'],
+  ] as const)(
+    'in %s, fills the outer column and moves the rest to an inner column on the map side',
+    (position, direction) => {
+      const env = createMap(500);
+      env.corner.className = `maplibregl-ctrl-${position}`;
+      new Toolbar(env.map, callbacks, { position });
+      const list = env.corner.querySelector<HTMLDivElement>('.libre-draw-toolbar-buttons')!;
+      stub(firstRow(list), 'offsetHeight', 44);
+      env.fire('resize');
+
+      // 500px holds 10 rows: the outer column is full and the other 6 move over.
+      expect(idsByColumn(list)).toEqual([ORDER.slice(0, 10), ORDER.slice(10)]);
+      expect(list.style.flexDirection).toBe(direction);
+      expect(columns(list)[1].style.display).toBe('flex');
+    }
+  );
+
+  it('keeps the focus on a button that stays in its column when the other rows move', () => {
+    const { map, list, fire, setHeight } = createToolbar(1000);
+    attach(map);
+    stub(firstRow(list), 'offsetHeight', 44);
+    fire('resize');
+    const point = list.querySelector<HTMLButtonElement>('[data-libre-draw-button="draw-point"]')!;
+    point.focus();
+
+    // One column to two: the last six rows move over, draw-point stays.
+    setHeight(500);
+    fire('resize');
+    expect(idsByColumn(list)).toEqual([ORDER.slice(0, 10), ORDER.slice(10)]);
+    expect(document.activeElement).toBe(point);
+
+    // And back: the moved rows return, draw-point stays.
+    setHeight(1000);
+    fire('resize');
+    expect(idsByColumn(list)).toEqual([ORDER, []]);
+    expect(document.activeElement).toBe(point);
+  });
+
+  it('lets the list take pointer input while it scrolls, for its scrollbar', () => {
+    const { list, fire } = createToolbar(300);
+    stub(firstRow(list), 'offsetHeight', 44);
+    stub(list, 'scrollHeight', 388);
+    stub(list, 'clientHeight', 300);
+    fire('resize');
+
+    expect(list.style.pointerEvents).toBe('auto');
+  });
+
+  it('keeps the button order when the map shrinks in steps', () => {
+    // 720px holds 14 rows: undo and redo move over first.
+    const { list, fire, setHeight } = createToolbar(720);
+    stub(firstRow(list), 'offsetHeight', 44);
+    fire('resize');
+    expect(idsByColumn(list)).toEqual([ORDER.slice(0, 14), ORDER.slice(14)]);
+
+    setHeight(500);
+    fire('resize');
+    expect(idsByColumn(list)).toEqual([ORDER.slice(0, 10), ORDER.slice(10)]);
+  });
+
+  it('keeps the button order when the map grows in steps and stays two columns', () => {
+    // 500px holds 10 rows, 720px holds 14: four rows come back from the
+    // front of the inner column.
+    const { list, fire, setHeight } = createToolbar(500);
+    stub(firstRow(list), 'offsetHeight', 44);
+    fire('resize');
+    expect(idsByColumn(list)).toEqual([ORDER.slice(0, 10), ORDER.slice(10)]);
+
+    setHeight(720);
+    fire('resize');
+    expect(idsByColumn(list)).toEqual([ORDER.slice(0, 14), ORDER.slice(14)]);
+  });
+
+  it('goes back to one column when the map grows, keeping the button order', () => {
+    const { list, fire, setHeight } = createToolbar(300);
+    stub(firstRow(list), 'offsetHeight', 44);
+    fire('resize');
+    expect(idsByColumn(list)).toEqual([ORDER.slice(0, 8), ORDER.slice(8)]);
+
+    setHeight(1000);
+    fire('resize');
+    expect(idsByColumn(list)).toEqual([ORDER, []]);
+    expect(columns(list)[1].style.display).toBe('none');
   });
 
   it('aligns a popup with its row, minus the scroll, kept inside the frame', () => {

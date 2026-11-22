@@ -44,6 +44,9 @@ These can change in any release:
 - The toolbar's DOM structure and styling. Use the toolbar options, or
   [build your own UI](/guide/programmatic-api#building-your-own-ui) when you need control.
 
+What the library does not support at all, and the conditions each operation needs, are
+listed in [Known Limitations](/guide/limitations).
+
 ## What counts as a breaking change
 
 Breaking, so only in a major version:

@@ -69,6 +69,7 @@ import { Toolbar } from './ui/Toolbar';
 import { ReticleOverlay } from './ui/ReticleOverlay';
 import { getBuiltinMessages, isBuiltinLocale, resolveMessages } from './ui/messages';
 import { cloneFeature } from './utils/featureSnapshot';
+import { type AreaMeasure, featureArea, sphericalArea } from './utils/area';
 import {
   MAX_COORDINATE_PRECISION,
   createCoordinateRounder,
@@ -187,6 +188,8 @@ export class LibreDraw {
   private setbackDistance = DEFAULT_SETBACK_DISTANCE_METERS;
   /** Whether editing a shared polygon vertex edits every polygon at it. */
   private topologicalEditing: boolean;
+  /** Computes the area returned by {@link getArea}. */
+  private measureArea: AreaMeasure;
 
   // The latest mouse move whose hover is not applied yet: hover is worked
   // out once per frame, not on every move.
@@ -306,6 +309,13 @@ export class LibreDraw {
     }
     this.round = createCoordinateRounder(precision);
     this.topologicalEditing = options.topologicalEditing === true;
+
+    if (options.measureArea !== undefined && typeof options.measureArea !== 'function') {
+      throw new LibreDrawError(
+        `Unsupported measureArea: ${String(options.measureArea)}. Use a function.`
+      );
+    }
+    this.measureArea = options.measureArea ?? sphericalArea;
 
     // Rendering
     this.sourceManager = new SourceManager(map);
@@ -625,8 +635,9 @@ export class LibreDraw {
    *   `created` and the previous ones in `deleted`, or
    *   `{ ok: false, reason: 'invalid-geojson', message }` when the input is
    *   not a FeatureCollection or one of its features fails validation
-   *   (`message` reads `Invalid feature at index i: …`). Nothing changes on
-   *   failure.
+   *   (`message` reads `Invalid feature at index i: …`). On failure the
+   *   committed features stay as they were (a drag in progress is still
+   *   cancelled).
    *
    * @throws {LibreDrawError} If this instance has been destroyed.
    *
@@ -648,6 +659,9 @@ export class LibreDraw {
    */
   setFeatures(geojson: unknown): OperationResult {
     this.assertNotDestroyed();
+    // Like every method that changes features, cancel a drag even when the
+    // call then fails.
+    this.cancelInteraction();
     const validated = tryValidateGeoJSON(geojson, this.round);
     if (!validated.valid) {
       return { ok: false, reason: validated.reason, message: validated.message };
@@ -712,6 +726,8 @@ export class LibreDraw {
    */
   addFeatures(features: unknown[]): AddFeatureResult[] {
     this.assertNotDestroyed();
+    // Cancelled even when every entry is then rejected.
+    this.cancelInteraction();
 
     // Validate everything first so the valid entries can be added as
     // exactly one history step (or none when nothing passed).
@@ -849,6 +865,38 @@ export class LibreDraw {
   }
 
   /**
+   * Get the area of a stored polygon in square meters, holes subtracted.
+   *
+   * The area is computed from the stored coordinates, on a sphere with the
+   * mean Earth radius (`@turf/area`) unless the `measureArea` option
+   * supplies another calculation. Committed shapes are rounded to
+   * `coordinatePrecision`; during a drag or a rotate preview the store holds
+   * the uncommitted shape on screen, which is rounded only when it is
+   * committed, so the area is that of the unrounded shape. Nothing is
+   * cached: call it again after an `update`, `undo`, or other change to get
+   * the new area.
+   *
+   * @param id - The unique identifier of the feature.
+   * @returns The area in square meters, or `undefined` if the feature is
+   *   not found or is not a Polygon.
+   *
+   * @throws {LibreDrawError} If this instance has been destroyed.
+   * @throws Anything the `measureArea` option throws.
+   *
+   * @example
+   * ```ts
+   * const area = draw.getArea('abc-123');
+   * if (area !== undefined) {
+   *   console.log(`${(area / 10000).toFixed(2)} ha`);
+   * }
+   * ```
+   */
+  getArea(id: string): number | undefined {
+    this.assertNotDestroyed();
+    return featureArea(this.featureStore.getById(id), this.measureArea);
+  }
+
+  /**
    * Delete a feature by its ID.
    *
    * Removes the feature from the store, records a {@link DeleteAction}
@@ -887,8 +935,9 @@ export class LibreDraw {
    * @param patch - `{ geometry?, properties? }`; see {@link UpdateFeaturePatch}.
    * @returns `{ ok: true, updated: [feature] }`, or `{ ok: false, reason }`
    *   with `'not-found'`, `'geometry-type-mismatch'`, `'empty-patch'`, or
-   *   `'invalid-feature'` (the validation message is in `message`). Nothing
-   *   changes on failure.
+   *   `'invalid-feature'` (the validation message is in `message`). On
+   *   failure the committed features stay as they were (a drag in progress
+   *   is still cancelled).
    *
    * @throws {LibreDrawError} If this instance has been destroyed.
    *
@@ -900,7 +949,7 @@ export class LibreDraw {
    */
   updateFeature(id: string, patch: UpdateFeaturePatch): OperationResult {
     this.assertNotDestroyed();
-    const result = this.asApi(() => updateFeatureOperation(this.modeContext, id, patch));
+    const result = this.asEdit(() => updateFeatureOperation(this.modeContext, id, patch));
     if (result.ok) this.syncAfterExternalChange();
     return result;
   }
@@ -923,7 +972,8 @@ export class LibreDraw {
    *   shape fails validation (near the antimeridian or the poles it can
    *   leave the coordinate range), the same code as the `'editrejected'`
    *   event it also emits, with the validation message in `message`.
-   *   Nothing changes on failure.
+   *   On failure the committed features stay as they were (a drag in
+   *   progress is still cancelled).
    *
    * @throws {LibreDrawError} If this instance has been destroyed.
    *
@@ -935,7 +985,7 @@ export class LibreDraw {
    */
   rotate(id: string, angleDeg: number): OperationResult {
     this.assertNotDestroyed();
-    const result = this.asApi(() => rotateOperation(this.modeContext, id, angleDeg));
+    const result = this.asEdit(() => rotateOperation(this.modeContext, id, angleDeg));
     if (result.ok) this.syncAfterExternalChange();
     return result;
   }
@@ -955,7 +1005,8 @@ export class LibreDraw {
    * @returns `{ ok: true, created: [a, b], deleted: [original] }`, or
    *   `{ ok: false, reason }` with `'not-found'`, `'not-splittable'` (a
    *   Point), or a {@link SplitFailReason} (a part that fails validation
-   *   is `'invalid-result'`). Nothing changes on failure.
+   *   is `'invalid-result'`). On failure the committed features
+   *   stay as they were (a drag in progress is still cancelled).
    *
    * @throws {LibreDrawError} If this instance has been destroyed.
    *
@@ -970,7 +1021,7 @@ export class LibreDraw {
    */
   split(id: string, line: [Position, Position]): OperationResult {
     this.assertNotDestroyed();
-    const result = this.asApi(() => splitOperation(this.modeContext, id, line));
+    const result = this.asEdit(() => splitOperation(this.modeContext, id, line));
     if (result.ok) this.syncAfterExternalChange();
     return result;
   }
@@ -994,7 +1045,8 @@ export class LibreDraw {
    *   `{ ok: false, reason }` with `'not-found'`, `'not-polygon'`,
    *   `'invalid-edge'`, `'invalid-distance'`, `'has-holes'`, or
    *   `'invalid-result'` (also when the result rounds back to the original
-   *   outline). Nothing changes on failure.
+   *   outline). On failure the committed features
+   *   stay as they were (a drag in progress is still cancelled).
    *
    * @throws {LibreDrawError} If this instance has been destroyed.
    *
@@ -1006,7 +1058,7 @@ export class LibreDraw {
    */
   setback(id: string, edge: EdgeRef, distanceMeters: number): OperationResult {
     this.assertNotDestroyed();
-    const result = this.asApi(() => setbackOperation(this.modeContext, id, edge, distanceMeters));
+    const result = this.asEdit(() => setbackOperation(this.modeContext, id, edge, distanceMeters));
     if (result.ok) this.syncAfterExternalChange();
     return result;
   }
@@ -1026,7 +1078,8 @@ export class LibreDraw {
    *   in the order that decides whose properties survive.
    * @returns `{ ok: true, created: [merged], deleted: [...sources] }`, or
    *   `{ ok: false, reason }` with `'unsupported-count'`, `'not-found'`, or a
-   *   {@link UnionFailReason}. Nothing changes on failure.
+   *   {@link UnionFailReason}. On failure the committed features
+   *   stay as they were (a drag in progress is still cancelled).
    *
    * @throws {LibreDrawError} If this instance has been destroyed.
    *
@@ -1038,7 +1091,7 @@ export class LibreDraw {
    */
   union(ids: string[]): OperationResult {
     this.assertNotDestroyed();
-    const result = this.asApi(() => unionOperation(this.modeContext, ids));
+    const result = this.asEdit(() => unionOperation(this.modeContext, ids));
     if (result.ok) this.syncAfterExternalChange();
     return result;
   }
@@ -1064,7 +1117,8 @@ export class LibreDraw {
    *   `{ ok: true, created: [...pieces], deleted: [original] }` when the
    *   polygon was cut apart, or `{ ok: false, reason }` with `'not-found'`,
    *   `'not-polygon'`, `'invalid-cutter'`, or a {@link CutFailReason}.
-   *   Nothing changes on failure.
+   *   On failure the committed features stay as they were (a drag in
+   *   progress is still cancelled).
    *
    * @throws {LibreDrawError} If this instance has been destroyed.
    *
@@ -1081,7 +1135,7 @@ export class LibreDraw {
    */
   cut(id: string, cutter: Position[]): OperationResult {
     this.assertNotDestroyed();
-    const result = this.asApi(() => cutOperation(this.modeContext, id, cutter));
+    const result = this.asEdit(() => cutOperation(this.modeContext, id, cutter));
     if (result.ok) this.syncAfterExternalChange();
     return result;
   }
@@ -1103,7 +1157,8 @@ export class LibreDraw {
    * @param line - The new stretch of boundary, as at least two positions.
    * @returns `{ ok: true, updated: [reshaped] }`, or `{ ok: false, reason }`
    *   with `'not-found'`, `'not-polygon'`, `'invalid-line'`, or a
-   *   {@link ReshapeFailReason}. Nothing changes on failure.
+   *   {@link ReshapeFailReason}. On failure the committed features
+   *   stay as they were (a drag in progress is still cancelled).
    *
    * @throws {LibreDrawError} If this instance has been destroyed.
    *
@@ -1120,7 +1175,7 @@ export class LibreDraw {
    */
   reshape(id: string, line: Position[]): OperationResult {
     this.assertNotDestroyed();
-    const result = this.asApi(() => reshapeOperation(this.modeContext, id, line));
+    const result = this.asEdit(() => reshapeOperation(this.modeContext, id, line));
     if (result.ok) this.syncAfterExternalChange();
     return result;
   }
@@ -1755,18 +1810,36 @@ export class LibreDraw {
   }
 
   /**
+   * {@link asApi} for a public method that changes the store: the drag or
+   * preview in progress is cancelled first, so the call reads committed
+   * shapes and no preview is left behind.
+   */
+  private asEdit<T>(fn: () => T): T {
+    return this.asApi(() => {
+      this.cancelInteraction();
+      return fn();
+    });
+  }
+
+  /**
+   * Cancel the active mode's drag or preview, whichever feature it moves,
+   * putting the committed shapes back without history or events. Every
+   * change to the store from outside the mode goes through this first.
+   */
+  private cancelInteraction(): void {
+    this.modeManager.getCurrentMode()?.cancelInteraction?.();
+  }
+
+  /**
    * Delete a feature without touching the event origin;
    * {@link deleteFeature} wraps this in `asApi`.
    */
   private removeFeature(id: string): LibreDrawFeature | undefined {
+    // Cancelled first, also for an unknown id, so the history, the event,
+    // and the return value never carry a preview.
+    this.cancelInteraction();
     if (!this.featureStore.getById(id)) return undefined;
 
-    // Deselected first so a mode cancelling a drag or preview puts the
-    // committed shape back; the feature is read only after that, so the
-    // history, the event, and the return value never carry a preview. A
-    // polygon moving along with a shared vertex is not selected, so the
-    // drag that moves it is cancelled explicitly.
-    this.selectMode.cancelInteractionInvolving(id);
     this.selection.remove(id);
     const feature = this.featureStore.getById(id);
     if (!feature) return undefined;
@@ -1786,6 +1859,8 @@ export class LibreDraw {
    * Shared by the public `undo()`, the toolbar button, and the shortcut.
    */
   private performUndo(): boolean {
+    if (!this.historyManager.canUndo()) return false;
+    this.cancelInteraction();
     const action = this.historyManager.undo(this.featureStore);
     if (action) {
       this.syncAfterExternalChange();
@@ -1799,6 +1874,8 @@ export class LibreDraw {
    * Redo without touching the event origin.
    */
   private performRedo(): boolean {
+    if (!this.historyManager.canRedo()) return false;
+    this.cancelInteraction();
     const action = this.historyManager.redo(this.featureStore);
     if (action) {
       this.syncAfterExternalChange();

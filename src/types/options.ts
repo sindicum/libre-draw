@@ -1,3 +1,4 @@
+import type { PolygonGeometry } from './features';
 import type { LibreDrawLayer } from './layers';
 import type { Locale, Messages } from './messages';
 
@@ -119,4 +120,14 @@ export interface LibreDrawOptions {
    * Can be changed later with `setInputMethod()`.
    */
   inputMethod?: InputMethod;
+  /**
+   * Computes the area returned by `getArea()`, in square meters, in place of
+   * the default spherical calculation (`@turf/area`, mean Earth radius
+   * 6,371,008.8 m); for example an ellipsoidal one. It receives a copy of
+   * the stored Polygon geometry: rounded to `coordinatePrecision` once
+   * committed, unrounded during a drag or a rotate preview. Its return
+   * value is returned as is, and anything it throws propagates. Cannot be
+   * changed later.
+   */
+  measureArea?: (geometry: PolygonGeometry) => number;
 }
