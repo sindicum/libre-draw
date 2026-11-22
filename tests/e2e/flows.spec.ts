@@ -644,6 +644,7 @@ test('toolbar: on a short map the buttons that do not fit wrap into a second col
     });
   const frameBox = async () => (await frame.boundingBox())!;
   const scrolls = () => list.evaluate((el) => el.scrollHeight > el.clientHeight);
+  const maxHeight = () => frame.evaluate((el) => parseFloat((el as HTMLElement).style.maxHeight));
 
   // Opens the setback popup and checks it sits beside the frame's outer
   // (map-side) edge, uncovered and inside the viewport.
@@ -677,6 +678,10 @@ test('toolbar: on a short map the buttons that do not fit wrap into a second col
   // filled to the bottom and only the rest move to a second column, which
   // opens to the right, toward the map, without scrolling.
   await page.setViewportSize({ width, height: 500 });
+  // The map reports its resize a little later. The layout before it may
+  // already have two columns (a 720px map holds 14 rows), so wait for the cap
+  // to follow the new height before reading the layout.
+  await expect.poll(maxHeight).toBeLessThanOrEqual(500);
   await expect.poll(() => buttonX('redo')).toBeGreaterThan(await buttonX('draw-point'));
   expect(await scrolls()).toBe(false);
   // The expected count comes from the height the toolbar may use (its
@@ -713,6 +718,7 @@ test('toolbar: on a short map the buttons that do not fit wrap into a second col
 
   // Even two columns do not fit: they stay two and the list scrolls.
   await page.setViewportSize({ width, height: 300 });
+  await expect.poll(maxHeight).toBeLessThanOrEqual(300);
   await expect.poll(scrolls).toBe(true);
   expect(await buttonX('redo')).toBeGreaterThan(await buttonX('draw-point'));
   const scrolled = await frameBox();
