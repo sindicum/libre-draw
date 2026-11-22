@@ -199,6 +199,8 @@ interface LibreDrawOptions {
 
 どのメソッドも戻り値（`{ ok, ... }`、地物ごとの結果、または真偽値）で答え、例外を投げるのはインスタンスの誤用のときだけです。そのため、同じ API を自分のコードからも AI エージェントからも使えます。戻り値と例外の一覧と `origin` の規則は [Programmatic API](https://sindicum.github.io/libre-draw/guide/programmatic-api) を参照してください。ローカルで使う MCP サーバーの参照実装が [`examples/mcp`](./examples/mcp) にあります。
 
+LibreDraw が扱わないもの（MultiPolygon など）と、各操作が成り立つ条件は [Known Limitations](https://sindicum.github.io/libre-draw/guide/limitations) にまとめています。
+
 ## バージョン
 
 LibreDraw は [セマンティックバージョニング](https://semver.org/) に従います。1.0.0 以降、公開 API を壊すのはメジャーバージョンだけです（1.0.0 より前は、`0.x` のマイナーバージョンでも壊すことがあります）。公開 API の範囲は [Versioning and Stability](https://sindicum.github.io/libre-draw/guide/versioning) を参照してください。

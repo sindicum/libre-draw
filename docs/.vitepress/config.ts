@@ -41,6 +41,7 @@ const config = defineConfig({
             { text: 'Modes', link: '/guide/modes' },
             { text: 'Programmatic API', link: '/guide/programmatic-api' },
             { text: 'Versioning and Stability', link: '/guide/versioning' },
+            { text: 'Known Limitations', link: '/guide/limitations' },
           ],
         },
       ],
