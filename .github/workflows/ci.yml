@@ -50,6 +50,11 @@ jobs:
       - name: Build
         run: npm run build
 
+      - name: Check the published type declarations are a single file without relative imports
+        run: |
+          test "$(find dist -name '*.d.ts')" = dist/index.d.ts
+          if grep -qE "(from |import\()['\"]\.{1,2}/" dist/index.d.ts; then exit 1; fi
+
       - name: Audit production dependencies
         run: npm audit --omit=dev --audit-level=high
 
