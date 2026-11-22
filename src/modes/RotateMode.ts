@@ -112,6 +112,16 @@ export class RotateMode implements Mode {
   }
 
   /**
+   * The store is about to change from outside this mode: cancel a drag or a
+   * numeric-input preview, putting the committed shape back. The target
+   * stays selected.
+   */
+  cancelInteraction(): void {
+    this.cancelDrag();
+    this.discardPreview();
+  }
+
+  /**
    * Re-read the selected feature from the store after an external change.
    * The stored shape becomes the new rotation
    * base so that the next relative rotation starts from what is on screen;

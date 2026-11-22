@@ -662,8 +662,11 @@ export class LibreDraw {
     if (!validated.valid) {
       return { ok: false, reason: validated.reason, message: validated.message };
     }
-    // getAll() already returns clones, so the result cannot alias the store.
-    const previous = this.featureStore.getAll();
+    const previous = this.asApi(() => {
+      this.cancelInteraction();
+      // getAll() already returns clones, so the result cannot alias the store.
+      return this.featureStore.getAll();
+    });
     const created = this.asApi(() => {
       // Cleared before the swap so that a mode restoring an uncommitted
       // preview (rotate) writes into the old data, never over the new.
@@ -759,7 +762,7 @@ export class LibreDraw {
 
     if (accepted.length === 0) return results;
 
-    this.asApi(() => {
+    this.asEdit(() => {
       const added = accepted.map(({ index, feature }) => {
         const stored = this.featureStore.add(feature);
         results[index] = { valid: true, id: stored.id };
@@ -939,7 +942,7 @@ export class LibreDraw {
    */
   updateFeature(id: string, patch: UpdateFeaturePatch): OperationResult {
     this.assertNotDestroyed();
-    const result = this.asApi(() => updateFeatureOperation(this.modeContext, id, patch));
+    const result = this.asEdit(() => updateFeatureOperation(this.modeContext, id, patch));
     if (result.ok) this.syncAfterExternalChange();
     return result;
   }
@@ -974,7 +977,7 @@ export class LibreDraw {
    */
   rotate(id: string, angleDeg: number): OperationResult {
     this.assertNotDestroyed();
-    const result = this.asApi(() => rotateOperation(this.modeContext, id, angleDeg));
+    const result = this.asEdit(() => rotateOperation(this.modeContext, id, angleDeg));
     if (result.ok) this.syncAfterExternalChange();
     return result;
   }
@@ -1009,7 +1012,7 @@ export class LibreDraw {
    */
   split(id: string, line: [Position, Position]): OperationResult {
     this.assertNotDestroyed();
-    const result = this.asApi(() => splitOperation(this.modeContext, id, line));
+    const result = this.asEdit(() => splitOperation(this.modeContext, id, line));
     if (result.ok) this.syncAfterExternalChange();
     return result;
   }
@@ -1045,7 +1048,7 @@ export class LibreDraw {
    */
   setback(id: string, edge: EdgeRef, distanceMeters: number): OperationResult {
     this.assertNotDestroyed();
-    const result = this.asApi(() => setbackOperation(this.modeContext, id, edge, distanceMeters));
+    const result = this.asEdit(() => setbackOperation(this.modeContext, id, edge, distanceMeters));
     if (result.ok) this.syncAfterExternalChange();
     return result;
   }
@@ -1077,7 +1080,7 @@ export class LibreDraw {
    */
   union(ids: string[]): OperationResult {
     this.assertNotDestroyed();
-    const result = this.asApi(() => unionOperation(this.modeContext, ids));
+    const result = this.asEdit(() => unionOperation(this.modeContext, ids));
     if (result.ok) this.syncAfterExternalChange();
     return result;
   }
@@ -1120,7 +1123,7 @@ export class LibreDraw {
    */
   cut(id: string, cutter: Position[]): OperationResult {
     this.assertNotDestroyed();
-    const result = this.asApi(() => cutOperation(this.modeContext, id, cutter));
+    const result = this.asEdit(() => cutOperation(this.modeContext, id, cutter));
     if (result.ok) this.syncAfterExternalChange();
     return result;
   }
@@ -1159,7 +1162,7 @@ export class LibreDraw {
    */
   reshape(id: string, line: Position[]): OperationResult {
     this.assertNotDestroyed();
-    const result = this.asApi(() => reshapeOperation(this.modeContext, id, line));
+    const result = this.asEdit(() => reshapeOperation(this.modeContext, id, line));
     if (result.ok) this.syncAfterExternalChange();
     return result;
   }
@@ -1794,18 +1797,36 @@ export class LibreDraw {
   }
 
   /**
+   * {@link asApi} for a public method that changes the store: the drag or
+   * preview in progress is cancelled first, so the call reads committed
+   * shapes and no preview is left behind.
+   */
+  private asEdit<T>(fn: () => T): T {
+    return this.asApi(() => {
+      this.cancelInteraction();
+      return fn();
+    });
+  }
+
+  /**
+   * Cancel the active mode's drag or preview, whichever feature it moves,
+   * putting the committed shapes back without history or events. Every
+   * change to the store from outside the mode goes through this first.
+   */
+  private cancelInteraction(): void {
+    this.modeManager.getCurrentMode()?.cancelInteraction?.();
+  }
+
+  /**
    * Delete a feature without touching the event origin;
    * {@link deleteFeature} wraps this in `asApi`.
    */
   private removeFeature(id: string): LibreDrawFeature | undefined {
     if (!this.featureStore.getById(id)) return undefined;
 
-    // Deselected first so a mode cancelling a drag or preview puts the
-    // committed shape back; the feature is read only after that, so the
-    // history, the event, and the return value never carry a preview. A
-    // polygon moving along with a shared vertex is not selected, so the
-    // drag that moves it is cancelled explicitly.
-    this.selectMode.cancelInteractionInvolving(id);
+    // Read only after any drag or preview is cancelled, so the history, the
+    // event, and the return value never carry a preview.
+    this.cancelInteraction();
     this.selection.remove(id);
     const feature = this.featureStore.getById(id);
     if (!feature) return undefined;
@@ -1825,6 +1846,8 @@ export class LibreDraw {
    * Shared by the public `undo()`, the toolbar button, and the shortcut.
    */
   private performUndo(): boolean {
+    if (!this.historyManager.canUndo()) return false;
+    this.cancelInteraction();
     const action = this.historyManager.undo(this.featureStore);
     if (action) {
       this.syncAfterExternalChange();
@@ -1838,6 +1861,8 @@ export class LibreDraw {
    * Redo without touching the event origin.
    */
   private performRedo(): boolean {
+    if (!this.historyManager.canRedo()) return false;
+    this.cancelInteraction();
     const action = this.historyManager.redo(this.featureStore);
     if (action) {
       this.syncAfterExternalChange();

@@ -1,5 +1,6 @@
 import { test, expect } from '@playwright/test';
 import {
+  type E2EWindow,
   Pointer,
   addPolygonFromScreen,
   featureCount,
@@ -118,6 +119,56 @@ test('rotate: dragging on the selected rectangle rotates it', async ({ page, has
   const [rotate] = await getEvents<{ angle: number }>(page, 'rotate');
   expect(rotate.angle).not.toBe(0);
   expect(await featureCount(page)).toBe(1);
+});
+
+test('select: an API update in the middle of a drag cancels it, and the rest of the drag changes nothing', async ({
+  page,
+  hasTouch,
+}) => {
+  const pointer = new Pointer(page, hasTouch);
+  await addPolygonFromScreen(page, [
+    [200, 200],
+    [300, 200],
+    [300, 300],
+    [200, 300],
+  ]);
+  await setMode(page, 'select');
+  const id = await page.evaluate(() => {
+    const draw = (window as unknown as E2EWindow).draw;
+    const [feature] = draw.getFeatures();
+    draw.selectFeature(feature.id);
+    return feature.id;
+  });
+  const ring = () =>
+    page.evaluate((featureId) => {
+      const draw = (window as unknown as E2EWindow).draw;
+      const feature = draw.getFeatureById(featureId)!;
+      return (feature.geometry as { coordinates: number[][][] }).coordinates[0];
+    }, id);
+  const start = await ring();
+  await recordEvents(page, ['update']);
+
+  let preview: number[][] = [];
+  await pointer.drag([250, 250], [330, 330], 10, async () => {
+    preview = await ring();
+    await page.evaluate((featureId) => {
+      const draw = (window as unknown as E2EWindow).draw;
+      draw.updateFeature(featureId, { properties: { crop: 'wheat' } });
+    }, id);
+  });
+
+  // The drag had moved the polygon before the call.
+  expect(preview).not.toEqual(start);
+  // Only the API update was recorded, against the shape at drag start, and
+  // the rest of the drag and the release left the polygon where it started.
+  const updates = await getEvents<{
+    origin: string;
+    oldFeature: { geometry: { coordinates: number[][][] } };
+  }>(page, 'update');
+  expect(updates).toHaveLength(1);
+  expect(updates[0].origin).toBe('api');
+  expect(updates[0].oldFeature.geometry.coordinates[0]).toEqual(start);
+  expect(await ring()).toEqual(start);
 });
 
 test('union: tapping polygons adds them to the selection and the execute button merges them', async ({

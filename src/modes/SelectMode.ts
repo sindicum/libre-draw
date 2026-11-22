@@ -152,7 +152,7 @@ export class SelectMode implements Mode {
   onSelectionChange(selectedIds: string[]): void {
     // This mode never changes the selection mid-drag, so a drag still in
     // progress here was interrupted from outside: undo its preview.
-    this.abortInteraction();
+    this.cancelInteraction();
     this.syncHandles();
     this.onSelectionChangeCallback?.(selectedIds);
   }
@@ -175,7 +175,7 @@ export class SelectMode implements Mode {
 
     // A tap still waiting for its release must not overwrite this selection.
     this.touchPress = null;
-    this.abortInteraction();
+    this.cancelInteraction();
     if (!this.context.selection.set(ids)) {
       // Same selection: the handles were already right, but the abort above
       // dropped their highlight.
@@ -513,7 +513,7 @@ export class SelectMode implements Mode {
       this.finishRelease(press);
     } else if (press) {
       // The press becomes a toggle: put back what a wobbling finger dragged.
-      this.abortInteraction();
+      this.cancelInteraction();
     }
 
     // A vertex of the single selected feature wins over its body.
@@ -575,7 +575,7 @@ export class SelectMode implements Mode {
     if (selection.size === 0) return;
 
     // Undo a drag preview first, so the history records the committed shapes.
-    this.abortInteraction();
+    this.cancelInteraction();
     const actions: Action[] = [];
     for (const id of selection.getSelectedIds()) {
       const feature = this.context.store.getById(id);
@@ -620,7 +620,7 @@ export class SelectMode implements Mode {
     const hitFeature = this.findHitFeature(this.context.store.getAll(), event);
     if (!hitFeature) return;
 
-    this.abortInteraction();
+    this.cancelInteraction();
     this.context.selection.toggle(hitFeature.id);
   }
 
@@ -668,33 +668,12 @@ export class SelectMode implements Mode {
   }
 
   /**
-   * Cancel the drag in progress when it changes the feature `id`, so the
-   * store holds committed shapes before `id` is read. Deselecting `id`
-   * already cancels a drag of the selected features; what needs this is a
-   * polygon moving along with a shared vertex, which is not selected.
-   */
-  cancelInteractionInvolving(id: string): void {
-    const ids: string[] = [];
-    if (this.pointDragState) ids.push(this.pointDragState.startFeature.id);
-    if (this.groupDragState) ids.push(...this.groupDragState.startFeatures.map((f) => f.id));
-    if (this.vertexEditor.isDragging()) {
-      const start = this.vertexEditor.getDragStartFeature();
-      if (start) ids.push(start.id);
-      ids.push(...this.vertexEditor.getLinkedStartFeatures().map((f) => f.id));
-    }
-    const bodyStart = this.polygonDragger.isDragging()
-      ? this.polygonDragger.getDragStartFeature()
-      : null;
-    if (bodyStart) ids.push(bodyStart.id);
-    if (ids.includes(id)) this.abortInteraction();
-  }
-
-  /**
    * Cancel an in-progress drag: put every dragged feature back to its shape
    * at drag start (the preview lives in the store), then forget the drag.
-   * Nothing reaches the history or the event stream.
+   * Nothing reaches the history or the event stream. Also called before the
+   * store is changed from outside this mode.
    */
-  private abortInteraction(): void {
+  cancelInteraction(): void {
     const starts: LibreDrawFeature[] = [];
     if (this.pointDragState) starts.push(this.pointDragState.startFeature);
     if (this.groupDragState) starts.push(...this.groupDragState.startFeatures);
@@ -771,7 +750,7 @@ export class SelectMode implements Mode {
 
   private forceClearSelectionState(): void {
     this.touchPress = null;
-    this.abortInteraction();
+    this.cancelInteraction();
     this.context.selection.clear();
   }
 

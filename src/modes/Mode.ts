@@ -69,6 +69,14 @@ export interface Mode {
    * whatever it derived from the selected features.
    */
   refreshFromStore?(): void;
+
+  /**
+   * Called on the active mode before the store is changed from outside it
+   * (a public method, undo / redo). The mode cancels any drag or preview in
+   * progress, putting every feature it touched back to its committed shape,
+   * without recording history or emitting events.
+   */
+  cancelInteraction?(): void;
 }
 
 /**

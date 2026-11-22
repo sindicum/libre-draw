@@ -7,7 +7,7 @@ type Point = [number, number];
 export type E2EEventName = keyof LibreDrawEventMap;
 
 /** What `examples/basic/main.ts` exposes on `window`, plus the event log the tests attach. */
-interface E2EWindow {
+export interface E2EWindow {
   draw: LibreDraw;
   map: { loaded(): boolean; unproject(p: Point): { lng: number; lat: number } };
   __e2e: Record<string, unknown[]>;
@@ -138,7 +138,16 @@ export class Pointer {
     }
   }
 
-  async drag(from: Point, to: Point, steps = 10): Promise<void> {
+  /**
+   * Press at `from`, move to `to` in `steps`, and release. `midway` runs
+   * after half of the steps, with the pointer still down.
+   */
+  async drag(from: Point, to: Point, steps = 10, midway?: () => Promise<void>): Promise<void> {
+    const at = (t: number): Point => [
+      from[0] + (to[0] - from[0]) * t,
+      from[1] + (to[1] - from[1]) * t,
+    ];
+    const half = Math.floor(steps / 2);
     if (this.touch) {
       const cdp = await this.page.context().newCDPSession(this.page);
       try {
@@ -147,14 +156,13 @@ export class Pointer {
           touchPoints: [{ x: from[0], y: from[1] }],
         });
         for (let i = 1; i <= steps; i++) {
-          const t = i / steps;
+          const [x, y] = at(i / steps);
           await cdp.send('Input.dispatchTouchEvent', {
             type: 'touchMove',
-            touchPoints: [
-              { x: from[0] + (to[0] - from[0]) * t, y: from[1] + (to[1] - from[1]) * t },
-            ],
+            touchPoints: [{ x, y }],
           });
           await this.page.waitForTimeout(16);
+          if (i === half) await midway?.();
         }
         await cdp.send('Input.dispatchTouchEvent', { type: 'touchEnd', touchPoints: [] });
       } finally {
@@ -163,7 +171,12 @@ export class Pointer {
     } else {
       await this.page.mouse.move(from[0], from[1]);
       await this.page.mouse.down();
-      await this.page.mouse.move(to[0], to[1], { steps });
+      if (midway) {
+        const [x, y] = at(half / steps);
+        await this.page.mouse.move(x, y, { steps: half });
+        await midway();
+      }
+      await this.page.mouse.move(to[0], to[1], { steps: midway ? steps - half : steps });
       await this.page.mouse.up();
     }
   }

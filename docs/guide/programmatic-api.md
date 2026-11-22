@@ -80,6 +80,23 @@ page. `reason` is always one of these codes, so compare it without parsing. When
 rejects the input or the result (`invalid-geojson`, `invalid-feature`, and the validation
 failures of `rotate`), the readable detail is in `message`; its wording is not part of the API.
 
+## Calls during a drag
+
+A call that changes features, or undoes or redoes a change, first cancels any drag or
+preview in progress, whichever feature it moves: a vertex, body, point, or
+multi-selection drag in `select` mode (including the polygons that move along with a
+shared vertex), and a drag or a typed-angle preview in `rotate` mode. The moved features
+go back to their shapes at drag start, with no history entry and no event, and only then
+does the call run.
+
+These calls are `updateFeature`, `rotate`, `split`, `setback`, `union`, `cut`, `reshape`,
+`addFeatures`, `setFeatures`, `deleteFeature`, and `undo` / `redo` (also from the toolbar
+and the shortcuts). `undo()` / `redo()` with nothing to undo or redo cancel nothing.
+
+So results, history, and events never carry a half-dragged shape: the `oldFeature` of an
+`update` and the shape `undo()` restores are the shapes before the drag. The rest of the
+cancelled drag changes nothing; the person drags again after releasing.
+
 ## Event origin
 
 Every event payload carries `origin`. It is decided by the call path, not by the kind of

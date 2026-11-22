@@ -1403,6 +1403,34 @@ describe('SelectMode', () => {
       });
     });
 
+    describe('cancelInteraction (the store is about to change from outside)', () => {
+      it('puts a touch body drag back and the release commits nothing', () => {
+        selectMode.onPointerDown(createPointerEvent(5, 5)); // select f1
+        selectMode.onPointerUp(createPointerEvent(5, 5));
+        selectMode.onPointerDown(createTouchEvent(5, 5));
+        selectMode.onPointerMove(createTouchEvent(7, 7));
+        expect(featureMap.get('f1')).not.toEqual(makeFeature('f1'));
+
+        selectMode.cancelInteraction();
+        selectMode.onPointerMove(createTouchEvent(9, 9));
+        selectMode.onPointerUp(createTouchEvent(9, 9));
+
+        expect(featureMap.get('f1')).toEqual(makeFeature('f1'));
+        expect(callbacks.pushToHistory).not.toHaveBeenCalled();
+        expect(selectMode.getSelectedIds()).toEqual(['f1']);
+      });
+
+      it('does nothing without a drag in progress', () => {
+        selectMode.onPointerDown(createPointerEvent(5, 5)); // select f1
+        selectMode.onPointerUp(createPointerEvent(5, 5));
+
+        selectMode.cancelInteraction();
+
+        expect(featureMap.get('f1')).toEqual(makeFeature('f1'));
+        expect(selectMode.getSelectedIds()).toEqual(['f1']);
+      });
+    });
+
     describe('delete', () => {
       it('removes every selected feature as one BatchAction with a delete event each', () => {
         selectMode.onPointerDown(createPointerEvent(5, 5));

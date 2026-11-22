@@ -381,7 +381,7 @@ describe('topological editing', () => {
     expect(updates).toEqual([]);
   });
 
-  it('keeps the drag when an unrelated polygon is deleted mid-drag', () => {
+  it('cancels the drag, linked polygon included, when an unrelated polygon is deleted mid-drag', () => {
     const C: Position[] = [
       [100, 60],
       [120, 60],
@@ -394,11 +394,11 @@ describe('topological editing', () => {
     draw.deleteFeature('C');
     releaseAt(60, 5);
 
-    expect(ring(draw, 'A')[1]).toEqual([60, 5]);
-    expect(ring(draw, 'B')[0]).toEqual([60, 5]);
-    expect(updates.map((e) => e.feature.id)).toEqual(['A', 'B']);
-    expect(draw.undo()).toBe(true);
     expect(ring(draw, 'A')).toEqual(closed(A));
     expect(ring(draw, 'B')).toEqual(closed(B));
+    expect(updates).toEqual([]);
+    expect(draw.undo()).toBe(true);
+    expect(draw.getFeatureById('C')).toBeDefined();
+    expect(draw.canUndo()).toBe(false);
   });
 });
