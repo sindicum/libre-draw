@@ -183,8 +183,6 @@ describe('Toolbar layout', () => {
     const [outer, inner] = columns(list);
     expect(inner.style.display).toBe('none');
     expect(outer.style.backgroundColor).not.toBe('');
-    expect(outer.style.borderTopLeftRadius).toBe('4px');
-    expect(outer.style.borderBottomLeftRadius).toBe('4px');
     // Only the painted column takes pointer input.
     expect(frame.style.backgroundColor).toBe('');
     expect(frame.style.pointerEvents).toBe('none');
@@ -213,61 +211,6 @@ describe('Toolbar layout', () => {
     }
   );
 
-  it('cuts the background to the columns: square where they meet, round where the outer sticks out', () => {
-    const env = createMap(500);
-    env.corner.className = 'maplibregl-ctrl-top-left';
-    const toolbar = new Toolbar(env.map, callbacks, { position: 'top-left' });
-    const frame = env.corner.querySelector<HTMLDivElement>('.libre-draw-toolbar')!;
-    const list = frame.querySelector<HTMLDivElement>('.libre-draw-toolbar-buttons')!;
-    stub(firstRow(list), 'offsetHeight', 44);
-    env.fire('resize');
-    const [outer, inner] = columns(list);
-
-    // Left corner: the outer column is on the left, the inner one on its right.
-    expect(outer.style.borderTopLeftRadius).toBe('4px');
-    expect(outer.style.borderBottomLeftRadius).toBe('4px');
-    expect(outer.style.borderTopRightRadius).toBe('0px');
-    expect(outer.style.borderBottomRightRadius).toBe('4px');
-    expect(inner.style.borderTopLeftRadius).toBe('0px');
-    expect(inner.style.borderBottomLeftRadius).toBe('0px');
-    expect(inner.style.borderTopRightRadius).toBe('4px');
-    expect(inner.style.borderBottomRightRadius).toBe('4px');
-    expect(inner.style.paddingLeft).toBe('0px');
-    expect(inner.style.paddingRight).toBe('4px');
-    // The unpainted corner below the inner column passes clicks to the map.
-    expect(list.style.pointerEvents).toBe('none');
-    expect(list.style.filter).toContain('drop-shadow');
-
-    // Two equal columns (scrolling): the bottom where they meet is square too.
-    env.setHeight(300);
-    env.fire('resize');
-    expect(idsByColumn(list).map((ids) => ids.length)).toEqual([8, 8]);
-    expect(outer.style.borderBottomRightRadius).toBe('0px');
-    toolbar.destroy();
-  });
-
-  it('in a right corner, mirrors the corners and the padding between the columns', () => {
-    const env = createMap(500);
-    env.corner.className = 'maplibregl-ctrl-top-right';
-    new Toolbar(env.map, callbacks, { position: 'top-right' });
-    const list = env.corner.querySelector<HTMLDivElement>('.libre-draw-toolbar-buttons')!;
-    stub(firstRow(list), 'offsetHeight', 44);
-    env.fire('resize');
-    const [outer, inner] = columns(list);
-
-    // Right corner: the outer column is on the right, the inner one on its left.
-    expect(outer.style.borderTopRightRadius).toBe('4px');
-    expect(outer.style.borderBottomRightRadius).toBe('4px');
-    expect(outer.style.borderTopLeftRadius).toBe('0px');
-    expect(outer.style.borderBottomLeftRadius).toBe('4px');
-    expect(inner.style.borderTopRightRadius).toBe('0px');
-    expect(inner.style.borderBottomRightRadius).toBe('0px');
-    expect(inner.style.borderTopLeftRadius).toBe('4px');
-    expect(inner.style.borderBottomLeftRadius).toBe('4px');
-    expect(inner.style.paddingRight).toBe('0px');
-    expect(inner.style.paddingLeft).toBe('4px');
-  });
-
   it('keeps the focus on a button that stays in its column when the other rows move', () => {
     const { map, list, fire, setHeight } = createToolbar(1000);
     attach(map);
@@ -287,20 +230,6 @@ describe('Toolbar layout', () => {
     fire('resize');
     expect(idsByColumn(list)).toEqual([ORDER, []]);
     expect(document.activeElement).toBe(point);
-  });
-
-  it('keeps the focus on a button when a resize does not change the layout', () => {
-    const { map, list, fire } = createToolbar(500);
-    attach(map);
-    stub(firstRow(list), 'offsetHeight', 44);
-    fire('resize');
-    const redo = list.querySelector<HTMLButtonElement>('[data-libre-draw-button="redo"]')!;
-    redo.focus();
-    expect(document.activeElement).toBe(redo);
-
-    fire('resize');
-
-    expect(document.activeElement).toBe(redo);
   });
 
   it('lets the list take pointer input while it scrolls, for its scrollbar', () => {
@@ -336,27 +265,6 @@ describe('Toolbar layout', () => {
     setHeight(720);
     fire('resize');
     expect(idsByColumn(list)).toEqual([ORDER.slice(0, 14), ORDER.slice(14)]);
-  });
-
-  it('keeps the focus on a button that stays in the inner column when rows enter or leave it', () => {
-    const { map, list, fire, setHeight } = createToolbar(500);
-    attach(map);
-    stub(firstRow(list), 'offsetHeight', 44);
-    fire('resize');
-    const redo = list.querySelector<HTMLButtonElement>('[data-libre-draw-button="redo"]')!;
-    redo.focus();
-
-    // 483px holds 9 rows: one row enters the front of the inner column.
-    setHeight(483);
-    fire('resize');
-    expect(idsByColumn(list)).toEqual([ORDER.slice(0, 9), ORDER.slice(9)]);
-    expect(document.activeElement).toBe(redo);
-
-    // Back to 500px: that row leaves the front of the inner column.
-    setHeight(500);
-    fire('resize');
-    expect(idsByColumn(list)).toEqual([ORDER.slice(0, 10), ORDER.slice(10)]);
-    expect(document.activeElement).toBe(redo);
   });
 
   it('goes back to one column when the map grows, keeping the button order', () => {

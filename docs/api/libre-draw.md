@@ -359,7 +359,7 @@ Validates the whole input first (all or nothing): each feature is checked as giv
 | --------- | --------- | --------------------------------------------------------------------------------- |
 | `geojson` | `unknown` | A GeoJSON FeatureCollection containing Point, LineString, and/or Polygon features |
 
-**Returns:** [`OperationResult`](/api/types#operationresult) — `{ ok: true, created, updated: [], deleted }` with the new features in `created` and the previous ones in `deleted`, or `{ ok: false, reason: 'invalid-geojson', message }` when the input is not a FeatureCollection or one of its features fails validation (`message` reads `Invalid feature at index i: …`). Nothing changes on failure.
+**Returns:** [`OperationResult`](/api/types#operationresult) — `{ ok: true, created, updated: [], deleted }` with the new features in `created` and the previous ones in `deleted`, or `{ ok: false, reason: 'invalid-geojson', message }` when the input is not a FeatureCollection or one of its features fails validation (`message` reads `Invalid feature at index i: …`). On failure the committed features stay as they were; a drag in progress is still cancelled (see [Calls during a drag](/guide/programmatic-api#calls-during-a-drag)).
 
 **Throws:** [`LibreDrawError`](/api/types#libredrawerror) if this instance has been destroyed.
 
@@ -501,7 +501,7 @@ if (feature) {
 
 Get the area of a stored polygon in square meters, with its holes subtracted.
 
-The area is computed from the stored coordinates (rounded to [`coordinatePrecision`](/api/types#libredrawoptions)) on a sphere with the mean Earth radius (6,371,008.8 m, [`@turf/area`](https://turfjs.org/docs/api/area)), unless the [`measureArea`](/api/types#libredrawoptions) option supplies another calculation. Nothing is cached: call it again after a change. To keep a display up to date, call it from [`selectionchange`](/api/events#selectionchange) and [`historychange`](/api/events#historychange); see [Showing the area of a polygon](/guide/programmatic-api#showing-the-area-of-a-polygon).
+The area is computed from the stored coordinates on a sphere with the mean Earth radius (6,371,008.8 m, [`@turf/area`](https://turfjs.org/docs/api/area)), unless the [`measureArea`](/api/types#libredrawoptions) option supplies another calculation. Committed shapes are rounded to [`coordinatePrecision`](/api/types#libredrawoptions); during a drag or a rotate preview, the area is that of the uncommitted shape on screen, which is rounded when it is committed. Nothing is cached: call it again after a change. To keep a display up to date, call it from [`selectionchange`](/api/events#selectionchange) and [`historychange`](/api/events#historychange); see [Showing the area of a polygon](/guide/programmatic-api#showing-the-area-of-a-polygon).
 
 **Parameters:**
 
@@ -565,7 +565,7 @@ The change is validated like [`addFeatures`](#addfeatures-features) input, recor
 | `id`    | `string`                                              | The feature to change                                                                |
 | `patch` | [`UpdateFeaturePatch`](/api/types#updatefeaturepatch) | `{ geometry?, properties? }`. Omit a field to keep it; `geometry` must keep its type |
 
-**Returns:** [`OperationResult`](/api/types#operationresult) — `{ ok: true, updated: [feature] }`, or `{ ok: false, reason }` with `'not-found'`, `'geometry-type-mismatch'`, `'empty-patch'`, or `'invalid-feature'` with the validation message in `message` (see [`UpdateFeatureFailReason`](/api/types#updatefeaturefailreason)). Nothing changes on failure.
+**Returns:** [`OperationResult`](/api/types#operationresult) — `{ ok: true, updated: [feature] }`, or `{ ok: false, reason }` with `'not-found'`, `'geometry-type-mismatch'`, `'empty-patch'`, or `'invalid-feature'` with the validation message in `message` (see [`UpdateFeatureFailReason`](/api/types#updatefeaturefailreason)). On failure the committed features stay as they were; a drag in progress is still cancelled (see [Calls during a drag](/guide/programmatic-api#calls-during-a-drag)).
 
 **Throws:** [`LibreDrawError`](/api/types#libredrawerror) if this instance has been destroyed.
 
@@ -600,7 +600,7 @@ Same computation as the [`rotate` mode](/guide/modes#rotate) (screen-space rotat
 | `id`       | `string` | The feature to rotate                         |
 | `angleDeg` | `number` | Relative angle in degrees, positive clockwise |
 
-**Returns:** [`OperationResult`](/api/types#operationresult) — `{ ok: true, updated: [feature] }`, or `{ ok: false, reason }` with `'not-found'`, `'not-rotatable'` (a Point), `'no-rotation'` (0, a multiple of 360, a non-finite angle, or an angle so small that the rotated shape rounds back to the current one; see [`RotateFailReason`](/api/types#rotatefailreason)), or, when the rotated shape fails validation (near the antimeridian or the poles it can leave the coordinate range), the same code as the [`editrejected`](/api/events#editrejected) event it also emits, with the validation message in `message`. Nothing changes on failure.
+**Returns:** [`OperationResult`](/api/types#operationresult) — `{ ok: true, updated: [feature] }`, or `{ ok: false, reason }` with `'not-found'`, `'not-rotatable'` (a Point), `'no-rotation'` (0, a multiple of 360, a non-finite angle, or an angle so small that the rotated shape rounds back to the current one; see [`RotateFailReason`](/api/types#rotatefailreason)), or, when the rotated shape fails validation (near the antimeridian or the poles it can leave the coordinate range), the same code as the [`editrejected`](/api/events#editrejected) event it also emits, with the validation message in `message`. On failure the committed features stay as they were; a drag in progress is still cancelled (see [Calls during a drag](/guide/programmatic-api#calls-during-a-drag)).
 
 **Throws:** [`LibreDrawError`](/api/types#libredrawerror) if this instance has been destroyed.
 
@@ -627,7 +627,7 @@ Same computation as the [`split` mode](/guide/modes#split): a Polygon is cut whe
 | `id`   | `string`                                          | The feature to split                                 |
 | `line` | `[`[`Position`](/api/types#position)`, Position]` | Two positions `[start, end]` defining the split line |
 
-**Returns:** [`OperationResult`](/api/types#operationresult) — `{ ok: true, created: [a, b], deleted: [original] }`, or `{ ok: false, reason }` with `'not-found'`, `'not-splittable'` (a Point), or a [`SplitFailReason`](/api/events#payload-splitfailedevent) (a part that fails validation is `'invalid-result'`; see [`SplitOperationFailReason`](/api/types#splitoperationfailreason)). Nothing changes on failure.
+**Returns:** [`OperationResult`](/api/types#operationresult) — `{ ok: true, created: [a, b], deleted: [original] }`, or `{ ok: false, reason }` with `'not-found'`, `'not-splittable'` (a Point), or a [`SplitFailReason`](/api/events#payload-splitfailedevent) (a part that fails validation is `'invalid-result'`; see [`SplitOperationFailReason`](/api/types#splitoperationfailreason)). On failure the committed features stay as they were; a drag in progress is still cancelled (see [Calls during a drag](/guide/programmatic-api#calls-during-a-drag)).
 
 **Throws:** [`LibreDrawError`](/api/types#libredrawerror) if this instance has been destroyed.
 
@@ -661,7 +661,7 @@ Same computation as the [`setback` mode](/guide/modes#setback): the ring is spli
 | `edge`           | [`EdgeRef`](/api/types#edgeref) | The edge to move (`{ index }`, counted like `SetbackEvent.edgeIndex`). Only the outer ring is supported for now |
 | `distanceMeters` | `number`                        | Offset distance in meters, greater than zero                                                                    |
 
-**Returns:** [`OperationResult`](/api/types#operationresult) — `{ ok: true, created: [result], deleted: [original] }`, or `{ ok: false, reason }` with `'not-found'`, `'not-polygon'`, `'invalid-edge'`, `'invalid-distance'`, `'has-holes'`, or `'invalid-result'` (see [`SetbackOperationFailReason`](/api/types#setbackoperationfailreason)). Nothing changes on failure.
+**Returns:** [`OperationResult`](/api/types#operationresult) — `{ ok: true, created: [result], deleted: [original] }`, or `{ ok: false, reason }` with `'not-found'`, `'not-polygon'`, `'invalid-edge'`, `'invalid-distance'`, `'has-holes'`, or `'invalid-result'` (see [`SetbackOperationFailReason`](/api/types#setbackoperationfailreason)). On failure the committed features stay as they were; a drag in progress is still cancelled (see [Calls during a drag](/guide/programmatic-api#calls-during-a-drag)).
 
 **Throws:** [`LibreDrawError`](/api/types#libredrawerror) if this instance has been destroyed.
 
@@ -686,7 +686,7 @@ Same computation as the [`union` mode](/guide/modes#union): all polygons are mer
 | ----- | ---------- | ------------------------------------------------------------------------------------------------------------- |
 | `ids` | `string[]` | Two or more distinct feature ids (duplicates are ignored), in the order that decides whose properties survive |
 
-**Returns:** [`OperationResult`](/api/types#operationresult) — `{ ok: true, created: [merged], deleted: [...sources] }`, or `{ ok: false, reason }` with `'unsupported-count'`, `'not-found'`, or a [`UnionFailReason`](/api/events#payload-unionfailedevent) (see [`UnionOperationFailReason`](/api/types#unionoperationfailreason)). Nothing changes on failure.
+**Returns:** [`OperationResult`](/api/types#operationresult) — `{ ok: true, created: [merged], deleted: [...sources] }`, or `{ ok: false, reason }` with `'unsupported-count'`, `'not-found'`, or a [`UnionFailReason`](/api/events#payload-unionfailedevent) (see [`UnionOperationFailReason`](/api/types#unionoperationfailreason)). On failure the committed features stay as they were; a drag in progress is still cancelled (see [Calls during a drag](/guide/programmatic-api#calls-during-a-drag)).
 
 **Throws:** [`LibreDrawError`](/api/types#libredrawerror) if this instance has been destroyed.
 
@@ -712,7 +712,7 @@ Same computation as the [`cut` mode](/guide/modes#cut-mode): a cutter inside the
 | `id`     | `string`                              | The Polygon to cut                                                                                                   |
 | `cutter` | [`Position`](/api/types#position)`[]` | The ring to cut out. The closing position may be omitted. It needs three distinct vertices and must not cross itself |
 
-**Returns:** [`OperationResult`](/api/types#operationresult) — `{ ok: true, updated: [piece] }` when one piece remains, `{ ok: true, created: [...pieces], deleted: [original] }` when the polygon was cut apart, or `{ ok: false, reason }` with `'not-found'`, `'not-polygon'`, `'invalid-cutter'`, or a [`CutFailReason`](/api/events#payload-cutfailedevent) (see [`CutOperationFailReason`](/api/types#cutoperationfailreason)). Nothing changes on failure.
+**Returns:** [`OperationResult`](/api/types#operationresult) — `{ ok: true, updated: [piece] }` when one piece remains, `{ ok: true, created: [...pieces], deleted: [original] }` when the polygon was cut apart, or `{ ok: false, reason }` with `'not-found'`, `'not-polygon'`, `'invalid-cutter'`, or a [`CutFailReason`](/api/events#payload-cutfailedevent) (see [`CutOperationFailReason`](/api/types#cutoperationfailreason)). On failure the committed features stay as they were; a drag in progress is still cancelled (see [Calls during a drag](/guide/programmatic-api#calls-during-a-drag)).
 
 **Throws:** [`LibreDrawError`](/api/types#libredrawerror) if this instance has been destroyed.
 
@@ -743,7 +743,7 @@ Same computation as the [`reshape` mode](/guide/modes#reshape-mode): the line mu
 | `id`   | `string`                              | The Polygon to reshape                                 |
 | `line` | [`Position`](/api/types#position)`[]` | The new stretch of boundary, as at least two positions |
 
-**Returns:** [`OperationResult`](/api/types#operationresult) — `{ ok: true, updated: [reshaped] }`, or `{ ok: false, reason }` with `'not-found'`, `'not-polygon'`, `'invalid-line'`, or a [`ReshapeFailReason`](/api/events#payload-reshapefailedevent) (see [`ReshapeOperationFailReason`](/api/types#reshapeoperationfailreason)). Nothing changes on failure.
+**Returns:** [`OperationResult`](/api/types#operationresult) — `{ ok: true, updated: [reshaped] }`, or `{ ok: false, reason }` with `'not-found'`, `'not-polygon'`, `'invalid-line'`, or a [`ReshapeFailReason`](/api/events#payload-reshapefailedevent) (see [`ReshapeOperationFailReason`](/api/types#reshapeoperationfailreason)). On failure the committed features stay as they were; a drag in progress is still cancelled (see [Calls during a drag](/guide/programmatic-api#calls-during-a-drag)).
 
 **Throws:** [`LibreDrawError`](/api/types#libredrawerror) if this instance has been destroyed.
 

@@ -695,6 +695,8 @@ export class SelectMode implements Mode {
     }
     if (restored.length > 0) {
       this.context.render.renderFeatures();
+      // The vertex handles followed the drag; put them back with the shape.
+      this.syncHandles();
     }
   }
 

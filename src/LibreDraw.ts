@@ -635,8 +635,9 @@ export class LibreDraw {
    *   `created` and the previous ones in `deleted`, or
    *   `{ ok: false, reason: 'invalid-geojson', message }` when the input is
    *   not a FeatureCollection or one of its features fails validation
-   *   (`message` reads `Invalid feature at index i: …`). Nothing changes on
-   *   failure.
+   *   (`message` reads `Invalid feature at index i: …`). On failure the
+   *   committed features stay as they were (a drag in progress is still
+   *   cancelled).
    *
    * @throws {LibreDrawError} If this instance has been destroyed.
    *
@@ -658,15 +659,15 @@ export class LibreDraw {
    */
   setFeatures(geojson: unknown): OperationResult {
     this.assertNotDestroyed();
+    // Like every method that changes features, cancel a drag even when the
+    // call then fails.
+    this.cancelInteraction();
     const validated = tryValidateGeoJSON(geojson, this.round);
     if (!validated.valid) {
       return { ok: false, reason: validated.reason, message: validated.message };
     }
-    const previous = this.asApi(() => {
-      this.cancelInteraction();
-      // getAll() already returns clones, so the result cannot alias the store.
-      return this.featureStore.getAll();
-    });
+    // getAll() already returns clones, so the result cannot alias the store.
+    const previous = this.featureStore.getAll();
     const created = this.asApi(() => {
       // Cleared before the swap so that a mode restoring an uncommitted
       // preview (rotate) writes into the old data, never over the new.
@@ -725,6 +726,8 @@ export class LibreDraw {
    */
   addFeatures(features: unknown[]): AddFeatureResult[] {
     this.assertNotDestroyed();
+    // Cancelled even when every entry is then rejected.
+    this.cancelInteraction();
 
     // Validate everything first so the valid entries can be added as
     // exactly one history step (or none when nothing passed).
@@ -762,7 +765,7 @@ export class LibreDraw {
 
     if (accepted.length === 0) return results;
 
-    this.asEdit(() => {
+    this.asApi(() => {
       const added = accepted.map(({ index, feature }) => {
         const stored = this.featureStore.add(feature);
         results[index] = { valid: true, id: stored.id };
@@ -864,11 +867,14 @@ export class LibreDraw {
   /**
    * Get the area of a stored polygon in square meters, holes subtracted.
    *
-   * The area is computed from the stored coordinates (rounded to
-   * `coordinatePrecision`), on a sphere with the mean Earth radius
-   * (`@turf/area`) unless the `measureArea` option supplies another
-   * calculation. Nothing is cached: call it again after an `update`,
-   * `undo`, or other change to get the new area.
+   * The area is computed from the stored coordinates, on a sphere with the
+   * mean Earth radius (`@turf/area`) unless the `measureArea` option
+   * supplies another calculation. Committed shapes are rounded to
+   * `coordinatePrecision`; during a drag or a rotate preview the store holds
+   * the uncommitted shape on screen, which is rounded only when it is
+   * committed, so the area is that of the unrounded shape. Nothing is
+   * cached: call it again after an `update`, `undo`, or other change to get
+   * the new area.
    *
    * @param id - The unique identifier of the feature.
    * @returns The area in square meters, or `undefined` if the feature is
@@ -929,8 +935,9 @@ export class LibreDraw {
    * @param patch - `{ geometry?, properties? }`; see {@link UpdateFeaturePatch}.
    * @returns `{ ok: true, updated: [feature] }`, or `{ ok: false, reason }`
    *   with `'not-found'`, `'geometry-type-mismatch'`, `'empty-patch'`, or
-   *   `'invalid-feature'` (the validation message is in `message`). Nothing
-   *   changes on failure.
+   *   `'invalid-feature'` (the validation message is in `message`). On
+   *   failure the committed features stay as they were (a drag in progress
+   *   is still cancelled).
    *
    * @throws {LibreDrawError} If this instance has been destroyed.
    *
@@ -965,7 +972,8 @@ export class LibreDraw {
    *   shape fails validation (near the antimeridian or the poles it can
    *   leave the coordinate range), the same code as the `'editrejected'`
    *   event it also emits, with the validation message in `message`.
-   *   Nothing changes on failure.
+   *   On failure the committed features stay as they were (a drag in
+   *   progress is still cancelled).
    *
    * @throws {LibreDrawError} If this instance has been destroyed.
    *
@@ -997,7 +1005,8 @@ export class LibreDraw {
    * @returns `{ ok: true, created: [a, b], deleted: [original] }`, or
    *   `{ ok: false, reason }` with `'not-found'`, `'not-splittable'` (a
    *   Point), or a {@link SplitFailReason} (a part that fails validation
-   *   is `'invalid-result'`). Nothing changes on failure.
+   *   is `'invalid-result'`). On failure the committed features
+   *   stay as they were (a drag in progress is still cancelled).
    *
    * @throws {LibreDrawError} If this instance has been destroyed.
    *
@@ -1036,7 +1045,8 @@ export class LibreDraw {
    *   `{ ok: false, reason }` with `'not-found'`, `'not-polygon'`,
    *   `'invalid-edge'`, `'invalid-distance'`, `'has-holes'`, or
    *   `'invalid-result'` (also when the result rounds back to the original
-   *   outline). Nothing changes on failure.
+   *   outline). On failure the committed features
+   *   stay as they were (a drag in progress is still cancelled).
    *
    * @throws {LibreDrawError} If this instance has been destroyed.
    *
@@ -1068,7 +1078,8 @@ export class LibreDraw {
    *   in the order that decides whose properties survive.
    * @returns `{ ok: true, created: [merged], deleted: [...sources] }`, or
    *   `{ ok: false, reason }` with `'unsupported-count'`, `'not-found'`, or a
-   *   {@link UnionFailReason}. Nothing changes on failure.
+   *   {@link UnionFailReason}. On failure the committed features
+   *   stay as they were (a drag in progress is still cancelled).
    *
    * @throws {LibreDrawError} If this instance has been destroyed.
    *
@@ -1106,7 +1117,8 @@ export class LibreDraw {
    *   `{ ok: true, created: [...pieces], deleted: [original] }` when the
    *   polygon was cut apart, or `{ ok: false, reason }` with `'not-found'`,
    *   `'not-polygon'`, `'invalid-cutter'`, or a {@link CutFailReason}.
-   *   Nothing changes on failure.
+   *   On failure the committed features stay as they were (a drag in
+   *   progress is still cancelled).
    *
    * @throws {LibreDrawError} If this instance has been destroyed.
    *
@@ -1145,7 +1157,8 @@ export class LibreDraw {
    * @param line - The new stretch of boundary, as at least two positions.
    * @returns `{ ok: true, updated: [reshaped] }`, or `{ ok: false, reason }`
    *   with `'not-found'`, `'not-polygon'`, `'invalid-line'`, or a
-   *   {@link ReshapeFailReason}. Nothing changes on failure.
+   *   {@link ReshapeFailReason}. On failure the committed features
+   *   stay as they were (a drag in progress is still cancelled).
    *
    * @throws {LibreDrawError} If this instance has been destroyed.
    *
@@ -1822,11 +1835,11 @@ export class LibreDraw {
    * {@link deleteFeature} wraps this in `asApi`.
    */
   private removeFeature(id: string): LibreDrawFeature | undefined {
+    // Cancelled first, also for an unknown id, so the history, the event,
+    // and the return value never carry a preview.
+    this.cancelInteraction();
     if (!this.featureStore.getById(id)) return undefined;
 
-    // Read only after any drag or preview is cancelled, so the history, the
-    // event, and the return value never carry a preview.
-    this.cancelInteraction();
     this.selection.remove(id);
     const feature = this.featureStore.getById(id);
     if (!feature) return undefined;

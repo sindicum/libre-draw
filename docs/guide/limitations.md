@@ -73,8 +73,8 @@ are listed on the [Types](/api/types#operation-result-types) and
   [`setFeatures()`](/api/libre-draw#setfeatures-geojson), which starts a new history.
 - History keeps the last [`historyLimit`](/api/types#libredrawoptions) steps (100 by
   default).
-- A call that changes features during a drag cancels the drag first; see
-  [Calls during a drag](/guide/programmatic-api#calls-during-a-drag).
+- A call that changes features during a drag cancels the drag first, even when the call
+  fails; see [Calls during a drag](/guide/programmatic-api#calls-during-a-drag).
 
 ## Outside the public API
 

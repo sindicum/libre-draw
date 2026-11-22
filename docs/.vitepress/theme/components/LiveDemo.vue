@@ -157,8 +157,9 @@ onMounted(async () => {
 
     drawInstance = draw;
 
-    // Area of the one selected polygon. A selection change and every history
-    // change (a committed edit, undo, redo) are the moments it can change.
+    // Area of the one selected polygon. Its committed area changes only with
+    // the selection and the history (a committed edit, undo, redo), so a drag
+    // shows its new area when it is dropped.
     const showArea = () => {
       const ids = draw.getSelectedFeatureIds();
       area.value = ids.length === 1 ? (draw.getArea(ids[0]) ?? null) : null;

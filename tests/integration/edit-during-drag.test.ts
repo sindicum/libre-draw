@@ -1,5 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import turfArea from '@turf/area';
 import { LibreDraw } from '../../src/LibreDraw';
+import { SOURCE_IDS } from '../../src/rendering/layers';
 import type { LibreDrawEventMap } from '../../src/types/events';
 import type { LibreDrawOptions } from '../../src/types/options';
 import type { Position } from '../../src/types/features';
@@ -89,6 +91,13 @@ describe('a store change from outside during a drag', () => {
     if (!feature) return undefined;
     if (feature.geometry.type === 'Polygon') return feature.geometry.coordinates[0];
     return feature.geometry.coordinates as Position;
+  }
+
+  /** Positions of the vertex handles drawn on the map. */
+  function handlePositions(): Position[] {
+    return (map.getSourceData(SOURCE_IDS.EDIT_VERTICES)?.features ?? [])
+      .filter((f) => f.geometry.type === 'Point')
+      .map((f) => (f.geometry as GeoJSON.Point).coordinates as Position);
   }
 
   /** Start dragging the shared vertex of A (and, linked, of B) to (60, 5). */
@@ -261,14 +270,75 @@ describe('a store change from outside during a drag', () => {
     moveTo(70, 0);
     releaseAt(70, 0);
 
-    // Union replaces A and B; otherwise both are back at their start shapes.
     if (draw.getFeatureById('A')) {
       expect(shape('A')).toEqual(closed(A));
       expect(shape('B')).toEqual(closed(B));
+    } else {
+      // Union replaced A and B: it merged their start shapes, not the preview.
+      const merged = draw.getFeatures().find((f) => f.id !== 'C')!;
+      const ring = (merged.geometry as GeoJSON.Polygon).coordinates[0];
+      expect(ring).not.toContainEqual([60, 5]);
+      expect(ring).toContainEqual([10, 10]);
+      expect(ring).toContainEqual([90, 10]);
     }
     // Neither the call nor the release recorded the abandoned drag.
     expect(events.slice(before)).toEqual([]);
     expect(events.filter((e) => e.type === 'update' && (e.id === 'A' || e.id === 'B'))).toEqual([]);
+  });
+
+  it.each<[string, (draw: LibreDraw) => unknown]>([
+    ['addFeatures', (d) => d.addFeatures([point('P', [0, 0])])],
+    ['deleteFeature of another feature', (d) => d.deleteFeature('C')],
+    ['a failing updateFeature', (d) => d.updateFeature('missing', { properties: {} })],
+  ])('%s puts the vertex handles back with the shape', (_, call) => {
+    setUp();
+    dragSharedVertex();
+    expect(handlePositions()).toContainEqual([60, 5]);
+
+    call(draw);
+
+    expect(shape('A')).toEqual(closed(A));
+    expect(handlePositions()).not.toContainEqual([60, 5]);
+    expect(handlePositions()).toContainEqual([50, 10]);
+  });
+
+  it.each<[string, (draw: LibreDraw) => unknown]>([
+    ['updateFeature of an unknown id', (d) => d.updateFeature('missing', { properties: {} })],
+    ['setFeatures with invalid input', (d) => d.setFeatures({ type: 'nope' })],
+    ['addFeatures with only invalid entries', (d) => d.addFeatures([{ type: 'nope' }])],
+    ['deleteFeature of an unknown id', (d) => d.deleteFeature('missing')],
+  ])('%s cancels the drag although it changes nothing', (_, call) => {
+    setUp({ topologicalEditing: true });
+    dragSharedVertex();
+
+    call(draw);
+    moveTo(70, 0);
+    releaseAt(70, 0);
+
+    expect(shape('A')).toEqual(closed(A));
+    expect(shape('B')).toEqual(closed(B));
+    expect(events).toEqual([]);
+    expect(draw.canUndo()).toBe(false);
+  });
+
+  it('getArea during a vertex drag measures the unrounded shape on screen, then the committed one', () => {
+    setUp({ coordinatePrecision: 0 });
+    const start = draw.getArea('A')!;
+    draw.setMode('select');
+    draw.selectFeature('A');
+    pressAt(map, 50, 10);
+    moveTo(60.4, 5.4);
+
+    // The preview is not rounded yet, and getArea follows it.
+    const preview = draw.getFeatureById('A')!;
+    expect(shape('A')).toContainEqual([60.4, 5.4]);
+    expect(draw.getArea('A')).toBe(turfArea(preview));
+    expect(draw.getArea('A')).not.toBe(start);
+
+    releaseAt(60.4, 5.4);
+    // Dropped: rounded to whole degrees, and the area of the stored shape.
+    expect(shape('A')).toContainEqual([60, 5]);
+    expect(draw.getArea('A')).toBe(turfArea(draw.getFeatureById('A')!));
   });
 
   it('setFeatures reports the drag-start shape as the deleted feature', () => {
@@ -286,10 +356,41 @@ describe('a store change from outside during a drag', () => {
     expect((deletedB.geometry as GeoJSON.Polygon).coordinates[0]).toEqual(closed(B));
   });
 
+  it('drops a typed-angle preview from the toolbar when features are added', () => {
+    map = new FakeMap();
+    draw = new LibreDraw(map.asMap(), { toolbar: true, snap: false });
+    draw.setFeatures({ type: 'FeatureCollection', features: [polygon('C', C)] });
+    events = [];
+    draw.on('update', (e) => events.push({ type: 'update', id: e.feature.id }));
+    draw.on('rotate', (e) => events.push({ type: 'rotate', id: e.feature.id }));
+    draw.setMode('rotate');
+    pressAt(map, 120, 72); // a click picks the rotation target
+    releaseAt(120, 72);
+    expect(draw.getMode()).toBe('rotate');
+    const control = map.getContainer().querySelector<HTMLDivElement>('.libre-draw-rotate-input')!;
+    const input = control.querySelector('input')!;
+    input.value = '45';
+    input.dispatchEvent(new Event('input'));
+    expect(shape('C')).not.toEqual(closed(C)); // the typed-angle preview
+
+    draw.addFeatures([point('P', [0, 0])]);
+
+    expect(shape('C')).toEqual(closed(C));
+    expect(draw.getSelectedFeatureIds()).toEqual(['C']);
+    expect(events).toEqual([]);
+    // The preview was the only change: one undo takes back the addFeatures.
+    draw.undo();
+    expect(draw.canUndo()).toBe(false);
+    expect(shape('C')).toEqual(closed(C));
+  });
+
   it('puts a rotate drag back when the target is updated', () => {
     setUp();
     draw.setMode('rotate');
-    draw.selectFeature('C');
+    // A click picks the rotation target (selectFeature would switch to select mode).
+    pressAt(map, 120, 72);
+    releaseAt(120, 72);
+    expect(draw.getMode()).toBe('rotate');
     const olds: GeoJSON.Feature[] = [];
     draw.on('update', (e) => olds.push(e.oldFeature));
     pressAt(map, 135, 72);

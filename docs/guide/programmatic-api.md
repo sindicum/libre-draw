@@ -25,9 +25,10 @@ Two parts of the API make it a contract a program can rely on:
 
 `LibreDraw` throws a [`LibreDrawError`](/api/types#libredrawerror) only for misuse of the
 instance: a call after `destroy()`, a mode name that does not exist, an unsupported
-`locale` in the constructor, or an unsupported input method (in the constructor or
-`setInputMethod`). A `measureArea` function you pass is your code: what it throws reaches
-the caller of `getArea` unchanged. Everything about the data you pass (an unknown id, an invalid
+`locale` in the constructor, an unsupported input method (in the constructor or
+`setInputMethod`), a `coordinatePrecision` that is not an integer from 0 to 15 or `false`,
+or a `measureArea` that is not a function. A `measureArea` function you pass is your code:
+what it throws reaches the caller of `getArea` unchanged. Everything about the data you pass (an unknown id, an invalid
 geometry, a line that misses the polygon) comes back in the return value. Argument _types_
 are TypeScript's job: the library does not check them at runtime, and `split(id, undefined)`
 fails with an ordinary `TypeError` like any JavaScript call.
@@ -91,7 +92,9 @@ does the call run.
 
 These calls are `updateFeature`, `rotate`, `split`, `setback`, `union`, `cut`, `reshape`,
 `addFeatures`, `setFeatures`, `deleteFeature`, and `undo` / `redo` (also from the toolbar
-and the shortcuts). `undo()` / `redo()` with nothing to undo or redo cancel nothing.
+and the shortcuts). Calling one cancels the drag even when it then fails or changes
+nothing, such as an unknown id or input that is all invalid. The one exception is
+`undo()` / `redo()` with nothing to undo or redo, which cancel nothing.
 
 So results, history, and events never carry a half-dragged shape: the `oldFeature` of an
 `update` and the shape `undo()` restores are the shapes before the drag. The rest of the
@@ -166,10 +169,11 @@ on your buttons from your own automated calls, keep that distinction in your UI 
 ## Showing the area of a polygon
 
 LibreDraw draws no area label: [`getArea(id)`](/api/libre-draw#getarea-id) returns square
-meters and your page decides the unit, the digits, and where to show it. The area of a
-polygon changes only when the selection changes or when the history does (a committed
-edit, undo, redo), so re-reading it on `selectionchange` and `historychange` keeps a
-display in step. The [live demo](/examples/) shows the area of the one selected polygon
+meters and your page decides the unit, the digits, and where to show it. The committed
+area of a polygon changes only when the selection changes or when the history does (a
+committed edit, undo, redo), so re-reading it on `selectionchange` and `historychange`
+keeps a display in step. During a drag, `getArea` returns the area of the shape on
+screen, and such a display shows the new area once the drag is dropped. The [live demo](/examples/) shows the area of the one selected polygon
 with this code:
 
 ```ts
