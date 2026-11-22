@@ -12,8 +12,8 @@ From 1.0.0 on:
 - **Patch** versions (1.0.1) fix bugs. A fix makes the library behave as these docs
   describe, even if code relied on the old behavior.
 
-Before 1.0.0 (the current `0.x` releases), a minor version (0.18.0 → 0.19.0) may break the
-public API and a patch version does not. Breaking changes are listed under "Breaking
+Before 1.0.0, in the `0.x` releases, a minor version (0.18.0 → 0.19.0) could break the
+public API and a patch version did not. Breaking changes are listed under "Breaking
 changes" in the [release notes](https://github.com/sindicum/libre-draw/releases) with how
 to migrate.
 
