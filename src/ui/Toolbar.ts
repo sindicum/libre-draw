@@ -22,6 +22,7 @@ import { redoIcon } from './icons/redo';
 import { SetbackInput } from './SetbackInput';
 import { RotateInput } from './RotateInput';
 import { UnionExecute } from './UnionExecute';
+import { TOOLBAR_GAP, TOOLBAR_PADDING, toolbarGrid } from './toolbarGrid';
 
 /**
  * Default toolbar control visibility.
@@ -84,8 +85,16 @@ export class Toolbar {
   private map: MaplibreMap;
   private container: HTMLDivElement;
   private buttonList: HTMLDivElement;
+  /**
+   * The outer column (along the map edge) and the inner one (toward the
+   * map). Each paints its own background, so two columns of different
+   * heights leave the corner below the shorter one see-through.
+   */
+  private columns: [HTMLDivElement, HTMLDivElement];
   private mountedInControlContainer = false;
   private popupAnchors: { row: HTMLElement; popup: HTMLElement }[] = [];
+  /** Button rows in toolbar order, split between the columns by {@link layoutColumns}. */
+  private rows: HTMLElement[] = [];
   private buttons: Map<string, ToolbarButton> = new Map();
   private setbackInput: SetbackInput | null = null;
   private rotateInput: RotateInput | null = null;
@@ -117,6 +126,10 @@ export class Toolbar {
     this.applyButtonListStyles();
     this.buttonList.addEventListener('scroll', this.positionPopups, { passive: true });
     this.container.appendChild(this.buttonList);
+
+    this.columns = [this.createColumn(), this.createColumn()];
+    this.columns[1].style.display = 'none';
+    this.buttonList.append(...this.columns);
 
     this.createButtons();
     this.mount();
@@ -262,6 +275,7 @@ export class Toolbar {
     }
     this.buttons.clear();
     this.popupAnchors = [];
+    this.rows = [];
     this.container.remove();
   }
 
@@ -448,7 +462,7 @@ export class Toolbar {
     this.buttons.set(id, button);
     const row = this.createControlRow();
     row.appendChild(button.getElement());
-    this.buttonList.appendChild(row);
+    this.appendRow(row);
   }
 
   /**
@@ -479,7 +493,7 @@ export class Toolbar {
     const isRight = position === 'top-right' || position === 'bottom-right';
     this.setbackInput.setPosition(isRight ? 'left' : 'right');
 
-    this.buttonList.appendChild(row);
+    this.appendRow(row);
     this.addPopup(row, this.setbackInput.getElement());
   }
 
@@ -511,7 +525,7 @@ export class Toolbar {
     const isRight = position === 'top-right' || position === 'bottom-right';
     this.rotateInput.setPosition(isRight ? 'left' : 'right');
 
-    this.buttonList.appendChild(row);
+    this.appendRow(row);
     this.addPopup(row, this.rotateInput.getElement());
   }
 
@@ -540,7 +554,7 @@ export class Toolbar {
     const isRight = position === 'top-right' || position === 'bottom-right';
     this.unionExecute.setPosition(isRight ? 'left' : 'right');
 
-    this.buttonList.appendChild(row);
+    this.appendRow(row);
     this.addPopup(row, this.unionExecute.getElement());
   }
 
@@ -585,8 +599,8 @@ export class Toolbar {
 
   /**
    * Cap the toolbar at the map height left over by the other controls in
-   * the same corner, so the button list scrolls instead of running off the
-   * map. Layout sizes (`offset*` / `client*`) are used rather than
+   * the same corner, wrap the buttons into a second column when one does not
+   * fit, and let the button list scroll when two do not either. Layout sizes (`offset*` / `client*`) are used rather than
    * `getBoundingClientRect`, which a CSS `transform: scale()` would skew.
    */
   private updateMaxHeight = (): void => {
@@ -597,9 +611,89 @@ export class Toolbar {
     const below = this.mountedInControlContainer
       ? parent.clientHeight - above - this.container.offsetHeight
       : 0;
-    this.container.style.maxHeight = `${Math.max(0, mapHeight - above - below)}px`;
+    const available = Math.max(0, mapHeight - above - below);
+    this.container.style.maxHeight = `${available}px`;
+    this.layoutColumns(available);
     this.positionPopups();
   };
+
+  /** Add a button row at the end of the list. */
+  private appendRow(row: HTMLElement): void {
+    this.rows.push(row);
+    this.columns[0].appendChild(row);
+  }
+
+  /**
+   * Put the rows in one column when they fit in `available` pixels.
+   * Otherwise the outer column takes as many as fit and the rest go to the
+   * inner column, toward the map; when two columns do not fit either, the
+   * list scrolls. The row height is read from the first row, since every
+   * row holds one button of the same size.
+   *
+   * Only the columns are painted and take pointer input, so the corner
+   * below a shorter inner column shows (and passes clicks to) the map. The
+   * list takes pointer input only while it scrolls, for its scrollbar.
+   */
+  private layoutColumns(available: number): void {
+    const grid = toolbarGrid(this.rows.length, this.rows[0]?.offsetHeight ?? 0, available);
+    const [outer, inner] = this.columns;
+    // The outer column followed by the inner one always lists the rows in
+    // toolbar order, so only the rows at the boundary move: the others stay
+    // in place and a focused button among them keeps focus.
+    const surplus = outer.childElementCount - grid.rows;
+    if (surplus > 0) {
+      inner.prepend(...Array.from(outer.children).slice(grid.rows));
+    } else if (surplus < 0) {
+      outer.append(...Array.from(inner.children).slice(0, -surplus));
+    }
+    const twoColumns = grid.columns === 2;
+    inner.style.display = twoColumns ? 'flex' : 'none';
+
+    const position = this.options.position || 'top-right';
+    const rightEdge = position === 'top-right' || position === 'bottom-right';
+    // The outer column sits at the map edge: on the right for a right corner.
+    this.buttonList.style.flexDirection = rightEdge ? 'row-reverse' : 'row';
+    const r = '4px';
+    const innerShorter = inner.childElementCount < outer.childElementCount;
+    // Corners where the columns meet are square; the outer column's lower
+    // inner corner is round when it sticks out below the inner column.
+    const outerInnerTop = twoColumns ? '0px' : r;
+    const outerInnerBottom = twoColumns && !innerShorter ? '0px' : r;
+    setCorners(outer, rightEdge, {
+      outerTop: r,
+      outerBottom: r,
+      innerTop: outerInnerTop,
+      innerBottom: outerInnerBottom,
+    });
+    setCorners(inner, rightEdge, {
+      outerTop: '0px',
+      outerBottom: '0px',
+      innerTop: r,
+      innerBottom: r,
+    });
+    // No doubled padding between the columns.
+    inner.style.paddingLeft = rightEdge ? `${TOOLBAR_PADDING}px` : '0px';
+    inner.style.paddingRight = rightEdge ? '0px' : `${TOOLBAR_PADDING}px`;
+
+    const scrolls = this.buttonList.scrollHeight > this.buttonList.clientHeight;
+    this.buttonList.style.pointerEvents = scrolls ? 'auto' : 'none';
+  }
+
+  /** Create one painted column of button rows. */
+  private createColumn(): HTMLDivElement {
+    const column = document.createElement('div');
+    column.className = 'libre-draw-toolbar-column';
+    const s = column.style;
+    s.display = 'flex';
+    s.flexDirection = 'column';
+    s.gap = `${TOOLBAR_GAP}px`;
+    s.padding = `${TOOLBAR_PADDING}px`;
+    s.backgroundColor = 'rgba(255, 255, 255, 0.9)';
+    s.borderRadius = '4px';
+    s.pointerEvents = 'auto';
+    s.flexShrink = '0';
+    return column;
+  }
 
   /**
    * Create a single control row container.
@@ -639,13 +733,11 @@ export class Toolbar {
     s.position = 'relative';
     s.display = 'flex';
     s.flexDirection = 'column';
-    s.backgroundColor = 'rgba(255, 255, 255, 0.9)';
-    s.borderRadius = '4px';
-    s.boxShadow = '0 1px 4px rgba(0, 0, 0, 0.3)';
     s.zIndex = '1';
-    // MapLibre's control containers have pointer-events: none;
-    // controls need pointer-events: auto to receive clicks
-    s.pointerEvents = 'auto';
+    // MapLibre's control containers have pointer-events: none. The frame
+    // keeps it too: the painted columns and the popups take pointer input
+    // themselves, so nothing unpainted blocks the map.
+    s.pointerEvents = 'none';
   }
 
   /**
@@ -653,10 +745,12 @@ export class Toolbar {
    */
   private applyButtonListStyles(): void {
     const s = this.buttonList.style;
+    // The columns sit side by side; layoutColumns sets the direction.
     s.display = 'flex';
-    s.flexDirection = 'column';
-    s.gap = '4px';
-    s.padding = '4px';
+    s.alignItems = 'flex-start';
+    // Unlike a box-shadow on each column, a drop shadow follows the outline
+    // the columns paint together, without a seam where they meet.
+    s.filter = 'drop-shadow(0 1px 2px rgba(0, 0, 0, 0.3))';
     // Lets the list shrink below its content height inside the capped container.
     s.minHeight = '0';
     s.overflowX = 'hidden';
@@ -664,4 +758,20 @@ export class Toolbar {
     // Scrolling past either end does not carry over to the page.
     s.overscrollBehavior = 'contain';
   }
+}
+
+/** Border radii of a column, named by side: outer is the map edge. */
+interface Corners {
+  outerTop: string;
+  outerBottom: string;
+  innerTop: string;
+  innerBottom: string;
+}
+
+function setCorners(column: HTMLElement, rightEdge: boolean, corners: Corners): void {
+  const s = column.style;
+  s.borderTopRightRadius = rightEdge ? corners.outerTop : corners.innerTop;
+  s.borderBottomRightRadius = rightEdge ? corners.outerBottom : corners.innerBottom;
+  s.borderTopLeftRadius = rightEdge ? corners.innerTop : corners.outerTop;
+  s.borderBottomLeftRadius = rightEdge ? corners.innerBottom : corners.outerBottom;
 }
