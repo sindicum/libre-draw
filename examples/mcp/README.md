@@ -1,22 +1,140 @@
-# LibreDraw MCP bridge (reference implementation)
+# Drive LibreDraw with AI: a local MCP demo
 
 English | [日本語](./README.ja.md)
 
-An MCP server that lets an AI agent (Claude Code, or any MCP client) read and edit the
-features on a LibreDraw map through the public API, without touching the pointer or the
-toolbar. It is the working example for the `OperationResult` / `origin` contract:
+Ask an AI agent in plain words, such as "split the parcel along the road", and watch the
+map in your browser change. This demo connects Claude Code (or another MCP client) to a
+LibreDraw map through MCP, so the agent edits the map with LibreDraw's public API instead
+of the mouse.
+
+Before you start, note what this demo is and is not:
+
+- **It runs only on your own computer.** The MCP server and the map page both run locally,
+  and nothing is exposed to the network.
+- **It is not part of the npm package.** `npm install @sindicum/libre-draw` does not include
+  it. You clone this repository and run it from there.
+- **It is a demo, not a deployment template.** For connecting an agent to a real web
+  application, see [In production](https://sindicum.github.io/libre-draw/guide/programmatic-api#in-production).
+
+## What you need
+
+- [Git](https://git-scm.com/)
+- [Node.js](https://nodejs.org/) (current LTS; the repository's CI uses Node.js 24)
+- [Claude Code](https://docs.anthropic.com/en/docs/claude-code) (other MCP clients work
+  too; see [Other MCP clients](#other-mcp-clients))
+- A web browser, and an internet connection for the map tiles
+- Two terminal windows: one keeps the map page running, the other runs Claude Code
+
+## Try it
+
+### 1. Get the code
+
+```bash
+git clone https://github.com/sindicum/libre-draw.git
+cd libre-draw
+npm install
+cd examples/mcp && npm install && cd ../..
+```
+
+The first `npm install` sets up the library, the second one sets up the MCP server. You
+only do this once.
+
+### 2. Start the map page (terminal 1)
+
+In the `libre-draw` folder:
+
+```bash
+npx vite examples/mcp
+```
+
+Open the printed URL (http://localhost:5173 by default). You see a map with a sample parcel
+(a rectangle) and a road (a line across it), LibreDraw's toolbar, and a log panel on the
+right. The panel says "waiting for the MCP server" for now. Leave this terminal running.
+
+### 3. Register the server and start Claude Code (terminal 2)
+
+Also in the `libre-draw` folder:
+
+```bash
+claude mcp add libredraw -- npx --prefix examples/mcp tsx examples/mcp/server/index.ts
+claude
+```
+
+Always start `claude` from the `libre-draw` folder. The registration applies only to that
+folder, and the command uses paths relative to it, so Claude Code started anywhere else
+does not have the tools.
+
+When Claude Code starts, it starts the MCP server, and the log panel in the browser changes
+to "connected to the MCP server".
+
+### 4. Check the connection
+
+Ask Claude Code:
+
+> Use the libredraw get_features tool to show the features on the map.
+
+The answer lists the two features on the map, `parcel` and `road`. If you get
+`{ "ok": false, "reason": "no-client" }` instead, the map page is not open; open the URL
+from step 2.
+
+### 5. Ask for an edit
+
+> Split the parcel along the road.
+
+The agent reads the road's coordinates with `get_features` and calls `split` with them. On
+the map the parcel becomes two polygons, and the log panel shows the `split` event with the
+`api` badge, meaning the change came from the agent. Then try:
+
+> Undo that.
+
+and the parcel is back in one piece. Other things to ask: "rotate the parcel by 30
+degrees", "move the north edge of the parcel 20 m inward", or "split the parcel along the
+road again, then merge the two pieces back".
+
+If you draw or move something with the toolbar yourself, the log panel shows it with the
+`user` badge. Every LibreDraw event carries this distinction in its `origin` field.
+
+### 6. Clean up
+
+Press `Ctrl+C` in terminal 1 to stop the map page, exit Claude Code, and remove the
+registration if you no longer need it:
+
+```bash
+claude mcp remove libredraw
+```
+
+## Troubleshooting
+
+- **Claude Code does not have the libredraw tools.** It was started outside the
+  `libre-draw` folder, or before you ran `claude mcp add`. Exit and start `claude` again in
+  the `libre-draw` folder. `claude mcp list` shows whether the server is registered.
+- **Every tool returns `no-client`.** The map page is not open, or the browser tab was
+  closed. Open the URL from step 2; the page reconnects on its own.
+- **The log panel keeps saying "waiting for the MCP server".** Claude Code is not running,
+  or the server could not start because port 8787 is in use (for example by another Claude
+  Code session running this demo). Exit the other session, or change the port: set
+  `LIBREDRAW_BRIDGE_PORT` for the server and `VITE_LIBREDRAW_BRIDGE_PORT` for the page to
+  the same number.
+- **A second browser tab does not connect.** Only one page can be connected at a time.
+  Close the other tab.
+
+## How it works
+
+This section is for developers who want to understand or reuse the code.
 
 ```
 MCP client ──stdio──▶ server/index.ts ──WebSocket──▶ browser page ──▶ LibreDraw (src/)
                       (14 tools)        127.0.0.1:8787   page/main.ts
 ```
 
-The Node server only relays: each tool is one LibreDraw method, the arguments are passed
-through as they are, and the return value (an `OperationResult` for the geometry
-operations) comes back untouched. All geometry, validation, history, and events stay in
-LibreDraw, in the browser.
+The MCP client starts the Node server and talks to it over stdio. The server only relays:
+each tool is one LibreDraw method, the arguments are passed through as they are, and the
+return value (an `OperationResult` for the geometry operations) comes back untouched. All
+geometry, validation, history, and events stay in LibreDraw, in the browser. The page
+answers requests only, so changes you make with the toolbar are not pushed to the agent;
+the agent reads the current state again with `get_features` before acting.
 
-## What you get
+### Tools
 
 | Tool             | LibreDraw call                                  | Returns                            |
 | ---------------- | ----------------------------------------------- | ---------------------------------- |
@@ -34,42 +152,23 @@ LibreDraw, in the browser.
 | `select_feature` | `selectFeature(id)`                             | `{ ok: true }` or `{ ok, reason }` |
 | `undo` / `redo`  | `undo()` / `redo()`                             | `boolean`                          |
 
-Failures are never exceptions. A geometric failure comes back as
-`{ ok: false, reason: 'invalid-intersection-count' }` and so on, an unknown id in
-`select_feature` as `{ ok: false, reason: 'not-found' }`, an invalid feature in
-`add_features` as `{ valid: false, reason: 'invalid-feature', message }` in its entry of
-the array (`reason` is always a code; a validation failure puts the readable detail in
-`message`); and while no page is connected every tool returns
-`{ ok: false, reason: 'no-client' }` right away instead of waiting. LibreDraw itself only throws for misuse of the instance (see
-[Programmatic API](https://sindicum.github.io/libre-draw/guide/programmatic-api)), which the page's
-dispatch turns into `{ ok: false, reason: 'dispatch-error', message }` as a safety net.
+### Failures
 
-## Setup
+Failures are never exceptions, so the agent can read the reason and try again. A geometric
+failure comes back as `{ ok: false, reason: 'invalid-intersection-count' }` and so on
+(nothing on the map changes), an unknown id in `select_feature` as
+`{ ok: false, reason: 'not-found' }`, an invalid feature in `add_features` as
+`{ valid: false, reason: 'invalid-feature', message }` in its entry of the array (`reason`
+is always a code; a validation failure puts the readable detail in `message`); and while
+no page is connected every tool returns `{ ok: false, reason: 'no-client' }` right away
+instead of waiting. LibreDraw itself only throws for misuse of the instance (see
+[Programmatic API](https://sindicum.github.io/libre-draw/guide/programmatic-api)), which
+the page's dispatch turns into `{ ok: false, reason: 'dispatch-error', message }` as a
+safety net.
 
-Run these from the repository root.
+### Other MCP clients
 
-```bash
-# 1. Library dependencies (once per clone)
-npm install
-
-# 2. Server dependencies, kept inside this example
-cd examples/mcp && npm install && cd ../..
-
-# 3. The map page (uses the repository's Vite and the source in src/)
-npx vite examples/mcp
-```
-
-Open the printed URL (http://localhost:5173 by default). The page shows a map with a
-sample parcel and a road, LibreDraw's toolbar, and a log panel on the right. The panel
-says "waiting for the MCP server" until the server is up.
-
-### Register the server with Claude Code
-
-```bash
-claude mcp add libredraw -- npx --prefix examples/mcp tsx examples/mcp/server/index.ts
-```
-
-Or add it to any MCP client's configuration:
+Add this to the client's configuration, with `cwd` set to your clone:
 
 ```json
 {
@@ -83,51 +182,18 @@ Or add it to any MCP client's configuration:
 }
 ```
 
-The server listens for the page on `ws://127.0.0.1:8787` (loopback only) (change it with the
-`LIBREDRAW_BRIDGE_PORT` environment variable on the server and
-`VITE_LIBREDRAW_BRIDGE_PORT` on the page). The page reconnects on its own, so the order in
-which you start the two does not matter.
-
-### First check
-
-Ask the client to call `get_features`. With the page open you get the sample
-FeatureCollection with the features `parcel` and `road`; with the page closed you get
-`{ "ok": false, "reason": "no-client" }`.
-
-## Demo: "split this parcel along the road"
-
-The sample data has one parcel polygon and one road line that crosses it. Ask the agent:
-
-> Split the parcel along the road.
-
-A capable agent will:
-
-1. call `get_features` and read the coordinates of `road`;
-2. pick two points on the road that span the parcel (the road's end points work);
-3. call `split` with `{ "id": "parcel", "line": [[139.76, 35.6825], [139.774, 35.6865]] }`.
-
-On the map the parcel becomes two polygons, the log panel shows the `split` event with the
-`api` badge (a change made through the API), and `undo` puts the parcel back. If the agent
-picks a line that does not cross the parcel exactly twice, the result is
-`{ "ok": false, "reason": "invalid-intersection-count" }` and it can try again; nothing
-on the map changes on a failure.
-
-Draw or move something with the toolbar while the agent works and the same events show up
-with the `user` badge. That distinction is the `origin` field on every LibreDraw event.
-
-## Limits
+### Limits
 
 - One page at a time. A second page that connects is refused (`one page only`).
 - No authentication and no remote access: the WebSocket server binds to `127.0.0.1` only
   (check with `lsof -nP -iTCP:8787 -sTCP:LISTEN`), so it is reachable from this machine
-  and nowhere else. It is meant for a local agent talking to a local browser.
-  Browser connections are also checked by `Origin`: only pages served from `localhost`,
-  `127.0.0.1` or `[::1]` are accepted (`local pages only`).
+  and nowhere else. Browser connections are also checked by `Origin`: only pages served
+  from `localhost`, `127.0.0.1` or `[::1]` are accepted (`local pages only`).
 - stdio only. There is no HTTP / SSE transport.
 - The server relays and does not validate GeoJSON; LibreDraw validates it and reports the
   reason.
 
-## Layout
+### Layout
 
 ```
 examples/mcp/
@@ -138,7 +204,7 @@ examples/mcp/
 ├── page/log-panel.ts     events tagged by origin, tool calls, connection state
 ├── page/sample.ts        the parcel and the road
 ├── server/index.ts       McpServer + stdio transport + WebSocket server
-├── server/tools.ts       the 12 tool definitions (zod input schemas)
+├── server/tools.ts       the 14 tool definitions (zod input schemas)
 ├── server/bridge-host.ts request / response broker with timeout (unit-tested)
 └── server/origin.ts      Origin check for browser connections (unit-tested)
 ```
