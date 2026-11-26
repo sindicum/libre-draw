@@ -1,17 +1,106 @@
-# LibreDraw MCP ブリッジ（参照実装）
+# AI で LibreDraw を動かす: ローカル MCP デモ
 
 [English](./README.md) | 日本語
 
-AI エージェント（Claude Code やほかの MCP クライアント）が、ポインタやツールバーに触れずに、公開 API を通して LibreDraw の地図上の地物を読み書きできるようにする MCP サーバーです。`OperationResult` / `origin` の契約を実際に動かす例になっています。
+「この区画を道路に沿って分割して」のように AI エージェントに言葉で頼むと、ブラウザの地図がそのとおりに変わります。このデモは Claude Code（またはほかの MCP クライアント）を MCP で LibreDraw の地図につなぎ、エージェントがマウスの代わりに LibreDraw の公開 API で地図を編集します。
+
+始める前に、このデモが何で、何でないかを確認してください。
+
+- **自分のパソコンの中だけで動きます。** MCP サーバーも地図のページもローカルで動き、ネットワークには何も公開しません。
+- **npm パッケージには含まれていません。** `npm install @sindicum/libre-draw` では入りません。このリポジトリを clone して、そこから実行します。
+- **体験用のデモで、本番構成のひな形ではありません。** 実際の Web アプリにエージェントをつなぐ方法は [In production](https://sindicum.github.io/libre-draw/guide/programmatic-api#in-production)（英語）を参照してください。
+
+## 必要なもの
+
+- [Git](https://git-scm.com/)
+- [Node.js](https://nodejs.org/)（現行の LTS。リポジトリの CI は Node.js 24 を使っています）
+- [Claude Code](https://docs.anthropic.com/en/docs/claude-code)（ほかの MCP クライアントでも動きます。[ほかの MCP クライアント](#ほかの-mcp-クライアント)を参照）
+- Web ブラウザと、地図タイルを読み込むためのインターネット接続
+- ターミナルを 2 つ。1 つは地図のページを動かしたままにし、もう 1 つで Claude Code を動かします
+
+## 試してみる
+
+### 1. コードを取得する
+
+```bash
+git clone https://github.com/sindicum/libre-draw.git
+cd libre-draw
+npm install
+cd examples/mcp && npm install && cd ../..
+```
+
+1 回目の `npm install` はライブラリの準備、2 回目は MCP サーバーの準備です。最初に 1 回だけ行います。
+
+### 2. 地図のページを起動する（ターミナル 1）
+
+`libre-draw` フォルダで実行します。
+
+```bash
+npx vite examples/mcp
+```
+
+表示された URL（既定では http://localhost:5173）をブラウザで開きます。サンプルの区画（長方形）とそれを横切る道路（線）を載せた地図、LibreDraw のツールバー、右側のログパネルが表示されます。この時点のパネルには「waiting for the MCP server」と表示されます。このターミナルは起動したままにしておきます。
+
+### 3. サーバーを登録して Claude Code を起動する（ターミナル 2）
+
+こちらも `libre-draw` フォルダで実行します。
+
+```bash
+claude mcp add libredraw -- npx --prefix examples/mcp tsx examples/mcp/server/index.ts
+claude
+```
+
+`claude` は必ず `libre-draw` フォルダで起動してください。登録はそのフォルダにだけ効き、コマンドもそのフォルダからの相対パスを使っています。ほかの場所で起動した Claude Code にはツールが現れません。
+
+Claude Code が起動すると MCP サーバーも起動し、ブラウザのログパネルが「connected to the MCP server」に変わります。
+
+### 4. 接続を確かめる
+
+Claude Code に次のように頼みます。
+
+> libredraw の get_features ツールで、地図上の地物を見せて。
+
+地図上の 2 つの地物 `parcel`（区画）と `road`（道路）が返ってきます。代わりに `{ "ok": false, "reason": "no-client" }` が返ったときは、地図のページが開いていません。手順 2 の URL を開いてください。
+
+### 5. 編集を頼む
+
+> 区画を道路に沿って分割して。
+
+エージェントは `get_features` で道路の座標を読み、それを使って `split` を呼びます。地図上では区画が 2 つのポリゴンになり、ログパネルには `api` バッジ付きの `split` イベントが表示されます。`api` は、エージェントによる変更であることを表します。続けて次のように頼みます。
+
+> 今の操作を元に戻して。
+
+区画が 1 つに戻ります。ほかにも「区画を 30 度回転して」「区画の北側の辺を 20 m 内側に下げて」「区画をもう一度道路で分割して、2 つを結合し直して」などを頼めます。
+
+自分でツールバーを使って何かを描いたり動かしたりすると、ログパネルには `user` バッジ付きで表示されます。LibreDraw のすべてのイベントは、この区別を `origin` フィールドに持っています。
+
+### 6. 後片付け
+
+ターミナル 1 で `Ctrl+C` を押して地図のページを止め、Claude Code を終了します。登録が不要になったら、次のコマンドで外します。
+
+```bash
+claude mcp remove libredraw
+```
+
+## うまくいかないとき
+
+- **Claude Code に libredraw のツールがない。** `libre-draw` フォルダ以外で起動したか、`claude mcp add` より前に起動しています。Claude Code を終了し、`libre-draw` フォルダでもう一度 `claude` を起動してください。`claude mcp list` で登録されているか確かめられます。
+- **どのツールも `no-client` を返す。** 地図のページが開いていないか、ブラウザのタブを閉じています。手順 2 の URL を開いてください。ページは自動で再接続します。
+- **ログパネルが「waiting for the MCP server」のまま。** Claude Code が起動していないか、ポート 8787 がほかで使われていてサーバーが起動できていません（このデモを動かしているほかの Claude Code のセッションなど）。そのセッションを終了するか、サーバー側の `LIBREDRAW_BRIDGE_PORT` とページ側の `VITE_LIBREDRAW_BRIDGE_PORT` を同じ番号にしてポートを変えてください。
+- **2 つ目のタブがつながらない。** 同時に接続できるページは 1 つです。もう一方のタブを閉じてください。
+
+## 仕組み
+
+コードを理解したい、流用したい開発者向けの説明です。
 
 ```
 MCP client ──stdio──▶ server/index.ts ──WebSocket──▶ browser page ──▶ LibreDraw (src/)
                       (14 tools)        127.0.0.1:8787   page/main.ts
 ```
 
-Node のサーバーは中継するだけです。各ツールは LibreDraw のメソッド 1 つに対応し、引数はそのまま渡され、戻り値（幾何操作では `OperationResult`）は手を加えずに返ります。幾何演算・検証・履歴・イベントはすべて、ブラウザ上の LibreDraw の中にあります。
+MCP クライアントが Node のサーバーを起動し、stdio で通信します。サーバーは中継するだけです。各ツールは LibreDraw のメソッド 1 つに対応し、引数はそのまま渡され、戻り値（幾何操作では `OperationResult`）は手を加えずに返ります。幾何演算・検証・履歴・イベントはすべて、ブラウザ上の LibreDraw の中にあります。ページは要求に答えるだけなので、ツールバーでの変更はエージェントに通知されません。エージェントは操作の前に `get_features` で現在の状態を読み直します。
 
-## できること
+### ツール
 
 | ツール           | LibreDraw の呼び出し                            | 戻り値                                 |
 | ---------------- | ----------------------------------------------- | -------------------------------------- |
@@ -29,32 +118,13 @@ Node のサーバーは中継するだけです。各ツールは LibreDraw の�
 | `select_feature` | `selectFeature(id)`                             | `{ ok: true }` または `{ ok, reason }` |
 | `undo` / `redo`  | `undo()` / `redo()`                             | `boolean`                              |
 
-失敗は例外になりません。幾何的な失敗は `{ ok: false, reason: 'invalid-intersection-count' }` などで返ります。`select_feature` に未知の id を渡すと `{ ok: false, reason: 'not-found' }`、`add_features` の不正な地物は配列の該当する要素に `{ valid: false, reason: 'invalid-feature', message }` として返ります（`reason` は常にコードで、検証の失敗では読める説明が `message` に入ります）。ページが接続されていない間は、どのツールも待たずにすぐ `{ ok: false, reason: 'no-client' }` を返します。LibreDraw 自体が例外を投げるのはインスタンスの誤用のときだけです（[Programmatic API](https://sindicum.github.io/libre-draw/guide/programmatic-api) を参照）。それもページ側の振り分けが安全策として `{ ok: false, reason: 'dispatch-error', message }` に変えます。
+### 失敗のとき
 
-## セットアップ
+失敗は例外になりません。エージェントは理由を読んでやり直せます。幾何的な失敗は `{ ok: false, reason: 'invalid-intersection-count' }` などで返り、地図上では何も変わりません。`select_feature` に未知の id を渡すと `{ ok: false, reason: 'not-found' }`、`add_features` の不正な地物は配列の該当する要素に `{ valid: false, reason: 'invalid-feature', message }` として返ります（`reason` は常にコードで、検証の失敗では読める説明が `message` に入ります）。ページが接続されていない間は、どのツールも待たずにすぐ `{ ok: false, reason: 'no-client' }` を返します。LibreDraw 自体が例外を投げるのはインスタンスの誤用のときだけです（[Programmatic API](https://sindicum.github.io/libre-draw/guide/programmatic-api) を参照）。それもページ側の振り分けが安全策として `{ ok: false, reason: 'dispatch-error', message }` に変えます。
 
-リポジトリのルートで実行します。
+### ほかの MCP クライアント
 
-```bash
-# 1. ライブラリの依存パッケージ（clone ごとに 1 回）
-npm install
-
-# 2. サーバーの依存パッケージ（この例の中に置く）
-cd examples/mcp && npm install && cd ../..
-
-# 3. 地図のページ（リポジトリの Vite と src/ のソースを使う）
-npx vite examples/mcp
-```
-
-表示された URL（既定では http://localhost:5173）を開きます。ページには、サンプルの区画と道路を載せた地図、LibreDraw のツールバー、右側のログパネルが表示されます。サーバーが起動するまで、パネルには「waiting for the MCP server」と表示されます。
-
-### Claude Code にサーバーを登録する
-
-```bash
-claude mcp add libredraw -- npx --prefix examples/mcp tsx examples/mcp/server/index.ts
-```
-
-または、MCP クライアントの設定に次を追加します。
+クライアントの設定に次を追加し、`cwd` を clone した場所にします。
 
 ```json
 {
@@ -68,36 +138,14 @@ claude mcp add libredraw -- npx --prefix examples/mcp tsx examples/mcp/server/in
 }
 ```
 
-サーバーは `ws://127.0.0.1:8787`（ループバックのみ）でページからの接続を待ちます。ポートは、サーバー側では環境変数 `LIBREDRAW_BRIDGE_PORT`、ページ側では `VITE_LIBREDRAW_BRIDGE_PORT` で変えられます。ページは自動で再接続するので、どちらを先に起動してもかまいません。
-
-### 動作確認
-
-クライアントに `get_features` を呼ばせます。ページを開いていれば、地物 `parcel` と `road` を含むサンプルの FeatureCollection が返ります。ページを閉じていれば `{ "ok": false, "reason": "no-client" }` が返ります。
-
-## デモ:「この区画を道路に沿って分割して」
-
-サンプルデータには、区画のポリゴンが 1 つと、それを横切る道路のラインが 1 本あります。エージェントに次のように頼みます。
-
-> Split the parcel along the road.
-
-十分な能力のあるエージェントは、次のように動きます。
-
-1. `get_features` を呼び、`road` の座標を読む
-2. 区画をまたぐ道路上の 2 点を選ぶ（道路の両端でよい）
-3. `{ "id": "parcel", "line": [[139.76, 35.6825], [139.774, 35.6865]] }` で `split` を呼ぶ
-
-地図上では区画が 2 つのポリゴンになり、ログパネルには `api` バッジ（API を通した変更）付きの `split` イベントが表示されます。`undo` で区画は元に戻ります。エージェントが区画とちょうど 2 回交わらない線を選ぶと、結果は `{ "ok": false, "reason": "invalid-intersection-count" }` になり、エージェントはやり直せます。失敗したときは地図上で何も変わりません。
-
-エージェントが動いている間にツールバーで何かを描いたり動かしたりすると、同じイベントが `user` バッジ付きで表示されます。この区別が、LibreDraw のすべてのイベントにある `origin` フィールドです。
-
-## 制限
+### 制限
 
 - 同時に接続できるページは 1 つです。2 つ目のページの接続は拒否されます（`one page only`）。
-- 認証もリモートアクセスもありません。WebSocket サーバーは `127.0.0.1` だけで待ち受けるので（`lsof -nP -iTCP:8787 -sTCP:LISTEN` で確認できます）、このマシンからしか接続できません。ローカルのエージェントとローカルのブラウザをつなぐためのものです。ブラウザからの接続は `Origin` でも検査し、`localhost`・`127.0.0.1`・`[::1]` から配信されたページだけを受け付けます（`local pages only`）。
+- 認証もリモートアクセスもありません。WebSocket サーバーは `127.0.0.1` だけで待ち受けるので（`lsof -nP -iTCP:8787 -sTCP:LISTEN` で確認できます）、このマシンからしか接続できません。ブラウザからの接続は `Origin` でも検査し、`localhost`・`127.0.0.1`・`[::1]` から配信されたページだけを受け付けます（`local pages only`）。
 - stdio だけに対応しています。HTTP / SSE のトランスポートはありません。
 - サーバーは中継するだけで、GeoJSON を検証しません。検証は LibreDraw が行い、理由を返します。
 
-## 構成
+### 構成
 
 ```
 examples/mcp/
@@ -108,7 +156,7 @@ examples/mcp/
 ├── page/log-panel.ts     origin で区別したイベント、ツール呼び出し、接続状態
 ├── page/sample.ts        区画と道路
 ├── server/index.ts       McpServer + stdio トランスポート + WebSocket サーバー
-├── server/tools.ts       12 個のツール定義（zod の入力スキーマ）
+├── server/tools.ts       14 個のツール定義（zod の入力スキーマ）
 ├── server/bridge-host.ts タイムアウト付きのリクエスト / レスポンス仲介（単体テストあり）
 └── server/origin.ts      ブラウザ接続の Origin 検査（単体テストあり）
 ```
