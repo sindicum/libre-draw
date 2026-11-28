@@ -61,12 +61,18 @@ const showAerial = ref(false);
 
 let drawInstance: any = null;
 let mapInstance: any = null;
+let defaultLayers: any[] = [];
+let aerialLayers: any[] = [];
+
+// The default blue is hard to see on aerial photos, so it becomes cyan there.
+const AERIAL_COLOR = '#00e5ff';
 
 function toggleAerial(event: Event) {
   showAerial.value = (event.target as HTMLInputElement).checked;
   if (!mapInstance) return;
   // OSM stays underneath, so it shows where the aerial photo has no tiles.
   mapInstance.setLayoutProperty('gsi-photo', 'visibility', showAerial.value ? 'visible' : 'none');
+  drawInstance?.setLayers(showAerial.value ? aerialLayers : defaultLayers);
 }
 
 function addLog(type: string, message: string) {
@@ -91,7 +97,9 @@ onMounted(async () => {
     const { default: workerUrl } =
       await import('maplibre-gl/dist/maplibre-gl-worker.mjs?worker&url');
     maplibregl.setWorkerUrl(workerUrl);
-    const { LibreDraw } = await import('@sindicum/libre-draw');
+    const { LibreDraw, DEFAULT_LAYERS } = await import('@sindicum/libre-draw');
+    defaultLayers = structuredClone([...DEFAULT_LAYERS]);
+    aerialLayers = JSON.parse(JSON.stringify(DEFAULT_LAYERS).replaceAll('#285daa', AERIAL_COLOR));
 
     const map = new maplibregl.Map({
       container: mapContainer.value,
